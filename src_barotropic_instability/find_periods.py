@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/23 17:10:09 by daniloceano       #+#    #+#              #
-#    Updated: 2024/04/23 20:18:04 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/04/24 13:19:21 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -19,6 +19,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 from glob import glob
+from tqdm import tqdm  # Import tqdm
 
 # Setup directories for figures
 figures_dir = '../figures_barotropic_instability'
@@ -34,8 +35,8 @@ directories_paths = glob('../../LEC_Results_energetic-patterns/*')
 # Prepare an empty DataFrame to collect all Ck data
 all_ck_data = pd.DataFrame()
 
-# Loop through each event directory to collect data
-for event_dir in directories_paths:
+# Loop through each event directory to collect data, wrapped with tqdm for a progress bar
+for event_dir in tqdm(directories_paths, desc="Processing Events"):
     ck_levels_path = glob(f'{event_dir}/Ck_level*.csv')
     periods_path = glob(f'{event_dir}/periods.csv')
 
@@ -47,6 +48,7 @@ for event_dir in directories_paths:
 
     for phase in periods_df.index:
         phase_start, phase_end = periods_df.loc[phase, ['start', 'end']]
+        ck_levels_df.sort_index(inplace=True)
         ck_levels_df.loc[phase_start:phase_end, 'phase'] = phase
 
     # Melt the DataFrame for easier plotting and append to the collective DataFrame
