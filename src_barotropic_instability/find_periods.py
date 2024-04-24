@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/23 17:10:09 by daniloceano       #+#    #+#              #
-#    Updated: 2024/04/24 13:19:21 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/04/24 13:38:21 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -44,7 +44,10 @@ for event_dir in tqdm(directories_paths, desc="Processing Events"):
         continue  # Skip if necessary files are not found
 
     ck_levels_df = pd.read_csv(ck_levels_path[0], index_col='time', parse_dates=True)
-    periods_df = pd.read_csv(periods_path[0], parse_dates=['start', 'end'], index_col=0 )
+    periods_df = pd.read_csv(periods_path[0], parse_dates=['start', 'end'], index_col=0)
+
+    # Levels to hPa
+    ck_levels_df.columns = [float(col) / 100 for col in ck_levels_df.columns]
 
     for phase in periods_df.index:
         phase_start, phase_end = periods_df.loc[phase, ['start', 'end']]
@@ -58,15 +61,14 @@ for event_dir in tqdm(directories_paths, desc="Processing Events"):
 # Drop rows with None values to avoid plotting issues
 all_ck_data = all_ck_data.dropna(subset=['value'])
 
-# 1. Violin plot for each phase with data from all systems
+# 1. Boxplot plot for each phase with data from all systems
 plt.figure(figsize=(14, 8))
-sns.violinplot(x='phase', y='value', data=all_ck_data, order=phases_order)
-plt.title('Distribution of Ck Values Across All Phases and Systems')
+sns.boxplot(x='phase', y='value', data=all_ck_data, order=phases_order, whis=(0, 100))
 plt.ylabel('Ck (W/m²)')
 plt.xlabel('Phase')
 plt.xticks(rotation=45)
 plt.tight_layout()
-plt.savefig(f'{figures_dir}/all_phases_all_systems_violin_plot.png')
+plt.savefig(f'{figures_dir}/boxplot_ck_all_phases_all_systems.png')
 plt.show()
 plt.close()
 
@@ -76,13 +78,13 @@ fig, axes = plt.subplots(nrows=len(phases_order), figsize=(12, 2 * len(phases_or
 for i, phase in enumerate(phases_order):
     if all_ck_data[all_ck_data['phase'] == phase].empty:
         continue
-    sns.violinplot(x='level', y='value', data=all_ck_data[all_ck_data['phase'] == phase], ax=axes[i])
-    axes[i].set_title(f'Distribution of Ck Values for {phase}')
+    sns.boxplot(x='level', y='value', data=all_ck_data[all_ck_data['phase'] == phase], ax=axes[i], whis=(0, 100))
+    axes[i].set_title(f'{phase}')
     axes[i].set_ylabel('Ck (W/m²)')
     axes[i].set_xlabel('Vertical Level (hPa)')
 
 plt.xticks(rotation=90)
 plt.tight_layout()
-plt.savefig(f'{figures_dir}/ck_each_phase_violin_plots.png')
+plt.savefig(f'{figures_dir}/boxplot_ck_each_phase.png')
 plt.show()
 plt.close()

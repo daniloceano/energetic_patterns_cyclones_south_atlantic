@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/23 15:00:18 by daniloceano       #+#    #+#              #
-#    Updated: 2024/04/24 13:04:09 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/04/24 13:37:03 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -48,7 +48,7 @@ melted_df = combined_df.melt(var_name='Vertical Level', value_name='Ck Value')
 
 # Step 5: Create violin plots
 plt.figure(figsize=(10, 10))  # Adjust size as needed
-ax = sns.violinplot(x='Vertical Level', y='Ck Value', data=melted_df)
+ax = sns.boxplot(x='Vertical Level', y='Ck Value', data=melted_df, whis=(0, 100))
 plt.xticks(rotation=90)  # Rotate labels for better visibility
 plt.axhline(y=0, color='r', linestyle='--', zorder=0)
 plt.xlabel('Vertical Levels [hPa]', fontsize=14)
@@ -58,4 +58,4 @@ ax.tick_params(axis='both', labelsize=12)
 plt.tight_layout()
 
 # Save the figure
-plt.savefig(os.path.join(figures_dir, 'violin_plot_ck_levels.png'))
+plt.savefig(os.path.join(figures_dir, 'boxplot_ck_levels.png'))
