@@ -1,3 +1,20 @@
+# **************************************************************************** #
+#                                                                              #
+#                                                         :::      ::::::::    #
+#    determine_export_genesis_region.py                 :+:      :+:    :+:    #
+#                                                     +:+ +:+         +:+      #
+#    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
+#                                                 +#+#+#+#+#+   +#+            #
+#    Created: 2024/04/25 19:20:33 by daniloceano       #+#    #+#              #
+#    Updated: 2024/04/25 19:21:33 by daniloceano      ###   ########.fr        #
+#                                                                              #
+# **************************************************************************** #
+
+"""
+Exports csv with the number of systems in each genesis region and 
+the number of systems that were successfully processed. 
+"""
+
 import os
 import pandas as pd
 from glob import glob
