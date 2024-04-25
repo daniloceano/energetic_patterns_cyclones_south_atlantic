@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/01/19 16:22:17 by daniloceano       #+#    #+#              #
-#    Updated: 2024/01/20 12:54:13 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/04/25 19:13:14 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -226,7 +226,6 @@ if __name__ == "__main__":
     # Filter the tracks by region
     logger.info("Filtering tracks by region")
     tracks = filter_tracks_by_region(tracks, logger)
-
 
     # Here we will work only with tracks that have genesis in one of the regions
     # over South American coast: ARG, LA-PLATA and SE-BR.
