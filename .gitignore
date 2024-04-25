@@ -33,3 +33,4 @@ natural_earth_continents/*.cpg
 nohup*
 *log.*
 src_compute_energetics/log.select_tracks.txt
+src_barotropic_instability/*.nc
