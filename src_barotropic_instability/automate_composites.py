@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/24 14:42:50 by daniloceano       #+#    #+#              #
-#    Updated: 2024/04/24 16:42:54 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/04/24 21:01:24 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -152,24 +152,30 @@ def get_cdsapi_era5_data(track_id: str, track: pd.DataFrame) -> xr.Dataset:
 
     # Load ERA5 data
     infile = f"{track_id}.nc"
-    logging.info("Retrieving data from CDS API...")
-    c = cdsapi.Client(timeout=600)
-    c.retrieve(
-        "reanalysis-era5-pressure-levels",
-        {
-            "product_type": "reanalysis",
-            "format": "netcdf",
-            "pressure_level": pressure_levels,
-            "date": time_range,
-            "area": area,
-            'time': f'00/to/23/by/{time_step}',
-            "variable": variables,
-        }, infile # save file as passed in arguments
-    )
 
     if not os.path.exists(infile):
-        raise FileNotFoundError("CDS API file not created.")
-    return infile
+        logging.info("Retrieving data from CDS API...")
+        c = cdsapi.Client(timeout=600)
+        c.retrieve(
+            "reanalysis-era5-pressure-levels",
+            {
+                "product_type": "reanalysis",
+                "format": "netcdf",
+                "pressure_level": pressure_levels,
+                "date": time_range,
+                "area": area,
+                'time': f'00/to/23/by/{time_step}',
+                "variable": variables,
+            }, infile # save file as passed in arguments
+        )
+
+        if not os.path.exists(infile):
+            raise FileNotFoundError("CDS API file not created.")
+        return infile
+    
+    else:
+        logging.info("CDS API file already exists.")
+        return infile
 
 def create_pv_composite(infile, track):
     # Load the dataset
@@ -248,7 +254,7 @@ def main():
         futures = [executor.submit(process_system, dir_path) for dir_path in results_directories]
         for future in as_completed(futures):
             result = future.result()
-            if result:
+            if result is not None and np.any(result):
                 pv_composites.append(result)
 
     # Assuming a function to aggregate and save the results

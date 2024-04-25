@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/23 19:56:13 by daniloceano       #+#    #+#              #
-#    Updated: 2024/04/24 10:26:34 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/04/24 23:56:29 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -22,8 +22,7 @@ import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 import matplotlib.colors as colors
 import cmocean.cm as cmo
-from metpy.units import units
-import metpy.calc
+import matplotlib.gridspec as gridspec
 
 def get_bounds(lat, lon, length, width):
     # Assuming length and width are in degrees for simplicity; adjust based on your coordinate system if necessary
@@ -47,29 +46,13 @@ def map_decorators(ax):
     gl.top_labels = None
     gl.right_labels = None
 
-# Load the dataset
-ds = xr.open_dataset('../../nc_data/Akara-subset_ERA5.nc')
-
-# Load periods
-periods = pd.read_csv('../../akara_analysis/LEC_Akara-subset_ERA5_track/periods.csv', parse_dates=['start', 'end'], index_col=0)
-periods = periods.sort_values('start')
-
-# Load track file
-track = pd.read_csv('../../akara_analysis/LEC_Akara-subset_ERA5_track/Akara-subset_ERA5_track_trackfile', sep=';', index_col=0)
-track.index = pd.to_datetime(track.index)
-
-# Assign units
-temperature = ds['t'] * units.kelvin
-pressure = ds.level * units.hPa
-u = ds['u'] * units('m/s')
-v = ds['v'] * units('m/s')
 
 # Calculate potential temperature and potential vorticity
-potential_temperature = metpy.calc.potential_temperature(pressure, temperature)
-pv = metpy.calc.potential_vorticity_baroclinic(potential_temperature, pressure, u, v)
+ds = xr.open_dataset('pv_composite.nc')
+pv_300_composite = ds.__xarray_dataarray_variable__
 
 # Calculate the y-derivative of PV
-pv_y_derivative = pv.diff('latitude')
+pv_y_derivative = pv_300_composite.diff('y')
 
 # Set up the map projection and features
 crs_longlat = ccrs.PlateCarree()
@@ -77,89 +60,47 @@ land_feature = cfeature.NaturalEarthFeature('physical', 'land', '50m', edgecolor
 
 # Configure the plot for PV
 cmap_pv = cmo.balance
-pv_300_min = pv.sel(level=300).min().values / 5
-pv_300_max = pv.sel(level=300).max().values
-norm_pv = colors.TwoSlopeNorm(vmin=pv_300_min, vcenter=0, vmax=pv_300_max)
+pv_300_min = pv_300_composite.min().values / 5
+pv_300_max = pv_300_composite.max().values
+
+if pv_300_min < 0 and pv_300_max > 0:
+    norm_pv = colors.TwoSlopeNorm(vmin=pv_300_min, vcenter=0, vmax=pv_300_max)
+else:
+    abs_min = np.amin([np.abs(pv_300_min), np.abs(pv_300_max)])
+    norm_pv = colors.Normalize(vmin=abs_min, vmax=-abs_min)
 
 # Configure the plot for PV derivative
 cmap_pv_derivative = cmo.curl
-pv_derivative_300_min = pv_y_derivative.sel(level=300).min().values / 5
-pv_derivative_300_max = pv_y_derivative.sel(level=300).max().values
+pv_derivative_300_min = pv_y_derivative.min().values / 5
+pv_derivative_300_max = pv_y_derivative.max().values
 norm_derivative = colors.TwoSlopeNorm(vmin=pv_derivative_300_min, vcenter=0, vmax=pv_derivative_300_max)
 
-# Setting up the figure with different axes types
-fig = plt.figure(figsize=(10, 20))
+# Set up the plot
+fig = plt.figure(figsize=(15, 5))  # Wider figure to accommodate three plots
+gs = gridspec.GridSpec(1, 3, width_ratios=[1, 1, 0.5])  # Adjust width ratios to fit your needs
+ax_pv = fig.add_subplot(gs[0], projection=crs_longlat)
+ax_pv_derivative = fig.add_subplot(gs[1], projection=crs_longlat)
+ax_pv_derivative_long_mean = fig.add_subplot(gs[2])  # Regular axis, no projection
 
-# Number of phases
-num_phases = len(periods)
+# Main PV plot
+composite_x, composite_y = pv_300_composite.x, pv_300_composite.y
+cf = ax_pv.contourf(composite_x, composite_y, pv_300_composite, cmap=cmap_pv, transform=crs_longlat)
+ax_pv.set_title("PV")
+plt.colorbar(cf, ax=ax_pv, pad=0.1, orientation='horizontal', shrink=0.5)
 
-# Creating subplots with mixed types of axes
-axs = []
-for i in range(num_phases):
-    # Adding geographic plots for PV and PV derivative
-    ax_geo1 = fig.add_subplot(num_phases, 3, i*3 + 1, projection=crs_longlat)
-    ax_geo2 = fig.add_subplot(num_phases, 3, i*3 + 2, projection=crs_longlat)
-    axs.append([ax_geo1, ax_geo2])
-    
-    # Adding a regular plot for longitudinal mean
-    ax_reg = fig.add_subplot(num_phases, 3, i*3 + 3)
-    axs[i].append(ax_reg)
+# Derivative of PV plot
+cf = ax_pv_derivative.contourf(composite_x, composite_y[1:], pv_y_derivative, cmap=cmap_pv_derivative, transform=crs_longlat)
+ax_pv_derivative.set_title(r'$\frac{\partial PV}{\partial y}$')
+plt.colorbar(cf, ax=ax_pv_derivative, pad=0.1, orientation='horizontal', shrink=0.5)
 
-for i, (phase, row) in enumerate(periods.iterrows()):
-    ax_pv = axs[i][0]
-    ax_pv_derivative = axs[i][1]
-    ax_pv_derivative_long_mean = axs[i][2]
-
-    # Make composites for each phase
-    track_phase = track.loc[row['start']: row['end']]
-
-    # Initialize lists to store data slices
-    pv_slices = []
-    pv_y_derivative_slices = []
-    pv_y_derivative_long_mean_slices = []
-    
-    for time, row in track_phase.iterrows():
-        central_lat, central_lon = row['Lat'], row['Lon']
-        width, length = 5, 5
-
-        # Find the min and max latitudes and longitudes
-        lat_min, lat_max = central_lat - length / 2, central_lat + length / 2
-        lon_min, lon_max = central_lon - width / 2, central_lon + width / 2
-        
-        # Slice the PV data at the central point
-        pv_300 = pv.sel(level=300).sortby(['latitude', 'longitude'])
-        pv_slice = pv_300.sel(latitude=slice(lat_min, lat_max), longitude=slice(lon_min, lon_max), time=time)
-        pv_slices.append(pv_slice.values)
-
-        # Slice the PV derivative data at the central point
-        pv_y_derivative_300 = pv_y_derivative.sel(level=300).sortby(['latitude', 'longitude'])
-        pv_y_derivative_slice = pv_y_derivative_300.sel(latitude=slice(lat_min, lat_max), longitude=slice(lon_min, lon_max), time=time)
-        pv_y_derivative_slices.append(pv_y_derivative_slice.values)
-
-        # Make a longitudinal average for PV derivative
-        pv_y_derivative_slice_long = pv_y_derivative_slice.mean(dim='longitude')
-        pv_y_derivative_long_mean_slices.append(pv_y_derivative_slice_long.values)
-    
-    # Compute the spatial mean of the composites
-    pv_phase_mean = np.mean(pv_slices, axis=0)
-    pv_y_derivative_mean = np.mean(pv_y_derivative_slices, axis=0)
-    pv_y_derivative_long_mean = np.mean(pv_y_derivative_long_mean_slices, axis=0)
-    composite_x, composite_y = np.meshgrid(np.linspace(0, pv_phase_mean.shape[0]-1, pv_phase_mean.shape[0]), np.linspace(0, pv_phase_mean.shape[1]-1, pv_phase_mean.shape[1]))
-
-    # Main PV plot
-    cf = ax_pv.contourf(composite_x, composite_y, pv_phase_mean, cmap=cmap_pv, transform=crs_longlat)
-    ax_pv.set_title(phase)
-    plt.colorbar(cf, ax=ax_pv, pad=0.1, orientation='horizontal', shrink=0.5)
-
-    # Derivative of PV plot
-    cf = ax_pv_derivative.contourf(composite_x, composite_y, pv_y_derivative_mean, cmap=cmap_pv_derivative, transform=crs_longlat)
-    ax_pv_derivative.set_title(r'$\frac{\partial PV}{\partial y}$')
-    plt.colorbar(cf, ax=ax_pv_derivative, pad=0.1, orientation='horizontal', shrink=0.5)
-
-    # Longitudinal average of PV derivative plot
-    ax_pv_derivative_long_mean.plot(pv_y_derivative_long_mean, np.arange(len(pv_y_derivative_long_mean)), color='#003049', linewidth=3)
-    ax_pv_derivative_long_mean.axvline(0, color='#c1121f', linestyle='--', linewidth=0.5)
-    ax_pv_derivative_long_mean.set_title(r'$\frac{\partial PV}{\partial y}$ Longitudinal Average')
+# Longitudinal average of PV derivative plot
+pv_y_derivative_long_mean = pv_y_derivative.mean('x')
+ax_pv_derivative_long_mean.plot(pv_y_derivative_long_mean, np.arange(len(pv_y_derivative_long_mean)), color='#003049', linewidth=3)
+ax_pv_derivative_long_mean.axvline(0, color='#c1121f', linestyle='--', linewidth=0.5)
+ax_pv_derivative_long_mean.set_title(r'$\frac{\partial PV}{\partial y}$ Longitudinal Average')
+# Remove x and y ticks and labels
+ax_pv_derivative_long_mean.set_xticks([])
+ax_pv_derivative_long_mean.set_yticks([])
 
 # Adjust layout
 plt.tight_layout()
