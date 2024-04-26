@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/25 19:29:52 by daniloceano       #+#    #+#              #
-#    Updated: 2024/04/25 19:48:35 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/04/26 00:08:10 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -82,10 +82,10 @@ def export_tracks_by_season(tracks_filtered, csv_directory):
     tracks_filtered['season'] = tracks_filtered['date'].apply(get_season)
     for region in tracks_filtered['region'].unique():
         for season in tracks_filtered['season'].unique():
-            tracks_season = tracks_filtered[tracks_filtered['season'] == season]
-            unique_tracks_season = tracks_season['track_id'].unique()
+            tracks_season_region = tracks_filtered[(tracks_filtered['region'] == region) & (tracks_filtered['season'] == season)]
+            unique_tracks_season_region = tracks_season_region['track_id'].unique()
             csv_path = os.path.join(csv_directory, f'track_ids_{region}_{season}.csv')
-            pd.DataFrame(unique_tracks_season, columns=['track_id']).to_csv(csv_path, index=False)
+            pd.DataFrame(unique_tracks_season_region, columns=['track_id']).to_csv(csv_path, index=False)
             print(f"Track IDs for season {season} in region {region} exported successfully to {csv_path}.")
 
 if __name__ == '__main__':
