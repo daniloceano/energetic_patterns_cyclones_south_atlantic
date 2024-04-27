@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/27 12:10:53 by daniloceano       #+#    #+#              #
-#    Updated: 2024/04/27 13:45:24 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/04/27 20:29:44 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -35,7 +35,7 @@ def plot_all_clusters(patterns_path, output_directory_all_patterns):
 
     for season in ['DJF','JJA']:
         for region in ['SE-BR', 'LA-PLATA', 'ARG']:
-            patterns_clusters_paths = glob(f"{patterns_path}/{region}_{season}/*/*")
+            patterns_clusters_paths = glob(f"{patterns_path}/{region}_{season}/*/df_cl*.csv")
 
             # Plot each pattern onto the Lorenz Phase Space diagram
             for cluster_file in patterns_clusters_paths:
@@ -53,7 +53,7 @@ def plot_all_clusters_one_figure_by_region_season(patterns_path, output_director
     # Read the patterns
     for season in ['DJF','JJA']:
         for region in ['SE-BR', 'LA-PLATA', 'ARG']:
-            patterns_clusters_paths = glob(f"{patterns_path}/{region}_{season}/*/*")
+            patterns_clusters_paths = glob(f"{patterns_path}/{region}_{season}/*/df_cl*.csv")
 
             # Initialize the Lorenz Phase Space plotter
             lps = Visualizer(LPS_type='mixed', zoom=True,
@@ -76,10 +76,9 @@ def plot_all_clusters_one_figure_by_region_season(patterns_path, output_director
 
 def plot_each_cluster_by_region_season(patterns_path, output_directory_all_patterns):
 
-
     for season in ['DJF','JJA']:
         for region in ['SE-BR', 'LA-PLATA', 'ARG']:
-            patterns_clusters_paths = glob(f"{patterns_path}/{region}_{season}/*/*")
+            patterns_clusters_paths = glob(f"{patterns_path}/{region}_{season}/*/df_cl*.csv")
 
             # Plot each pattern onto the Lorenz Phase Space diagram
             for cluster_file in patterns_clusters_paths:
