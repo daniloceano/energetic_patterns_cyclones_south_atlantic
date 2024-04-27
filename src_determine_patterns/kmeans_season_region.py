@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/27 10:56:55 by daniloceano       #+#    #+#              #
-#    Updated: 2024/04/27 11:19:49 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/04/27 12:26:34 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -93,22 +93,23 @@ IDSPATH = '../csv_track_ids_by_region_season/'
 LIFECYCLE = {'incipient', 'intensification', 'mature', 'decay'}
 
 def main():
-    region, season = 'SE-BR', 'DJF'
-    results_energetics_all_systems = get_energetics_region_season(ENERGETICSPATH, IDSPATH, region, season)
-    results_energetics_lifecycle = filter_lifecycle(results_energetics_all_systems)
-    dsk_means = prepare_to_kmeans(results_energetics_lifecycle)
-    mk = KMeans(n_clusters=4,n_init=10).fit(dsk_means)
-    centers_Ck, centers_Ca, centers_Ke, centers_Ge = slice_mk(mk, LIFECYCLE)
-    df_cl1, df_cl2, df_cl3, df_cl4 = sel_clusters_to_df(centers_Ck, centers_Ca, centers_Ke, centers_Ge, results_energetics_lifecycle)
+    for region in ['SE-BR', 'LA-PLATA', 'ARG']:
+        for season in ['DJF', 'JJA']:
+            results_energetics_all_systems = get_energetics_region_season(ENERGETICSPATH, IDSPATH, region, season)
+            results_energetics_lifecycle = filter_lifecycle(results_energetics_all_systems)
+            dsk_means = prepare_to_kmeans(results_energetics_lifecycle)
+            mk = KMeans(n_clusters=4,n_init=10).fit(dsk_means)
+            centers_Ck, centers_Ca, centers_Ke, centers_Ge = slice_mk(mk, LIFECYCLE)
+            df_cl1, df_cl2, df_cl3, df_cl4 = sel_clusters_to_df(centers_Ck, centers_Ca, centers_Ke, centers_Ge, results_energetics_lifecycle)
 
-    csv_path_region_season = f'../csv_patterns/{region}_{season}/'
-    os.makedirs(csv_path_region_season, exist_ok=True)
-    pattern_folder = os.path.join(csv_path_region_season, "IcItMD")
-    os.makedirs(pattern_folder, exist_ok=True)
+            csv_path_region_season = f'../csv_patterns/{region}_{season}/'
+            os.makedirs(csv_path_region_season, exist_ok=True)
+            pattern_folder = os.path.join(csv_path_region_season, "IcItMD")
+            os.makedirs(pattern_folder, exist_ok=True)
 
-    for df, name in zip([df_cl1, df_cl2, df_cl3, df_cl4], ['df_cl1', 'df_cl2', 'df_cl3', 'df_cl4']):
-        df.to_csv(os.path.join(pattern_folder, f'{name}.csv'))
-        print(f"Saved {name} to {os.path.join(pattern_folder, f'{name}.csv')}")
+            for df, name in zip([df_cl1, df_cl2, df_cl3, df_cl4], ['df_cl1', 'df_cl2', 'df_cl3', 'df_cl4']):
+                df.to_csv(os.path.join(pattern_folder, f'{name}.csv'))
+                print(f"Saved {name} to {os.path.join(pattern_folder, f'{name}.csv')}")
 
 if __name__ == '__main__':
     main()
