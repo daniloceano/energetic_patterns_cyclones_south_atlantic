@@ -144,10 +144,9 @@ centers_Ck, centers_Ca, centers_Ke, centers_Ge = slice_mk(mk, LIFECYCLE)
 df_cl1, df_cl2, df_cl3, df_cl4 = sel_clusters_to_df(centers_Ck, centers_Ca, centers_Ke, centers_Ge, results_energetics_lifecycle)
 
 os.makedirs(CSVSAVEPATH, exist_ok=True)
-pattern_folder = os.path.join(CSVSAVEPATH, "'IcItMD")
+pattern_folder = os.path.join(CSVSAVEPATH, "IcItMD")
 os.makedirs(pattern_folder, exist_ok=True)
 
-df_cl1.to_csv(os.path.join(pattern_folder, 'df.csv'))
-df_cl2.to_csv(os.path.join(pattern_folder, 'df.csv'))
-df_cl3.to_csv(os.path.join(pattern_folder, 'df.csv'))
-df_cl4.to_csv(os.path.join(pattern_folder, 'df.csv'))
+for df, name in zip([df_cl1, df_cl2, df_cl3, df_cl4], ['df_cl1', 'df_cl2', 'df_cl3', 'df_cl4']):
+    df.to_csv(os.path.join(pattern_folder, f'{name}.csv'))
+    print(f"Saved {name} to {os.path.join(pattern_folder, f'{name}.csv')}")
