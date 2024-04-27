@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/27 10:56:55 by daniloceano       #+#    #+#              #
-#    Updated: 2024/04/27 12:26:34 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/04/27 20:22:07 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -16,7 +16,7 @@ import glob
 from tqdm import tqdm  
 from sklearn.cluster import KMeans
 from kmeans_aux import prepare_to_kmeans, slice_mk, sel_clusters_to_df
-
+import json
 
 """
 This script is used to perform K-means clustering on all systems in the database that have
@@ -61,6 +61,7 @@ def get_energetics_region_season(energetics_path, id_list_directory, region, sea
             columns_to_read = ['Ck', 'Ca', 'Ke', 'Ge']
             df_system = pd.read_csv(case, header=0, index_col=0)
             df_system = df_system[columns_to_read]
+            df_system.index.name = track_id
             results_energetics_all_systems.append(df_system)
     
     return results_energetics_all_systems
@@ -102,14 +103,29 @@ def main():
             centers_Ck, centers_Ca, centers_Ke, centers_Ge = slice_mk(mk, LIFECYCLE)
             df_cl1, df_cl2, df_cl3, df_cl4 = sel_clusters_to_df(centers_Ck, centers_Ca, centers_Ke, centers_Ge, results_energetics_lifecycle)
 
+            # Retrieve track IDs corresponding to each cluster
+            cluster_ids = {i: [] for i in range(1, 5)}  # Initialize empty lists for each cluster
+            # Loop over results_energetics_lifecycle
+            for idx, df_system in enumerate(results_energetics_lifecycle):
+                # Extract track_id from df_system's index
+                track_id = df_system.index.name
+                cluster_ids[mk.labels_[idx] + 1].append(track_id)
+            
+            # Save cluster IDs to CSV files
             csv_path_region_season = f'../csv_patterns/{region}_{season}/'
             os.makedirs(csv_path_region_season, exist_ok=True)
             pattern_folder = os.path.join(csv_path_region_season, "IcItMD")
             os.makedirs(pattern_folder, exist_ok=True)
 
+            # Save cluster IDs to CSV files
             for df, name in zip([df_cl1, df_cl2, df_cl3, df_cl4], ['df_cl1', 'df_cl2', 'df_cl3', 'df_cl4']):
                 df.to_csv(os.path.join(pattern_folder, f'{name}.csv'))
                 print(f"Saved {name} to {os.path.join(pattern_folder, f'{name}.csv')}")
+
+            # Save cluster IDs to JSON files
+            for cluster_id, track_ids in cluster_ids.items():
+                with open(os.path.join(pattern_folder, f'cluster_{cluster_id}.json'), 'w') as f:
+                    json.dump(track_ids, f)
 
 if __name__ == '__main__':
     main()
