@@ -6,18 +6,16 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/02/27 17:45:49 by daniloceano       #+#    #+#              #
-#    Updated: 2024/04/30 00:18:34 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/04/30 08:54:27 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
 
 import os
 import pandas as pd
+import numpy as np
 from glob import glob
-import matplotlib.pyplot as plt
-from concurrent.futures import ProcessPoolExecutor, as_completed
 from tqdm import tqdm
-from lorenz_phase_space.phase_diagrams import Visualizer
 
 """
 Auxiliary functions for plotting LPS.
@@ -55,19 +53,32 @@ def read_life_cycles(base_path, region=False):
     
     return systems_energetics
 
-def read_patterns(patterns_by_life_cycle_paths):
+def read_patterns(results_path, PHASES, TERMS):
     """
-    Reads all CSV files in the specified directory and collects DataFrame for each system.
+    Read the energetics data for patterns from a JSON file.
+
+    Args:
+        results_path (str): The path to the directory containing the JSON file.
+        PHASES (list): A list of strings representing the phases.
+        TERMS (list): A list of strings representing the terms.
+
+    Returns:
+        list: A list of pandas DataFrames, each representing the energetics data for a pattern.
     """
-    patterns_energetics = {}
-    for directory in patterns_by_life_cycle_paths:
-        life_cycle_type = os.path.basename(directory)
-        patterns = glob(f'{directory}/*')
-        for pattern in patterns:
-            df = pd.read_csv(pattern)
-            cluster = os.path.basename(pattern).split('_')[1]
-            patterns_energetics[f"{life_cycle_type}_{cluster}"] = df
-    return patterns_energetics
+     # Read the energetics data for patterns
+    patterns_json = glob(f'{results_path}/kmeans_results.json')
+    results = pd.read_json(patterns_json[0])
+
+    clusters_center = results.loc['Cluster Center']
+
+    patterns_energetics = []
+    for i in range(len(clusters_center)):
+        cluster_center = np.array(clusters_center.iloc[i])
+        cluster_array = np.array(cluster_center).reshape(len(PHASES), len(TERMS))
+
+        df = pd.DataFrame(cluster_array, columns=PHASES, index=TERMS).T
+        patterns_energetics.append(df)
+    return patterns_energetics, clusters_center, results
 
 def plot_system(lps, df):
     """

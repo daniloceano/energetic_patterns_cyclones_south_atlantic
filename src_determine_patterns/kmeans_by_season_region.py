@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/27 10:56:55 by daniloceano       #+#    #+#              #
-#    Updated: 2024/04/29 17:34:58 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/04/30 08:40:45 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -131,6 +131,21 @@ def main():
             json_path = os.path.join(pattern_folder, 'kmeans_results.json')
             with open(json_path, 'w') as json_file:
                 json.dump(results_json, json_file, indent=4)
+
+            # Save explanation to a README file
+            readme_text = f"""
+            This JSON file  contains the K-means clustering results for the {region} region and {season} season.
+            It includes the cluster centers for each cluster, along with the cluster fraction and the IDs of the cyclones in each cluster.
+            Each cluster center array consists of 16 values.
+            These values represent the average scaled measurements of the energy terms (Ck, Ca, Ke, Ge) across the lifecycle phases (incipient, intensification, mature, decay).
+            The first 4 values correspond to Ck for each phase, followed by 4 values for Ca, Ke, and Ge respectively.
+            """
+            readme_path = os.path.join(pattern_folder, 'README.txt')
+            with open(readme_path, 'w') as readme_file:
+                readme_file.write(readme_text)
+
+            print(f"Results saved to {json_path}")
+            print(f"README saved to {readme_path}")
 
 if __name__ == '__main__':
     main()

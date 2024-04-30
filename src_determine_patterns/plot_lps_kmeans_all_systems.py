@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/29 18:23:09 by daniloceano       #+#    #+#              #
-#    Updated: 2024/04/30 00:28:20 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/04/30 08:54:22 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -20,25 +20,14 @@ import numpy as np
 from glob import glob
 import matplotlib.pyplot as plt
 from lorenz_phase_space.phase_diagrams import Visualizer
-from plot_lps_aux import plot_system, determine_global_limits
+from plot_lps_aux import plot_system, determine_global_limits, read_patterns
 
 PHASES = ['incipient', 'intensification', 'mature', 'decay']
 TERMS = ['Ck', 'Ca', 'Ke', 'Ge']
 
 def plot_all_systems_all_clusters_one_figure(results_path):
     # Read the energetics data for patterns
-    patterns_json = glob(f'{results_path}/kmeans_results.json')
-    results = pd.read_json(patterns_json[0])
-
-    clusters_center = results.loc['Cluster Center']
-
-    patterns_energetics = []
-    for i in range(len(clusters_center)):
-        cluster_center = np.array(clusters_center.iloc[i])
-        cluster_array = np.array(cluster_center).reshape(len(PHASES), len(TERMS))
-
-        df = pd.DataFrame(cluster_array, columns=PHASES, index=TERMS).T
-        patterns_energetics.append(df)
+    patterns_energetics, clusters_center, results = read_patterns(results_path, PHASES, TERMS)
 
     # Initialize the Lorenz Phase Space plotter
     lps = Visualizer(LPS_type='mixed', zoom=False)
@@ -85,18 +74,7 @@ def plot_all_systems_all_clusters_one_figure(results_path):
 
 def plot_clusters_each_pattern(results_path):
     # Read the energetics data for patterns
-    patterns_json = glob(f'{results_path}/kmeans_results.json')
-    results = pd.read_json(patterns_json[0])
-
-    clusters_center = results.loc['Cluster Center']
-
-    patterns_energetics = []
-    for i in range(len(clusters_center)):
-        cluster_center = np.array(clusters_center.iloc[i])
-        cluster_array = np.array(cluster_center).reshape(len(PHASES), len(TERMS))
-
-        df = pd.DataFrame(cluster_array, columns=PHASES, index=TERMS).T
-        patterns_energetics.append(df)
+    patterns_energetics, clusters_center, results = read_patterns(results_path, PHASES, TERMS)
 
     # Determine global limits
     x_limits, y_limits, color_limits, marker_limits = determine_global_limits(patterns_energetics)

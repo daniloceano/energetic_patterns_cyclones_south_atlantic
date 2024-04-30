@@ -1,12 +1,12 @@
 # **************************************************************************** #
 #                                                                              #
 #                                                         :::      ::::::::    #
-#    plot_lps_patterns_region_season.py                 :+:      :+:    :+:    #
+#    plot_lps_kmeans_region_season.py                   :+:      :+:    :+:    #
 #                                                     +:+ +:+         +:+      #
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/27 12:10:53 by daniloceano       #+#    #+#              #
-#    Updated: 2024/04/27 20:29:44 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/04/30 09:12:00 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -21,39 +21,42 @@ from glob import glob
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 from lorenz_phase_space.phase_diagrams import Visualizer
-from plot_lps_aux import plot_system
+from plot_lps_aux import plot_system, read_patterns
 
-def plot_all_clusters(patterns_path, output_directory_all_patterns):
+PHASES = ['incipient', 'intensification', 'mature', 'decay']
+TERMS = ['Ck', 'Ca', 'Ke', 'Ge']
 
+def plot_all_clusters(results_path):
+    
     # Initialize the Lorenz Phase Space plotter
     lps = Visualizer(LPS_type='mixed', zoom=True,
                      x_limits=[-40, 2],
                      y_limits=[-2, 8],
                      color_limits=[-10, 10])
 
-    # Read the patterns
-
     for season in ['DJF','JJA']:
         for region in ['SE-BR', 'LA-PLATA', 'ARG']:
-            patterns_clusters_paths = glob(f"{patterns_path}/{region}_{season}/*/df_cl*.csv")
+            # Read the energetics data for patterns
+            patterns_clusters_paths = f"{results_path}/{region}_{season}/IcItMD/"
+            patterns_energetics, clusters_center, results = read_patterns(patterns_clusters_paths, PHASES, TERMS)
 
             # Plot each pattern onto the Lorenz Phase Space diagram
-            for cluster_file in patterns_clusters_paths:
-                df = pd.read_csv(cluster_file, index_col=0)
+            for df in patterns_energetics:
                 plot_system(lps, df)
             
     # Save the final plot
     plot_filename = f'lps_all_clusters_all_regions_seasons.png'
-    plot_path = os.path.join(output_directory_all_patterns, plot_filename)
+    plot_path = os.path.join("../figures_lps/", plot_filename)
     plt.savefig(plot_path)
     plt.close()
     print(f"Final plot saved to {plot_path}")
 
-def plot_all_clusters_one_figure_by_region_season(patterns_path, output_directory_all_patterns):
-    # Read the patterns
+def plot_all_clusters_one_figure_by_region_season(results_path):
     for season in ['DJF','JJA']:
         for region in ['SE-BR', 'LA-PLATA', 'ARG']:
-            patterns_clusters_paths = glob(f"{patterns_path}/{region}_{season}/*/df_cl*.csv")
+            # Read the energetics data for patterns
+            patterns_clusters_paths = f"{results_path}/{region}_{season}/IcItMD/"
+            patterns_energetics, clusters_center, results = read_patterns(patterns_clusters_paths, PHASES, TERMS)
 
             # Initialize the Lorenz Phase Space plotter
             lps = Visualizer(LPS_type='mixed', zoom=True,
@@ -62,26 +65,26 @@ def plot_all_clusters_one_figure_by_region_season(patterns_path, output_director
                     color_limits=[-10, 10])
 
             # Plot each pattern onto the Lorenz Phase Space diagram
-            for cluster_file in patterns_clusters_paths:
-                df = pd.read_csv(cluster_file, index_col=0)
+            for df in patterns_energetics:
                 plot_system(lps, df)
             
             # Save the final plot
             plot_filename = f'lps_all_clusters_{region}_{season}.png'
-            plot_path = os.path.join(output_directory_all_patterns, plot_filename)
+            plot_path = os.path.join(patterns_clusters_paths, plot_filename)
             os.makedirs(os.path.dirname(plot_path), exist_ok=True)
             plt.savefig(plot_path)
             plt.close()
             print(f"Final plot saved to {plot_path}")
 
-def plot_each_cluster_by_region_season(patterns_path, output_directory_all_patterns):
-
+def plot_each_cluster_by_region_season(results_path):
     for season in ['DJF','JJA']:
         for region in ['SE-BR', 'LA-PLATA', 'ARG']:
-            patterns_clusters_paths = glob(f"{patterns_path}/{region}_{season}/*/df_cl*.csv")
+            # Read the energetics data for patterns
+            patterns_clusters_paths = f"{results_path}/{region}_{season}/IcItMD/"
+            patterns_energetics, clusters_center, results = read_patterns(patterns_clusters_paths, PHASES, TERMS)
 
             # Plot each pattern onto the Lorenz Phase Space diagram
-            for cluster_file in patterns_clusters_paths:
+            for idx, df in enumerate(patterns_energetics):
                 # Initialize the Lorenz Phase Space plotter
                 lps = Visualizer(LPS_type='mixed', zoom=True,
                     x_limits=[-40, 2],
@@ -89,13 +92,20 @@ def plot_each_cluster_by_region_season(patterns_path, output_directory_all_patte
                     color_limits=[-10, 10])
                 
                 # Plot each pattern onto the Lorenz Phase Space diagram
-                cluster = os.path.basename(cluster_file).split('_')[1].split('.')[0]
-                df = pd.read_csv(cluster_file, index_col=0)
                 plot_system(lps, df)
+
+                # Settings for the plot
+                explained_variance = results.loc['Cluster Fraction'].iloc[idx]
+                cluster_number = clusters_center.index[idx][-1]
+                cluster_name = f"cl_{cluster_number}"
+                title = f"Cluster {cluster_number} - Explained Variance: {explained_variance:.2f}"
+
+                # Add title
+                plt.title(title)
             
                 # Save the final plot
-                plot_filename = f'lps_{region}_{season}_{cluster}.png'
-                plot_path = os.path.join(output_directory_all_patterns, plot_filename)
+                plot_filename = f'lps_{region}_{season}_{cluster_name}.png'
+                plot_path = os.path.join(patterns_clusters_paths, plot_filename)
                 os.makedirs(os.path.dirname(plot_path), exist_ok=True)
                 plt.savefig(plot_path)
                 plt.close()
@@ -103,13 +113,11 @@ def plot_each_cluster_by_region_season(patterns_path, output_directory_all_patte
 
 
 def main():
-    patterns_path = "../csv_patterns/"
-    output_directory_all_patterns = '../figures_lps/clusters_region_season/'
-    os.makedirs(output_directory_all_patterns, exist_ok=True)
+    results_path = "../results_kmeans/"
 
-    plot_all_clusters(patterns_path, output_directory_all_patterns)
-    plot_all_clusters_one_figure_by_region_season(patterns_path, output_directory_all_patterns)
-    plot_each_cluster_by_region_season(patterns_path, output_directory_all_patterns)
+    plot_all_clusters(results_path)
+    plot_all_clusters_one_figure_by_region_season(results_path)
+    plot_each_cluster_by_region_season(results_path)
 
 
 if __name__ == "__main__":
