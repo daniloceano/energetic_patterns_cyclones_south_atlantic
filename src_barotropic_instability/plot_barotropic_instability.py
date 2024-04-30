@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/23 19:56:13 by daniloceano       #+#    #+#              #
-#    Updated: 2024/04/30 19:08:59 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/04/30 20:34:56 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -14,6 +14,7 @@
 This script will plot maps with the derivative of PV in y, as to display if barotropic instability is occuring.
 """
 
+import os
 import xarray as xr
 import numpy as np
 import matplotlib.pyplot as plt
@@ -25,6 +26,7 @@ import matplotlib.ticker as ticker
 
 TITLE_SIZE = 16
 TICK_LABEL_SIZE = 12
+FIGURES_DIR = '../figures_barotropic_instability'
 
 def load_and_prepare_data(filepath):
     """Load dataset and prepare data for plotting."""
@@ -96,8 +98,11 @@ def main(filepath='pv_composite_mean.nc'):
     axes[5].tick_params(axis='x', labelsize=TICK_LABEL_SIZE)
 
     plt.tight_layout()
-    plt.savefig('extended_pv_plots.png')
-    plt.show()
+
+    filename = 'pv_composite.png'
+    file_path = os.path.join(FIGURES_DIR, filename)
+    plt.savefig(file_path)
+    print(f'Saved {filename}')
 
 if __name__ == '__main__':
     main()
