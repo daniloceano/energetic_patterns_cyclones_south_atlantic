@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/24 14:42:50 by daniloceano       #+#    #+#              #
-#    Updated: 2024/04/24 21:01:24 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/04/30 10:59:07 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -126,7 +126,7 @@ def get_cdsapi_era5_data(track_id: str, track: pd.DataFrame) -> xr.Dataset:
     # Define the area for the request
     area = f"{buffered_max_lat}/{buffered_min_lon}/{buffered_min_lat}/{buffered_max_lon}" # North, West, South, East. Nort/West/Sout/East
 
-    pressure_levels = ['250', '300', '350']
+    pressure_levels = ['200', '250', '300']
     
     variables = ["u_component_of_wind", "v_component_of_wind", "temperature"]
     
@@ -186,37 +186,80 @@ def create_pv_composite(infile, track):
     pressure = ds.level * units.hPa
     u = ds['u'] * units('m/s')
     v = ds['v'] * units('m/s')
+    latitude = ds.latitude
 
-    # Calculate potential temperature and potential vorticity
+    # Calculate potential temperature, vorticity and Coriolis parameter
     potential_temperature = metpy.calc.potential_temperature(pressure, temperature)
-    pv = metpy.calc.potential_vorticity_baroclinic(potential_temperature, pressure, u, v)
-    pv_300 = pv.sel(level=300)
+    zeta = metpy.calc.vorticity(u, v)
+    f = metpy.calc.coriolis_parameter(latitude)
 
-    pv_slices_system = []
+    # Calculate baroclinic and barotropic potential vorticity
+    pv_baroclinic = metpy.calc.potential_vorticity_baroclinic(potential_temperature, pressure, u, v)
+    pv_barotropic = zeta + f
+
+    # Select the 250 hPa level
+    pv_baroclinic_250 = pv_baroclinic.sel(level=250)
+    pv_barotropic_250 = pv_barotropic.sel(level=250)
+
+    pv_baroclinic_slices_system, pv_barotropic_slices_system = [], []
     for time_step in track.index:
-        pv_300_time = pv_300.sel(time=time_step)
+        # Select the time step
+        pv_baroclinic_250_time = pv_baroclinic_250.sel(time=time_step)
+        pv_barotropic_250_time = pv_barotropic_250.sel(time=time_step)
+
         # Slice for track limits
         min_lon, max_lon = track.loc[time_step, 'min_lon'], track.loc[time_step, 'max_lon']
         min_lat, max_lat = track.loc[time_step, 'min_lat'], track.loc[time_step, 'max_lat']
-        pv_300_time_slice = pv_300_time.sel(longitude=slice(min_lon, max_lon), latitude=slice(max_lat, min_lat))
-        pv_slices_system.append(pv_300_time_slice)
+        pv_baroclinic_250_time_slice = pv_baroclinic_250_time.sel(longitude=slice(min_lon, max_lon), latitude=slice(max_lat, min_lat))
+        pv_baroclinic_slices_system.append(pv_baroclinic_250_time_slice)
+        pv_barotropic_250_time_slice = pv_barotropic_250_time.sel(longitude=slice(min_lon, max_lon), latitude=slice(max_lat, min_lat))
+        pv_barotropic_slices_system.append(pv_barotropic_250_time_slice)
     
-    # Calculate the PV composite for this system
-    pv_mean = np.mean(pv_slices_system, axis=0)
+    # Calculate the PV composites for this system
+    pv_baroclinic_mean = np.mean(pv_baroclinic_slices_system, axis=0)
+    pv_barotropic_mean = np.mean(pv_barotropic_slices_system, axis=0)
 
-    return pv_mean
+    # Create a DataArray using an extra dimension for the type of PV
+    x, y = np.arange(pv_baroclinic_mean.shape[1]), np.arange(pv_baroclinic_mean.shape[0])
+    track_id = int(infile.split('.')[0])
+
+    # Create DataArrays
+    da_baroclinic = xr.DataArray(
+        pv_baroclinic_mean,
+        dims=['y', 'x'],
+        coords={'y': y, 'x': x},
+        name='baroclinic'
+    )
+
+    da_barotropic = xr.DataArray(
+        pv_barotropic_mean,
+        dims=['y', 'x'],
+        coords={'y': y, 'x': x},
+        name='barotropic'
+    )
+
+    # Combine into a Dataset and add track_id as a coordinate
+    ds_pv = xr.Dataset({
+        'pv_baroclinic': da_baroclinic,
+        'pv_barotropic': da_barotropic
+    })
+    ds_pv = ds_pv.assign_coords(track_id=track_id)  # Assigning track_id as a coordinate
+
+    return ds_pv
 
 def save_composite(pv_composites, results_directories):
     # Create a composite across all systems
     logging.info("Finished processing all systems. Creating composite...")
     pv_composites = [composite for composite in pv_composites if composite is not None]
-    pv_composite = np.mean(pv_composites, axis=0)
 
-    # Convert to a DataArray and save the composite
-    x, y = np.arange(pv_composite.shape[1]), np.arange(pv_composite.shape[0])
-    pv_da = xr.DataArray(pv_composite, dims=['y', 'x'], coords={'y': y, 'x': x})
-    pv_da.to_netcdf('pv_composite.nc')
-    logging.info("Saved composite to pv_composite.nc")
+    # Concatenate the composites and calculate the mean
+    da_pv_composite = xr.concat(pv_composites, dim='track_id')
+    ds_pv_composite_mean = da_pv_composite.mean(dim='track_id')
+
+    # Save the composites
+    da_pv_composite.to_netcdf('pv_composite_track_ids.nc')
+    ds_pv_composite_mean.to_netcdf('pv_composite_mean.nc')
+    logging.info("Saved pv_composite_track_ids.nc and pv_composite_mean.nc")
 
     # Log end time
     end_time = time.time()
@@ -248,6 +291,7 @@ def main():
     logging.info(f"Starting {total_systems_count} cases at {formatted_start_time}")
 
     logging.info(f"Using {num_workers} CPU cores for processing")
+
     pv_composites = []
 
     with ProcessPoolExecutor(max_workers=num_workers) as executor:
