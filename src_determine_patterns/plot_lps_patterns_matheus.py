@@ -1,19 +1,14 @@
 # **************************************************************************** #
 #                                                                              #
 #                                                         :::      ::::::::    #
-#    plot_lps_patterns_all_systems.py                   :+:      :+:    :+:    #
+#    plot_lps_patterns_matheus.py                       :+:      :+:    :+:    #
 #                                                     +:+ +:+         +:+      #
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/25 08:16:45 by daniloceano       #+#    #+#              #
-#    Updated: 2024/04/25 09:38:59 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/04/29 18:23:05 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
-
-
-"""
-Plot the LPS for all clusters, which were defined for all systems.
-"""
 
 import os
 import pandas as pd

@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/02/27 17:45:49 by daniloceano       #+#    #+#              #
-#    Updated: 2024/04/25 09:51:17 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/04/30 00:18:34 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -87,7 +87,7 @@ def determine_global_limits(systems_energetics):
     color_min, color_max = float('inf'), float('-inf')
     size_min, size_max = float('inf'), float('-inf')
 
-    for df in systems_energetics.values():
+    for df in systems_energetics:
         x_min = min(x_min, df['Ck'].min())
         x_max = max(x_max, df['Ck'].max())
         y_min = min(y_min, df['Ca'].min())
