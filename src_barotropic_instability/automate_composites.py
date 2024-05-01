@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/24 14:42:50 by daniloceano       #+#    #+#              #
-#    Updated: 2024/04/30 22:59:22 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/01 01:34:48 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -327,10 +327,11 @@ def main():
     # Filter directories
     filtered_directories = [directory for directory in results_directories if any(system_id in directory for system_id in selected_systems_str)]
 
-    # Determine the number of CPU cores to use
-    max_cores = os.cpu_count()
-    num_workers = max(1, max_cores - 4) if max_cores else 1
-    logging.info(f"Using {num_workers} CPU cores")
+    # # Determine the number of CPU cores to use
+    # max_cores = os.cpu_count()
+    # num_workers = max(1, max_cores - 4) if max_cores else 1
+    # logging.info(f"Using {num_workers} CPU cores")
+    max_cores = 20
 
     # Log start time and total number of systems
     start_time = time.time()
