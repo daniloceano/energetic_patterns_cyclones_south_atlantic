@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/24 14:42:50 by daniloceano       #+#    #+#              #
-#    Updated: 2024/04/30 21:45:52 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/04/30 21:52:12 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -146,6 +146,11 @@ def process_system(system_dir):
     pv_mean = create_pv_composite(infile, track)
 
     logging.info(f"Processing completed for {system_dir}")
+
+    # Delete infile
+    if os.path.exists(infile):
+        os.remove(infile)
+
     return pv_mean  # or any data structure you are processing
 
 def get_cdsapi_era5_data(track_id: str, track: pd.DataFrame) -> xr.Dataset:
