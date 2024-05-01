@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/24 14:42:50 by daniloceano       #+#    #+#              #
-#    Updated: 2024/04/30 10:59:07 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/04/30 21:45:52 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -68,7 +68,44 @@ def copy_cdsapirc(suffix):
     except Exception as e:
         logging.error(f"Error copying {source_path} to {CDSAPIRC_PATH}: {e}")
 
+def select_systems(results_directory):
+    """
+    """
+    clusters_to_use = ["ARG_DJF_cl_2", "ARG_JJA_cl_1",
+                       "LA-PLATA_DJF_cl_2", "LA-PLATA_JJA_cl_2",
+                       "SE-BR_DJF_cl_2", "SE-BR_JJA_cl_3"]
+    
+    selected_systems = []
+
+    for cluster in clusters_to_use:
+        # Get information about the cluster
+        region, season = cluster.split('_')[:2]
+        cluster_number = cluster.split('_')[3]
+
+        # Open cluster json file
+        system_dir = os.path.join(results_directory, f"{region}_{season}", "IcItMD")
+        json_file = glob(f"{system_dir}/*.json")[0]
+        df_system = pd.read_json(json_file)
+
+        # Get system IDs
+        cluster_ids = df_system[f'Cluster {cluster_number}']['Cyclone IDs']
+
+        for system_id in cluster_ids:
+            selected_systems.append(int(system_id))
+
+    return selected_systems
+
 def process_system(system_dir):
+
+    # Pick a random .cdsapirc file for each process
+    if CDSAPIRC_SUFFIXES:
+        chosen_suffix = random.choice(CDSAPIRC_SUFFIXES)
+        copy_cdsapirc(chosen_suffix)
+        logging.info(f"Switched .cdsapirc file to {chosen_suffix}")
+    else:
+        logging.error("No .cdsapirc files found. Please check the configuration.")
+
+
     try:
         logging.info(f"Processing started for {system_dir}")
         track_file = glob(f'{system_dir}/*trackfile')[0]  # Assuming filename pattern
@@ -273,11 +310,17 @@ def main():
     # Create a list to store the PV composites for all systems
     pv_composites = []
 
+    # Select track to process
+    selected_systems = select_systems("../results_kmeans/")
+
     # Get all directories in the LEC_RESULTS_DIR
     results_directories = sorted(glob(f'{LEC_RESULTS_DIR}/*'))
 
-    # Dummy directories for testing
-    results_directories = results_directories[:4]
+    # Convert selected systems to string for easier comparison
+    selected_systems_str = [str(system) for system in selected_systems]
+
+    # Filter directories
+    filtered_directories = [directory for directory in results_directories if any(system_id in directory for system_id in selected_systems_str)]
 
     # Determine the number of CPU cores to use
     max_cores = os.cpu_count()
@@ -287,7 +330,7 @@ def main():
     # Log start time and total number of systems
     start_time = time.time()
     formatted_start_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(start_time))
-    total_systems_count = len(results_directories)
+    total_systems_count = len(filtered_directories)
     logging.info(f"Starting {total_systems_count} cases at {formatted_start_time}")
 
     logging.info(f"Using {num_workers} CPU cores for processing")
@@ -295,7 +338,7 @@ def main():
     pv_composites = []
 
     with ProcessPoolExecutor(max_workers=num_workers) as executor:
-        futures = [executor.submit(process_system, dir_path) for dir_path in results_directories]
+        futures = [executor.submit(process_system, dir_path) for dir_path in filtered_directories]
         for future in as_completed(futures):
             result = future.result()
             if result is not None and np.any(result):
@@ -307,4 +350,5 @@ def main():
         save_composite(pv_composites, results_directories)
 
 if __name__ == "__main__":
+    CDSAPIRC_SUFFIXES = get_cdsapi_keys()
     main()
