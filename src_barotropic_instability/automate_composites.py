@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/24 14:42:50 by daniloceano       #+#    #+#              #
-#    Updated: 2024/04/30 21:52:12 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/04/30 22:59:22 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -97,13 +97,13 @@ def select_systems(results_directory):
 
 def process_system(system_dir):
 
-    # Pick a random .cdsapirc file for each process
-    if CDSAPIRC_SUFFIXES:
-        chosen_suffix = random.choice(CDSAPIRC_SUFFIXES)
-        copy_cdsapirc(chosen_suffix)
-        logging.info(f"Switched .cdsapirc file to {chosen_suffix}")
-    else:
-        logging.error("No .cdsapirc files found. Please check the configuration.")
+    # # Pick a random .cdsapirc file for each process
+    # if CDSAPIRC_SUFFIXES:
+    #     chosen_suffix = random.choice(CDSAPIRC_SUFFIXES)
+    #     copy_cdsapirc(chosen_suffix)
+    #     logging.info(f"Switched .cdsapirc file to {chosen_suffix}")
+    # else:
+    #     logging.error("No .cdsapirc files found. Please check the configuration.")
 
 
     try:
