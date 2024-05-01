@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/23 17:10:09 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/01 17:23:27 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/01 17:48:31 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -49,7 +49,7 @@ def plot_violin_plots(data, term, phases_order):
     plt.close()
 
 # Setup directories for figures
-figures_dir = '../figures_barotropic_instability'
+figures_dir = '../figures_barotropic_baroclinic_instability'
 os.makedirs(figures_dir, exist_ok=True)
 
 # Define the order and set of all possible phases
