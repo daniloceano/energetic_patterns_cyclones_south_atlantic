@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/24 14:42:50 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/01 01:35:02 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/01 17:00:32 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -38,38 +38,10 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 
 # REGION = sys.argv[1] # Region to process
 LEC_RESULTS_DIR = os.path.abspath('../../LEC_Results_energetic-patterns')  # Get absolute PATH
-CDSAPIRC_PATH = os.path.expanduser('~/.cdsapirc')
-
-def get_cdsapi_keys():
-    """
-    Lists all files in the home directory that match the pattern 'cdsapirc-*'.
-
-    Returns:
-    list: A list of filenames matching the pattern.
-    """
-    home_dir = os.path.expanduser('~')
-    pattern = os.path.join(home_dir, '.cdsapirc-*')
-    files = glob(pattern)
-    logging.info(f"CDSAPIRC files available at '{home_dir}': {files}")
-    # Extract file suffixes from the full paths
-    suffixes = [os.path.basename(file) for file in files]
-    return suffixes
-
-def copy_cdsapirc(suffix):
-    """
-    Copies a specific .cdsapirc file to the default .cdsapirc location.
-    Args:
-    suffix (str): The suffix of the .cdsapi file to be copied.
-    """
-    try:
-        source_path = os.path.expanduser(f'~/{suffix}')
-        subprocess.run(['cp', source_path, CDSAPIRC_PATH], check=True)
-        logging.info(f"Copied {source_path} to {CDSAPIRC_PATH}")
-    except Exception as e:
-        logging.error(f"Error copying {source_path} to {CDSAPIRC_PATH}: {e}")
 
 def select_systems(results_directory):
     """
+    Filter systems for the choosen clusters.
     """
     clusters_to_use = ["ARG_DJF_cl_2", "ARG_JJA_cl_1",
                        "LA-PLATA_DJF_cl_2", "LA-PLATA_JJA_cl_2",
@@ -96,16 +68,10 @@ def select_systems(results_directory):
     return selected_systems
 
 def process_system(system_dir):
-
-    # # Pick a random .cdsapirc file for each process
-    # if CDSAPIRC_SUFFIXES:
-    #     chosen_suffix = random.choice(CDSAPIRC_SUFFIXES)
-    #     copy_cdsapirc(chosen_suffix)
-    #     logging.info(f"Switched .cdsapirc file to {chosen_suffix}")
-    # else:
-    #     logging.error("No .cdsapirc files found. Please check the configuration.")
-
-
+    """
+    Process the selected system.
+    """
+    # Get track and periods data
     try:
         logging.info(f"Processing started for {system_dir}")
         track_file = glob(f'{system_dir}/*trackfile')[0]  # Assuming filename pattern
@@ -114,6 +80,7 @@ def process_system(system_dir):
         logging.error(f"Did not find files for {system_dir}: {e}")
         return None     
 
+    # Load track and periods data
     try:
         track = pd.read_csv(track_file, index_col=0, sep=';')
         track.index = pd.to_datetime(track.index)
@@ -122,10 +89,10 @@ def process_system(system_dir):
         logging.error(f"Error reading files for {system_dir}: {e}")
         return None
     
+    # Check if both track and periods data are available
     if track.empty or periods.empty:
         logging.info(f"No track or periods data for {system_dir}")
         return None
-
     if 'intensification' not in periods.index:
         logging.info(f"No intensification phase data for {system_dir}")
         return None
@@ -138,20 +105,17 @@ def process_system(system_dir):
         logging.info(f"No intensification phase data for {system_dir}")
         return None
 
-    # Load ERA5 data
-    system_id = os.path.basename(system_dir).split('_')[0]
-    
-    infile = get_cdsapi_era5_data(system_id, track)
-    
-    pv_mean = create_pv_composite(infile, track)
-
+    # Process the system
+    system_id = os.path.basename(system_dir).split('_')[0] # Load ERA5 data
+    infile = get_cdsapi_era5_data(system_id, track) # Get ERA5 data
+    pv_mean = create_pv_composite(infile, track) # Make PV composite
     logging.info(f"Processing completed for {system_dir}")
 
     # Delete infile
     if os.path.exists(infile):
         os.remove(infile)
 
-    return pv_mean  # or any data structure you are processing
+    return pv_mean 
 
 def get_cdsapi_era5_data(track_id: str, track: pd.DataFrame) -> xr.Dataset:
 
