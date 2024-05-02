@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/23 17:10:09 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/02 10:55:07 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/02 10:58:48 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -86,8 +86,7 @@ figures_dir = '../figures_barotropic_baroclinic_instability'
 os.makedirs(figures_dir, exist_ok=True)
 
 # Define the order and set of all possible phases
-phases_order = ['incipient', 'intensification', 'mature', 'decay', 
-                'intensification 2', 'mature 2', 'decay 2']
+phases_order = ['incipient', 'intensification', 'mature', 'decay']
 
 # Get all directories containing event data
 directories_paths = glob('../../LEC_Results_energetic-patterns/*')
