@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/24 14:42:50 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/02 10:30:36 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/02 10:36:34 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -36,34 +36,6 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 
 # REGION = sys.argv[1] # Region to process
 LEC_RESULTS_DIR = os.path.abspath('../../LEC_Results_energetic-patterns')  # Get absolute PATH
-
-def select_systems(results_directory):
-    """
-    Filter systems for the choosen clusters.
-    """
-    clusters_to_use = ["ARG_DJF_cl_2", "ARG_JJA_cl_1",
-                       "LA-PLATA_DJF_cl_2", "LA-PLATA_JJA_cl_2",
-                       "SE-BR_DJF_cl_2", "SE-BR_JJA_cl_3"]
-    
-    selected_systems = []
-
-    for cluster in clusters_to_use:
-        # Get information about the cluster
-        region, season = cluster.split('_')[:2]
-        cluster_number = cluster.split('_')[3]
-
-        # Open cluster json file
-        system_dir = os.path.join(results_directory, f"{region}_{season}", "IcItMD")
-        json_file = glob(f"{system_dir}/*.json")[0]
-        df_system = pd.read_json(json_file)
-
-        # Get system IDs
-        cluster_ids = df_system[f'Cluster {cluster_number}']['Cyclone IDs']
-
-        for system_id in cluster_ids:
-            selected_systems.append(int(system_id))
-
-    return selected_systems
 
 def process_system(system_dir):
     """
@@ -293,11 +265,11 @@ def main():
     # Create a list to store the PV composites for all systems
     pv_composites = []
 
-    # Select track to process
-    selected_systems = select_systems("../results_kmeans/")
-
     # Get all directories in the LEC_RESULTS_DIR
     results_directories = sorted(glob(f'{LEC_RESULTS_DIR}/*'))
+
+    # Select track to process
+    selected_systems = pd.read_csv('systems_to_be_analysed.txt', header=None)[0].tolist()
 
     # Convert selected systems to string for easier comparison
     selected_systems_str = [str(system) for system in selected_systems]
