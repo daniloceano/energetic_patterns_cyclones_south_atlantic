@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/23 15:00:18 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/01 17:13:50 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/02 15:04:24 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -44,9 +44,16 @@ def plot_violin_plot(df, term):
 figures_dir = '../figures_barotropic_baroclinic_instability'
 os.makedirs(figures_dir, exist_ok=True)
 
+# Select track to process
+directories_paths = glob('../../LEC_Results_energetic-patterns/*')
+selected_systems = pd.read_csv('systems_to_be_analysed.txt', header=None)[0].tolist()
+selected_systems = pd.read_csv('systems_to_be_analysed.txt', header=None)[0].tolist()
+selected_systems_str = [str(system) for system in selected_systems]
+filtered_directories = [directory for directory in directories_paths if any(system_id in directory for system_id in selected_systems_str)]
+
 # Step 1: Get all file paths
-ck_paths = glob('../../LEC_Results_energetic-patterns/*/Ck_level.csv')
-ca_paths = glob('../../LEC_Results_energetic-patterns/*/Ca_level.csv')
+ck_paths = [os.path.join(directory, 'Ck_level.csv') for directory in filtered_directories]
+ca_paths = [os.path.join(directory, 'Ca_level.csv') for directory in filtered_directories]
 
 # Step 2: Use ProcessPoolExecutor to read files in parallel
 with ProcessPoolExecutor() as executor:

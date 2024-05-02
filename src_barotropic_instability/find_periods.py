@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/23 17:10:09 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/02 11:04:53 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/02 14:37:22 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -57,12 +57,12 @@ def process_event_directory(event_dir):
 def plot_boxplots_all_phases(data, term, phases_order):
     plt.figure(figsize=(14, 8))
     sns.boxplot(x='phase', y='value', data=data, order=phases_order, showfliers=False)
+    plt.axhline(y=0, color='r', linestyle='-', linewidth=1.25)
     plt.ylabel(f'{term.capitalize()} {term} (W/m²)')
     plt.xlabel('Phase')
     plt.xticks(rotation=45)
     plt.tight_layout()
     plt.savefig(f'{figures_dir}/boxplot_{term}_all_phases_all_systems.png')
-    plt.show()
     plt.close()
 
 def plot_boxplots_each_phase(data, term, phases_order):
@@ -72,6 +72,7 @@ def plot_boxplots_each_phase(data, term, phases_order):
         if data[data['phase'] == phase].empty:
             continue
         sns.boxplot(x='level', y='value', data=data[data['phase'] == phase], ax=axes[i], showfliers=False)
+        axes[i].axhline(y=0, color='r', linestyle='-', linewidth=1.25)
         axes[i].set_title(f'{phase}')
         axes[i].set_ylabel(f'{term.capitalize()} {term} (W/m²)')
         axes[i].set_xlabel('Vertical Level (hPa)')
