@@ -1,2 +1,51 @@
-2024-05-02 10:29:38,145 - INFO - Processing started for /Users/danilocoutodesouza/Documents/Programs_and_scripts/LEC_Results_energetic-patterns/20141124_ERA5_track
-2024-05-02 10:29:38,162 - INFO - CDS API file already exists.
+2024-05-02 16:38:57,686 - INFO - Using 4 CPU cores
+2024-05-02 16:38:57,686 - INFO - Starting 220 cases at 2024-05-02 16:38:57
+2024-05-02 16:38:57,686 - INFO - Using 4 CPU cores for processing
+2024-05-02 16:38:57,803 - INFO - Processing started for /home/daniloceano/Documents/Programs_and_scripts/LEC_Results_energetic-patterns/19790079_ERA5_track
+2024-05-02 16:38:57,849 - INFO - Processing started for /home/daniloceano/Documents/Programs_and_scripts/LEC_Results_energetic-patterns/19790644_ERA5_track
+2024-05-02 16:38:57,860 - INFO - Retrieving data from CDS API...
+2024-05-02 16:38:57,917 - INFO - Processing started for /home/daniloceano/Documents/Programs_and_scripts/LEC_Results_energetic-patterns/19790664_ERA5_track
+2024-05-02 16:38:57,928 - INFO - Retrieving data from CDS API...
+2024-05-02 16:38:57,941 - INFO - Processing started for /home/daniloceano/Documents/Programs_and_scripts/LEC_Results_energetic-patterns/19790690_ERA5_track
+2024-05-02 16:38:57,972 - INFO - Retrieving data from CDS API...
+2024-05-02 16:38:57,994 - INFO - Retrieving data from CDS API...
+2024-05-02 16:38:58,889 - INFO - Welcome to the CDS
+2024-05-02 16:38:58,889 - INFO - Sending request to https://cds.climate.copernicus.eu/api/v2/resources/reanalysis-era5-pressure-levels
+2024-05-02 16:38:58,969 - INFO - Welcome to the CDS
+2024-05-02 16:38:58,970 - INFO - Sending request to https://cds.climate.copernicus.eu/api/v2/resources/reanalysis-era5-pressure-levels
+2024-05-02 16:38:58,991 - INFO - Welcome to the CDS
+2024-05-02 16:38:58,991 - INFO - Sending request to https://cds.climate.copernicus.eu/api/v2/resources/reanalysis-era5-pressure-levels
+2024-05-02 16:38:59,013 - INFO - Welcome to the CDS
+2024-05-02 16:38:59,013 - INFO - Sending request to https://cds.climate.copernicus.eu/api/v2/resources/reanalysis-era5-pressure-levels
+2024-05-02 16:38:59,175 - INFO - Request is queued
+2024-05-02 16:38:59,232 - INFO - Request is queued
+2024-05-02 16:38:59,299 - INFO - Request is queued
+2024-05-02 16:38:59,302 - INFO - Request is queued
+2024-05-02 16:39:00,432 - INFO - Request is running
+2024-05-02 16:39:21,510 - INFO - Request is completed
+2024-05-02 16:39:21,511 - INFO - Downloading https://download-0004-clone.copernicus-climate.eu/cache-compute-0004/cache/data7/adaptor.mars.internal-1714678756.3727887-27489-4-816e139e-f463-4885-a448-97c5ac0391d5.nc to 19790079-pv-egr.nc (14.5M)
+2024-05-02 16:39:21,632 - INFO - Request is running
+2024-05-02 16:39:31,288 - INFO - Download rate 1.5M/s
+2024-05-02 16:39:33,250 - INFO - Request is running
+2024-05-02 16:39:33,291 - INFO - Request is completed
+2024-05-02 16:39:33,292 - INFO - Downloading https://download-0014-clone.copernicus-climate.eu/cache-compute-0014/cache/data1/adaptor.mars.internal-1714678770.2276769-19229-7-6778d14e-34ff-44cf-a943-d0663221d9fc.nc to 19790664-pv-egr.nc (13.7M)
+2024-05-02 16:39:49,744 - INFO - Processing started for /home/daniloceano/Documents/Programs_and_scripts/LEC_Results_energetic-patterns/19791150_ERA5_track
+2024-05-02 16:39:49,788 - INFO - Retrieving data from CDS API...
+2024-05-02 16:39:50,039 - INFO - Welcome to the CDS
+2024-05-02 16:39:50,039 - INFO - Sending request to https://cds.climate.copernicus.eu/api/v2/resources/reanalysis-era5-pressure-levels
+2024-05-02 16:39:50,334 - INFO - Request is queued
+2024-05-02 16:40:12,698 - INFO - Request is running
+2024-05-02 16:40:16,546 - INFO - Request is completed
+2024-05-02 16:40:16,548 - INFO - Downloading https://download-0018.copernicus-climate.eu/cache-compute-0018/cache/data0/adaptor.mars.internal-1714678808.1831346-16954-18-e0310131-0a34-4a75-a41b-269bd408f2b0.nc to 19790690-pv-egr.nc (18.6M)
+2024-05-02 16:40:16,984 - INFO - Request is completed
+2024-05-02 16:40:16,986 - INFO - Downloading https://download-0012-clone.copernicus-climate.eu/cache-compute-0012/cache/data0/adaptor.mars.internal-1714678789.8310175-29892-10-e2cc6dc8-98a9-44e7-bc12-1c071a49742c.nc to 19790644-pv-egr.nc (31.6M)
+2024-05-02 16:40:41,711 - INFO - Request is completed
+2024-05-02 16:40:41,711 - INFO - Downloading https://download-0003-clone.copernicus-climate.eu/cache-compute-0003/cache/data7/adaptor.mars.internal-1714678826.4506514-31927-15-95c046a1-cba8-4060-a59d-7dadb8b79b69.nc to 19791150-pv-egr.nc (20.6M)
+2024-05-02 16:41:06,430 - INFO - Download rate 150.4K/s
+2024-05-02 16:41:07,471 - INFO - Processing started for /home/daniloceano/Documents/Programs_and_scripts/LEC_Results_energetic-patterns/19800114_ERA5_track
+2024-05-02 16:41:07,523 - INFO - Retrieving data from CDS API...
+2024-05-02 16:41:07,778 - INFO - Welcome to the CDS
+2024-05-02 16:41:07,778 - INFO - Sending request to https://cds.climate.copernicus.eu/api/v2/resources/reanalysis-era5-pressure-levels
+2024-05-02 16:41:08,093 - INFO - Request is queued
+2024-05-02 16:41:09,350 - INFO - Request is running
+2024-05-02 16:41:10,368 - INFO - Download rate 353.6K/s

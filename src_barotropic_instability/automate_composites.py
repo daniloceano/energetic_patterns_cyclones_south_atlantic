@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/24 14:42:50 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/02 16:33:13 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/02 16:41:25 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -211,7 +211,7 @@ def create_pv_composite(infile, track):
 
     # Create a DataArray using an extra dimension for the type of PV
     x, y = np.arange(pv_baroclinic_mean.shape[1]), np.arange(pv_baroclinic_mean.shape[0])
-    track_id = int(infile.split('.')[0])
+    track_id = int(infile.split('.')[0].split('-')[0])
 
     # Create DataArrays
     da_baroclinic = xr.DataArray(
@@ -345,9 +345,6 @@ def main():
 
     # Filter directories
     filtered_directories = [directory for directory in results_directories if any(system_id in directory for system_id in selected_systems_str)]
-
-    ######### For testing #########
-    filtered_directories = results_directories[:4]
 
     # # Determine the number of CPU cores to use
     if len(sys.argv) > 1:
