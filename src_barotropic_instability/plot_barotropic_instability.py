@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/23 19:56:13 by daniloceano       #+#    #+#              #
-#    Updated: 2024/04/30 20:34:56 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/02 18:28:31 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -26,7 +26,8 @@ import matplotlib.ticker as ticker
 
 TITLE_SIZE = 16
 TICK_LABEL_SIZE = 12
-FIGURES_DIR = '../figures_barotropic_instability'
+FIGURES_DIR = '../figures_barotropic_baroclinic_instability'
+CRS = ccrs.PlateCarree()
 
 def load_and_prepare_data(filepath):
     """Load dataset and prepare data for plotting."""
@@ -35,21 +36,8 @@ def load_and_prepare_data(filepath):
     pv_barotropic = ds.pv_barotropic
     pv_baroclinic_derivative = pv_baroclinic.diff('y')
     pv_barotropic_derivative = pv_barotropic.diff('y')
+
     return pv_baroclinic, pv_barotropic, pv_baroclinic_derivative, pv_barotropic_derivative
-
-def configure_plot():
-    """Set up the plot configuration and return axes."""
-    crs_longlat = ccrs.PlateCarree()
-    fig = plt.figure(figsize=(16, 12))  # Adjust overall figure size to fit your needs
-    # Setup GridSpec with different width ratios for each column
-    gs = gridspec.GridSpec(2, 3, width_ratios=[1, 1, 0.5])  # Reduce the width of the third column
-
-    axes = []
-    for i in range(6):
-        if i % 3 != 2:  # Apply geographic projection to the first two columns
-            axes.append(fig.add_subplot(gs[i], projection=crs_longlat))
-        else:  # The third column in each row without projection and narrower
-            axes.append(fig.add_subplot(gs[i]))
 
     return fig, axes
 
@@ -74,35 +62,70 @@ def determine_norm_bounds(data, factor=1.0):
 def main(filepath='pv_composite_mean.nc'):
     pv_baroclinic, pv_barotropic, pv_baroclinic_derivative, pv_barotropic_derivative = load_and_prepare_data(filepath)
     
-    # Set up plot
-    fig, axes = configure_plot()
-    
-    # First row for Baroclinic PV and its derivative
-    plot_map(axes[0], pv_baroclinic, cmo.balance, r'$PV_{BC}$')
-    plot_map(axes[1], pv_baroclinic_derivative, cmo.curl, r'$\frac{\partial PV_{BC}}{\partial y}$')
-    axes[2].plot(pv_baroclinic_derivative.mean('x'), np.arange(len(pv_baroclinic_derivative.mean('x'))),
-                 color='#003049', linewidth=3)
-    axes[2].axvline(0, color='#c1121f', linestyle='--', linewidth=0.5)
-    axes[2].set_title(r'$\frac{\partial PV_{BC}}{\partial y}$' + ' lon mean', fontsize=TITLE_SIZE)
-    axes[2].set_yticks([])
-    axes[2].tick_params(axis='x', labelsize=TICK_LABEL_SIZE)
-
-    # Second row for Barotropic PV and its derivative
-    plot_map(axes[3], pv_barotropic, cmo.balance, r'$PV_{BT}$')
-    plot_map(axes[4], pv_barotropic_derivative, cmo.curl, r'$\frac{\partial PV_{BT}}{\partial y}$')
-    axes[5].plot(pv_barotropic_derivative.mean('x'), np.arange(len(pv_barotropic_derivative.mean('x'))),
-                 color='#003049', linewidth=3)
-    axes[5].axvline(0, color='#c1121f', linestyle='--', linewidth=0.5)
-    axes[5].set_title(r'$\frac{\partial PV_{BT}}{\partial y}$' + ' lon mean', fontsize=TITLE_SIZE)
-    axes[5].set_yticks([])
-    axes[5].tick_params(axis='x', labelsize=TICK_LABEL_SIZE)
-
-    plt.tight_layout()
-
-    filename = 'pv_composite.png'
+    # Baroclinic PV
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection=CRS)
+    plot_map(ax, pv_baroclinic, cmo.balance, r'$PV$')
+    filename = 'pv_baroclinic_composite.png'
     file_path = os.path.join(FIGURES_DIR, filename)
     plt.savefig(file_path)
     print(f'Saved {filename}')
+
+    # Barotropic PV derivative
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection=CRS)
+    plot_map(ax, pv_baroclinic_derivative, cmo.curl, r'$\frac{\partial PV}{\partial y}$')
+    filename = 'pv_baroclinic_composite_derivative.png'
+    file_path = os.path.join(FIGURES_DIR, filename)
+    plt.savefig(file_path)
+    print(f'Saved {filename}')
+
+    # Baroclinic PV derivative lon mean
+    fig = plt.figure(figsize=(5, 5))
+    ax = plt.gca()
+    ax.plot(pv_baroclinic_derivative.mean('x'), np.arange(len(pv_baroclinic_derivative.mean('x'))),
+                 color='#003049', linewidth=3)
+    ax.axvline(0, color='#c1121f', linestyle='--', linewidth=0.5)
+    ax.set_title(r'$\frac{\partial PV}{\partial y}$' + ' lon mean', fontsize=TITLE_SIZE)
+    ax.set_yticks([])
+    plt.tick_params(axis='x', labelsize=TICK_LABEL_SIZE)
+    filename = 'pv_baroclinic_composite_derivative_lon_mean.png'
+    file_path = os.path.join(FIGURES_DIR, filename)
+    plt.savefig(file_path)
+    print(f'Saved {filename}')
+
+    # Absolute Vorticity 
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection=CRS)
+    plot_map(ax, pv_barotropic, cmo.balance, r'$\eta$')
+    filename = 'absolute_vorticity_composite.png'
+    file_path = os.path.join(FIGURES_DIR, filename)
+    plt.savefig(file_path)
+    print(f'Saved {filename}')
+
+    # Absolute Vorticity derivative
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection=CRS)
+    plot_map(ax, pv_barotropic_derivative, cmo.curl, r'$\frac{\partial \eta}{\partial y}$')
+    filename = 'absolute_vorticity_composite_derivative.png'
+    file_path = os.path.join(FIGURES_DIR, filename)
+    plt.savefig(file_path)
+    print(f'Saved {filename}')
+
+    # Absolute Vorticity derivative lon mean
+    fig = plt.figure(figsize=(5, 5))
+    ax = plt.gca()
+    ax.plot(pv_barotropic_derivative.mean('x'), np.arange(len(pv_barotropic_derivative.mean('x'))),
+                 color='#003049', linewidth=3)
+    ax.axvline(0, color='#c1121f', linestyle='--', linewidth=0.5)
+    ax.set_title(r'$\frac{\partial \eta}{\partial y}$' + ' lon mean', fontsize=TITLE_SIZE)
+    ax.set_yticks([])
+    ax.tick_params(axis='x', labelsize=TICK_LABEL_SIZE)
+    filename = 'absolute_vorticity_composite_derivative_lon_mean.png'
+    file_path = os.path.join(FIGURES_DIR, filename)
+    fig.savefig(file_path)
+    print(f'Saved {filename}')
+    
 
 if __name__ == '__main__':
     main()
