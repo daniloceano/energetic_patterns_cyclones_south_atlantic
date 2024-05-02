@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/24 14:42:50 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/01 17:00:32 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/02 10:30:36 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -19,10 +19,8 @@ import sys
 import os
 import time
 import logging
-import random
 import pandas as pd
 import numpy as np
-import subprocess
 import xarray as xr
 import cdsapi
 import math
@@ -182,6 +180,21 @@ def get_cdsapi_era5_data(track_id: str, track: pd.DataFrame) -> xr.Dataset:
     else:
         logging.info("CDS API file already exists.")
         return infile
+    
+def calculate_eady_growth_rate(u, theta, pressure, f):
+    # Calculate the derivative of U with respect to log-pressure
+    dudp = u.differentiate("level")
+    
+    # Calculate the derivative of theta with respect to log-pressure
+    dthetadp = theta.differentiate("level")
+    
+    # Calculate Brunt-Väisälä Frequency (N)
+    N = np.sqrt((9.81 / theta) * (-dthetadp))
+    
+    # Calculate Eady Growth Rate
+    EGR = 0.31 * (np.abs(f) / N) * np.abs(dudp)
+
+    return EGR
 
 def create_pv_composite(infile, track):
     # Load the dataset
@@ -203,9 +216,13 @@ def create_pv_composite(infile, track):
     pv_baroclinic = metpy.calc.potential_vorticity_baroclinic(potential_temperature, pressure, u, v)
     pv_barotropic = zeta + f
 
+    # Calculate Eady Growth Rate
+    eady_growth_rate = calculate_eady_growth_rate(u, potential_temperature, pressure, f)
+
     # Select the 250 hPa level
     pv_baroclinic_250 = pv_baroclinic.sel(level=250)
     pv_barotropic_250 = pv_barotropic.sel(level=250)
+    eady_growth_rate_250 = eady_growth_rate.sel(level=250)
 
     pv_baroclinic_slices_system, pv_barotropic_slices_system = [], []
     for time_step in track.index:
@@ -273,9 +290,6 @@ def save_composite(pv_composites, results_directories):
     logging.info(f"Finished {len(results_directories)} cases at {formatted_end_time}")
 
 def main():
-    # Get CDS API keys
-    cdsapi_keys = get_cdsapi_keys()
-
     # Create a list to store the PV composites for all systems
     pv_composites = []
 
@@ -291,11 +305,16 @@ def main():
     # Filter directories
     filtered_directories = [directory for directory in results_directories if any(system_id in directory for system_id in selected_systems_str)]
 
+    ######### For testing #########
+    filtered_directories = results_directories[:4]
+
     # # Determine the number of CPU cores to use
-    # max_cores = os.cpu_count()
-    # num_workers = max(1, max_cores - 4) if max_cores else 1
-    # logging.info(f"Using {num_workers} CPU cores")
-    num_workers = 20
+    if len(sys.argv) > 1:
+        num_workers = int(sys.argv[1])
+    else:
+        max_cores = os.cpu_count()
+        num_workers = max(1, max_cores - 4) if max_cores else 1
+        logging.info(f"Using {num_workers} CPU cores")
 
     # Log start time and total number of systems
     start_time = time.time()
@@ -320,5 +339,4 @@ def main():
         save_composite(pv_composites, results_directories)
 
 if __name__ == "__main__":
-    CDSAPIRC_SUFFIXES = get_cdsapi_keys()
     main()
