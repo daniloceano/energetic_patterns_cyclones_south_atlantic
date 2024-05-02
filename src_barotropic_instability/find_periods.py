@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/23 17:10:09 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/02 10:45:23 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/02 10:55:07 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -105,7 +105,7 @@ all_ca_data = pd.DataFrame()
 # Use ThreadPoolExecutor to process directories in parallel
 with ThreadPoolExecutor(max_workers=4) as executor:
     # Prepare futures and a dict to track them
-    futures = [executor.submit(process_event_directory, dir_path) for dir_path in directories_paths]
+    futures = [executor.submit(process_event_directory, dir_path) for dir_path in filtered_directories]
     # Wrap futures with tqdm for a progress bar
     for future in tqdm(as_completed(futures), total=len(futures), desc="Processing Events"):
         ck_data, ca_data = future.result()
