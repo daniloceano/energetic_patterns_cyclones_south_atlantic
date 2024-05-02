@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/23 17:10:09 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/02 10:58:48 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/02 11:04:53 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -54,9 +54,9 @@ def process_event_directory(event_dir):
         return pd.DataFrame(), pd.DataFrame()  # Return empty DataFrames in case of an error
 
 
-def plot_boxplots(data, term, phases_order):
+def plot_boxplots_all_phases(data, term, phases_order):
     plt.figure(figsize=(14, 8))
-    sns.boxplot(x='phase', y='value', data=data, order=phases_order, whis=(0, 100))
+    sns.boxplot(x='phase', y='value', data=data, order=phases_order, showfliers=False)
     plt.ylabel(f'{term.capitalize()} {term} (W/m²)')
     plt.xlabel('Phase')
     plt.xticks(rotation=45)
@@ -65,13 +65,13 @@ def plot_boxplots(data, term, phases_order):
     plt.show()
     plt.close()
 
-def plot_violin_plots(data, term, phases_order):
+def plot_boxplots_each_phase(data, term, phases_order):
     fig, axes = plt.subplots(nrows=len(phases_order), figsize=(12, 2 * len(phases_order)), sharex=True)
 
     for i, phase in enumerate(phases_order):
         if data[data['phase'] == phase].empty:
             continue
-        sns.boxplot(x='level', y='value', data=data[data['phase'] == phase], ax=axes[i], whis=(0, 100))
+        sns.boxplot(x='level', y='value', data=data[data['phase'] == phase], ax=axes[i], showfliers=False)
         axes[i].set_title(f'{phase}')
         axes[i].set_ylabel(f'{term.capitalize()} {term} (W/m²)')
         axes[i].set_xlabel('Vertical Level (hPa)')
@@ -115,7 +115,7 @@ with ThreadPoolExecutor(max_workers=4) as executor:
 all_ck_data = all_ck_data.dropna(subset=['value'])
 all_ca_data = all_ca_data.dropna(subset=['value'])
 
-plot_boxplots(all_ck_data, 'ck', phases_order)
-plot_boxplots(all_ca_data, 'ca', phases_order)
-plot_violin_plots(all_ck_data, 'ck', phases_order)
-plot_violin_plots(all_ca_data, 'ca', phases_order)
+plot_boxplots_all_phases(all_ck_data, 'ck', phases_order)
+plot_boxplots_all_phases(all_ca_data, 'ca', phases_order)
+plot_boxplots_each_phase(all_ck_data, 'ck', phases_order)
+plot_boxplots_each_phase(all_ca_data, 'ca', phases_order)

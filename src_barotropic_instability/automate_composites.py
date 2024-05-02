@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/24 14:42:50 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/02 10:36:34 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/02 11:02:53 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -102,7 +102,7 @@ def get_cdsapi_era5_data(track_id: str, track: pd.DataFrame) -> xr.Dataset:
     # Define the area for the request
     area = f"{buffered_max_lat}/{buffered_min_lon}/{buffered_min_lat}/{buffered_max_lon}" # North, West, South, East. Nort/West/Sout/East
 
-    pressure_levels = ['200', '250', '300']
+    pressure_levels = ['200', '250', '300', '350', '400', '450']
     
     variables = ["u_component_of_wind", "v_component_of_wind", "temperature"]
     
@@ -194,7 +194,7 @@ def create_pv_composite(infile, track):
     # Select the 250 hPa level
     pv_baroclinic_250 = pv_baroclinic.sel(level=250)
     pv_barotropic_250 = pv_barotropic.sel(level=250)
-    eady_growth_rate_250 = eady_growth_rate.sel(level=250)
+    eady_growth_rate_400 = eady_growth_rate.sel(level=250)
 
     pv_baroclinic_slices_system, pv_barotropic_slices_system = [], []
     for time_step in track.index:
