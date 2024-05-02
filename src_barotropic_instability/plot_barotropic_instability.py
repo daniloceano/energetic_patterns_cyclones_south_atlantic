@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/23 19:56:13 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/02 18:28:31 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/02 18:39:54 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -32,14 +32,13 @@ CRS = ccrs.PlateCarree()
 def load_and_prepare_data(filepath):
     """Load dataset and prepare data for plotting."""
     ds = xr.open_dataset(filepath)
-    pv_baroclinic = ds.pv_baroclinic
-    pv_barotropic = ds.pv_barotropic
+    pv_baroclinic = ds['pv_baroclinic']
+    absolute_vorticity = ds['absolute_vorticity']
     pv_baroclinic_derivative = pv_baroclinic.diff('y')
-    pv_barotropic_derivative = pv_barotropic.diff('y')
+    absolute_vorticity_derivative = absolute_vorticity.diff('y')
 
-    return pv_baroclinic, pv_barotropic, pv_baroclinic_derivative, pv_barotropic_derivative
+    return pv_baroclinic, absolute_vorticity, pv_baroclinic_derivative, absolute_vorticity_derivative
 
-    return fig, axes
 
 def plot_map(ax, data, cmap, title, transform=ccrs.PlateCarree()):
     """Plot potential vorticity using dynamic normalization based on data values."""
@@ -59,8 +58,8 @@ def determine_norm_bounds(data, factor=1.0):
     max_abs_value = max(abs(data_min), abs(data_max)) * factor
     return -max_abs_value, max_abs_value
 
-def main(filepath='pv_composite_mean.nc'):
-    pv_baroclinic, pv_barotropic, pv_baroclinic_derivative, pv_barotropic_derivative = load_and_prepare_data(filepath)
+def main(filepath='pv_egr_composite_mean.nc'):
+    pv_baroclinic, absolute_vorticity, pv_baroclinic_derivative, absolute_vorticity_derivative = load_and_prepare_data(filepath)
     
     # Baroclinic PV
     fig = plt.figure()
@@ -97,7 +96,7 @@ def main(filepath='pv_composite_mean.nc'):
     # Absolute Vorticity 
     fig = plt.figure()
     ax = fig.add_subplot(111, projection=CRS)
-    plot_map(ax, pv_barotropic, cmo.balance, r'$\eta$')
+    plot_map(ax, absolute_vorticity, cmo.balance, r'$\eta$')
     filename = 'absolute_vorticity_composite.png'
     file_path = os.path.join(FIGURES_DIR, filename)
     plt.savefig(file_path)
@@ -106,7 +105,7 @@ def main(filepath='pv_composite_mean.nc'):
     # Absolute Vorticity derivative
     fig = plt.figure()
     ax = fig.add_subplot(111, projection=CRS)
-    plot_map(ax, pv_barotropic_derivative, cmo.curl, r'$\frac{\partial \eta}{\partial y}$')
+    plot_map(ax, absolute_vorticity_derivative, cmo.curl, r'$\frac{\partial \eta}{\partial y}$')
     filename = 'absolute_vorticity_composite_derivative.png'
     file_path = os.path.join(FIGURES_DIR, filename)
     plt.savefig(file_path)
@@ -115,7 +114,7 @@ def main(filepath='pv_composite_mean.nc'):
     # Absolute Vorticity derivative lon mean
     fig = plt.figure(figsize=(5, 5))
     ax = plt.gca()
-    ax.plot(pv_barotropic_derivative.mean('x'), np.arange(len(pv_barotropic_derivative.mean('x'))),
+    ax.plot(absolute_vorticity_derivative.mean('x'), np.arange(len(absolute_vorticity_derivative.mean('x'))),
                  color='#003049', linewidth=3)
     ax.axvline(0, color='#c1121f', linestyle='--', linewidth=0.5)
     ax.set_title(r'$\frac{\partial \eta}{\partial y}$' + ' lon mean', fontsize=TITLE_SIZE)
