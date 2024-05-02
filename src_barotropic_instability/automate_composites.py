@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/24 14:42:50 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/02 11:02:53 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/02 16:33:13 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -37,57 +37,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 # REGION = sys.argv[1] # Region to process
 LEC_RESULTS_DIR = os.path.abspath('../../LEC_Results_energetic-patterns')  # Get absolute PATH
 
-def process_system(system_dir):
-    """
-    Process the selected system.
-    """
-    # Get track and periods data
-    try:
-        logging.info(f"Processing started for {system_dir}")
-        track_file = glob(f'{system_dir}/*trackfile')[0]  # Assuming filename pattern
-        periods_file = glob(f'{system_dir}/*periods.csv')[0]
-    except Exception as e:
-        logging.error(f"Did not find files for {system_dir}: {e}")
-        return None     
-
-    # Load track and periods data
-    try:
-        track = pd.read_csv(track_file, index_col=0, sep=';')
-        track.index = pd.to_datetime(track.index)
-        periods = pd.read_csv(periods_file, index_col=0, parse_dates=['start', 'end'])
-    except Exception as e:
-        logging.error(f"Error reading files for {system_dir}: {e}")
-        return None
-    
-    # Check if both track and periods data are available
-    if track.empty or periods.empty:
-        logging.info(f"No track or periods data for {system_dir}")
-        return None
-    if 'intensification' not in periods.index:
-        logging.info(f"No intensification phase data for {system_dir}")
-        return None
-
-    # Filter for intensification phase only
-    intensification_start = periods.loc['intensification', 'start']
-    intensification_end = periods.loc['intensification', 'end']
-    track = track[(track.index >= intensification_start) & (track.index <= intensification_end)]
-    if track.empty:
-        logging.info(f"No intensification phase data for {system_dir}")
-        return None
-
-    # Process the system
-    system_id = os.path.basename(system_dir).split('_')[0] # Load ERA5 data
-    infile = get_cdsapi_era5_data(system_id, track) # Get ERA5 data
-    pv_mean = create_pv_composite(infile, track) # Make PV composite
-    logging.info(f"Processing completed for {system_dir}")
-
-    # Delete infile
-    if os.path.exists(infile):
-        os.remove(infile)
-
-    return pv_mean 
-
-def get_cdsapi_era5_data(track_id: str, track: pd.DataFrame) -> xr.Dataset:
+def get_cdsapi_era5_data(filename: str, track: pd.DataFrame, pressure_levels: list, variables: list) -> xr.Dataset:
 
     # Extract bounding box (lat/lon limits) from track
     min_lat, max_lat = track['Lat'].min(), track['Lat'].max()
@@ -101,10 +51,6 @@ def get_cdsapi_era5_data(track_id: str, track: pd.DataFrame) -> xr.Dataset:
 
     # Define the area for the request
     area = f"{buffered_max_lat}/{buffered_min_lon}/{buffered_min_lat}/{buffered_max_lon}" # North, West, South, East. Nort/West/Sout/East
-
-    pressure_levels = ['200', '250', '300', '350', '400', '450']
-    
-    variables = ["u_component_of_wind", "v_component_of_wind", "temperature"]
     
     # Convert track index to DatetimeIndex and find the last date & time
     track_datetime_index = pd.DatetimeIndex(track.index)
@@ -121,13 +67,12 @@ def get_cdsapi_era5_data(track_id: str, track: pd.DataFrame) -> xr.Dataset:
         dates = np.append(dates, additional_day)
 
     # Convert unique dates to string format for the request
-    # dates = track.index.strftime('%Y%m%d').unique().tolist()
     time_range = f"{dates[0]}/{dates[-1]}"
     time_step = str(int((track.index[1] - track.index[0]).total_seconds() / 3600))
     time_step = '3' if time_step < '3' else time_step
 
     # Load ERA5 data
-    infile = f"{track_id}.nc"
+    infile = f"{filename}.nc"
 
     if not os.path.exists(infile):
         logging.info("Retrieving data from CDS API...")
@@ -168,6 +113,45 @@ def calculate_eady_growth_rate(u, theta, pressure, f):
 
     return EGR
 
+def calculate_thermal_wind(ds, lower_level, upper_level):
+    """
+    Calculate the thermal wind between two pressure levels.
+
+    Parameters:
+        ds (xarray.Dataset): Dataset containing the temperature and geopotential height.
+        lower_level (int): Lower pressure level in hPa.
+        upper_level (int): Upper pressure level in hPa.
+
+    Returns:
+        xarray.DataArray: Thermal wind vector components (u, v) at mid-level between input levels.
+    """
+    # Ensure the data is properly attached with units
+    ds = ds.metpy.quantify()
+
+    # Select the temperature and geopotential height at specified levels
+    T_lower = ds['t'].metpy.sel(vertical=lower_level * units.hPa)
+    T_upper = ds['t'].metpy.sel(vertical=upper_level * units.hPa)
+    Z_lower = ds['z'].metpy.sel(vertical=lower_level * units.hPa)
+    Z_upper = ds['z'].metpy.sel(vertical=upper_level * units.hPa)
+
+    # Calculate the temperature gradient
+    grad_T_lower = metpy.calc.gradient(T_lower, coordinates=['lat', 'lon'])
+    grad_T_upper = metpy.calc.gradient(T_upper, coordinates=['lat', 'lon'])
+
+    # Average the temperature gradients
+    avg_grad_T = (grad_T_lower + grad_T_upper) / 2
+
+    # Calculate the geopotential height difference
+    delta_Z = Z_upper - Z_lower
+
+    # Compute the Coriolis parameter (f)
+    f = metpy.calc.coriolis_parameter(ds['lat'])
+
+    # Calculate the thermal wind
+    thermal_wind = (f / 9.81 * np.cross(avg_grad_T, [0, 0, 1]) * delta_Z).to_base_units()
+
+    return thermal_wind
+
 def create_pv_composite(infile, track):
     # Load the dataset
     ds = xr.open_dataset(infile)
@@ -184,35 +168,46 @@ def create_pv_composite(infile, track):
     zeta = metpy.calc.vorticity(u, v)
     f = metpy.calc.coriolis_parameter(latitude)
 
-    # Calculate baroclinic and barotropic potential vorticity
+    # Calculate baroclinic and absolute vorticity
     pv_baroclinic = metpy.calc.potential_vorticity_baroclinic(potential_temperature, pressure, u, v)
-    pv_barotropic = zeta + f
+    absolute_vorticity = zeta + f
 
     # Calculate Eady Growth Rate
     eady_growth_rate = calculate_eady_growth_rate(u, potential_temperature, pressure, f)
 
     # Select the 250 hPa level
     pv_baroclinic_250 = pv_baroclinic.sel(level=250)
-    pv_barotropic_250 = pv_barotropic.sel(level=250)
+    absolute_vorticity_250 = absolute_vorticity.sel(level=250)
     eady_growth_rate_400 = eady_growth_rate.sel(level=250)
 
-    pv_baroclinic_slices_system, pv_barotropic_slices_system = [], []
+    # Empty lists to store the slices
+    pv_baroclinic_slices_system, absolute_vorticity_slices_system = [], []
+    eady_growth_rate_slices_system = []
+
     for time_step in track.index:
         # Select the time step
         pv_baroclinic_250_time = pv_baroclinic_250.sel(time=time_step)
-        pv_barotropic_250_time = pv_barotropic_250.sel(time=time_step)
+        absolute_vorticity_250_time = absolute_vorticity_250.sel(time=time_step)
+        eady_growth_rate_400_time = eady_growth_rate_400.sel(time=time_step)
 
-        # Slice for track limits
+        # Select the track limits
         min_lon, max_lon = track.loc[time_step, 'min_lon'], track.loc[time_step, 'max_lon']
         min_lat, max_lat = track.loc[time_step, 'min_lat'], track.loc[time_step, 'max_lat']
+
+        # Slice for track limits
         pv_baroclinic_250_time_slice = pv_baroclinic_250_time.sel(longitude=slice(min_lon, max_lon), latitude=slice(max_lat, min_lat))
         pv_baroclinic_slices_system.append(pv_baroclinic_250_time_slice)
-        pv_barotropic_250_time_slice = pv_barotropic_250_time.sel(longitude=slice(min_lon, max_lon), latitude=slice(max_lat, min_lat))
-        pv_barotropic_slices_system.append(pv_barotropic_250_time_slice)
+
+        absolute_vorticity_250_time_slice = absolute_vorticity_250_time.sel(longitude=slice(min_lon, max_lon), latitude=slice(max_lat, min_lat))
+        absolute_vorticity_slices_system.append(absolute_vorticity_250_time_slice)
+
+        eady_growth_rate_400_time_slice = eady_growth_rate_400_time.sel(longitude=slice(min_lon, max_lon), latitude=slice(max_lat, min_lat))
+        eady_growth_rate_slices_system.append(eady_growth_rate_400_time_slice)
     
-    # Calculate the PV composites for this system
+    # Calculate the composites for this system
     pv_baroclinic_mean = np.mean(pv_baroclinic_slices_system, axis=0)
-    pv_barotropic_mean = np.mean(pv_barotropic_slices_system, axis=0)
+    absolute_vorticity_mean = np.mean(absolute_vorticity_slices_system, axis=0)
+    eady_growth_rate_mean = np.mean(eady_growth_rate_slices_system, axis=0)
 
     # Create a DataArray using an extra dimension for the type of PV
     x, y = np.arange(pv_baroclinic_mean.shape[1]), np.arange(pv_baroclinic_mean.shape[0])
@@ -223,43 +218,117 @@ def create_pv_composite(infile, track):
         pv_baroclinic_mean,
         dims=['y', 'x'],
         coords={'y': y, 'x': x},
-        name='baroclinic'
+        name='pv_baroclinic'
     )
 
-    da_barotropic = xr.DataArray(
-        pv_barotropic_mean,
+    da_absolute_vorticity = xr.DataArray(
+        absolute_vorticity_mean,
         dims=['y', 'x'],
         coords={'y': y, 'x': x},
-        name='barotropic'
+        name='absolute_vorticity'
+    )
+
+    da_edy = xr.DataArray(
+        eady_growth_rate_mean,
+        dims=['y', 'x'],
+        coords={'y': y, 'x': x},
+        name='EGR'
     )
 
     # Combine into a Dataset and add track_id as a coordinate
-    ds_pv = xr.Dataset({
+    ds_composite = xr.Dataset({
         'pv_baroclinic': da_baroclinic,
-        'pv_barotropic': da_barotropic
+        'absolute_vorticity': da_absolute_vorticity,
+        'EGR': da_edy
     })
-    ds_pv = ds_pv.assign_coords(track_id=track_id)  # Assigning track_id as a coordinate
 
-    return ds_pv
+    # Assigning track_id as a coordinate
+    ds_composite = ds_composite.assign_coords(track_id=track_id)  # Assigning track_id as a coordinate
 
-def save_composite(pv_composites, results_directories):
+    return ds_composite
+
+def save_composite(composites, results_directories):
     # Create a composite across all systems
     logging.info("Finished processing all systems. Creating composite...")
-    pv_composites = [composite for composite in pv_composites if composite is not None]
+    composites = [composite for composite in composites if composite is not None]
 
     # Concatenate the composites and calculate the mean
-    da_pv_composite = xr.concat(pv_composites, dim='track_id')
-    ds_pv_composite_mean = da_pv_composite.mean(dim='track_id')
+    da_composite = xr.concat(composites, dim='track_id')
+    ds_composite_mean = da_composite.mean(dim='track_id')
 
     # Save the composites
-    da_pv_composite.to_netcdf('pv_composite_track_ids.nc')
-    ds_pv_composite_mean.to_netcdf('pv_composite_mean.nc')
-    logging.info("Saved pv_composite_track_ids.nc and pv_composite_mean.nc")
+    da_composite.to_netcdf('pv_egr_composite_track_ids.nc')
+    ds_composite_mean.to_netcdf('pv_egr_composite_mean.nc')
+    logging.info("Saved pv_egr_composite_track_ids.nc and pv_egr_composite_mean.nc")
 
     # Log end time
     end_time = time.time()
     formatted_end_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(end_time))
     logging.info(f"Finished {len(results_directories)} cases at {formatted_end_time}")
+
+
+def process_system(system_dir):
+    """
+    Process the selected system.
+    """
+    # Get track and periods data
+    try:
+        logging.info(f"Processing started for {system_dir}")
+        track_file = glob(f'{system_dir}/*trackfile')[0]  # Assuming filename pattern
+        periods_file = glob(f'{system_dir}/*periods.csv')[0]
+    except Exception as e:
+        logging.error(f"Did not find files for {system_dir}: {e}")
+        return None     
+
+    # Load track and periods data
+    try:
+        track = pd.read_csv(track_file, index_col=0, sep=';')
+        track.index = pd.to_datetime(track.index)
+        periods = pd.read_csv(periods_file, index_col=0, parse_dates=['start', 'end'])
+    except Exception as e:
+        logging.error(f"Error reading files for {system_dir}: {e}")
+        return None
+    
+    # Check if both track and periods data are available
+    if track.empty or periods.empty:
+        logging.info(f"No track or periods data for {system_dir}")
+        return None
+    if 'intensification' not in periods.index:
+        logging.info(f"No intensification phase data for {system_dir}")
+        return None
+
+    # Filter for intensification phase only
+    intensification_start = periods.loc['intensification', 'start']
+    intensification_end = periods.loc['intensification', 'end']
+    track = track[(track.index >= intensification_start) & (track.index <= intensification_end)]
+    if track.empty:
+        logging.info(f"No intensification phase data for {system_dir}")
+        return None
+
+    system_id = os.path.basename(system_dir).split('_')[0] # Get system ID
+
+    # Get ERA5 data for computing PV and EGR
+    pressure_levels = ['200', '250', '300', '350', '400', '450']
+    variables = ["u_component_of_wind", "v_component_of_wind", "temperature"]
+    infile_pv_egr = get_cdsapi_era5_data(f'{system_id}-pv-egr', track, pressure_levels, variables) 
+
+    # # Get ERA5 data for computing Thermal Wind
+    # pressure_levels = ['900', '600', '300']
+    # variables = ["temperature", "geopotential"]
+    # infile_thermal_wind = get_cdsapi_era5_data(f'{system_id}-pv-egr', track, pressure_levels, variables) 
+
+    # Make PV composite
+    ds_composite = create_pv_composite(infile_pv_egr, track) 
+    logging.info(f"Processing completed for {system_dir}")
+
+    # Delete infile
+    if os.path.exists(infile_pv_egr):
+        os.remove(infile_pv_egr)
+
+    # if os.path.exists(infile_thermal_wind):
+    #     os.remove(infile_thermal_wind)
+
+    return ds_composite 
 
 def main():
     # Create a list to store the PV composites for all systems
@@ -296,19 +365,19 @@ def main():
 
     logging.info(f"Using {num_workers} CPU cores for processing")
 
-    pv_composites = []
+    composites = []
 
     with ProcessPoolExecutor(max_workers=num_workers) as executor:
         futures = [executor.submit(process_system, dir_path) for dir_path in filtered_directories]
         for future in as_completed(futures):
             result = future.result()
             if result is not None and np.any(result):
-                pv_composites.append(result)
+                composites.append(result)
 
     # Assuming a function to aggregate and save the results
-    if pv_composites:
+    if composites:
         logging.info("Aggregating and saving PV composites...")
-        save_composite(pv_composites, results_directories)
+        save_composite(composites, results_directories)
 
 if __name__ == "__main__":
     main()
