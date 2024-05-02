@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/23 19:56:13 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/02 18:39:54 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/02 18:46:14 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -29,17 +29,6 @@ TICK_LABEL_SIZE = 12
 FIGURES_DIR = '../figures_barotropic_baroclinic_instability'
 CRS = ccrs.PlateCarree()
 
-def load_and_prepare_data(filepath):
-    """Load dataset and prepare data for plotting."""
-    ds = xr.open_dataset(filepath)
-    pv_baroclinic = ds['pv_baroclinic']
-    absolute_vorticity = ds['absolute_vorticity']
-    pv_baroclinic_derivative = pv_baroclinic.diff('y')
-    absolute_vorticity_derivative = absolute_vorticity.diff('y')
-
-    return pv_baroclinic, absolute_vorticity, pv_baroclinic_derivative, absolute_vorticity_derivative
-
-
 def plot_map(ax, data, cmap, title, transform=ccrs.PlateCarree()):
     """Plot potential vorticity using dynamic normalization based on data values."""
     vmin, vmax = determine_norm_bounds(data)
@@ -59,7 +48,15 @@ def determine_norm_bounds(data, factor=1.0):
     return -max_abs_value, max_abs_value
 
 def main(filepath='pv_egr_composite_mean.nc'):
-    pv_baroclinic, absolute_vorticity, pv_baroclinic_derivative, absolute_vorticity_derivative = load_and_prepare_data(filepath)
+
+    ds = xr.open_dataset(filepath)
+    pv_baroclinic = ds['pv_baroclinic']
+    absolute_vorticity = ds['absolute_vorticity']
+    egr = ds['EGR']
+
+    # Calculate derivatives
+    pv_baroclinic_derivative = pv_baroclinic.diff('y')
+    absolute_vorticity_derivative = absolute_vorticity.diff('y')
     
     # Baroclinic PV
     fig = plt.figure()
@@ -123,6 +120,15 @@ def main(filepath='pv_egr_composite_mean.nc'):
     filename = 'absolute_vorticity_composite_derivative_lon_mean.png'
     file_path = os.path.join(FIGURES_DIR, filename)
     fig.savefig(file_path)
+    print(f'Saved {filename}')
+
+    # Absolute Vorticity 
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection=CRS)
+    plot_map(ax, egr, cmo.thermal, 'EGR')
+    filename = 'EGR_composite.png'
+    file_path = os.path.join(FIGURES_DIR, filename)
+    plt.savefig(file_path)
     print(f'Saved {filename}')
     
 
