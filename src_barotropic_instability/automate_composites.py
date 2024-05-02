@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/24 14:42:50 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/02 16:41:25 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/02 18:01:56 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -247,7 +247,7 @@ def create_pv_composite(infile, track):
 
     return ds_composite
 
-def save_composite(composites, results_directories):
+def save_composite(composites, total_systems_count):
     # Create a composite across all systems
     logging.info("Finished processing all systems. Creating composite...")
     composites = [composite for composite in composites if composite is not None]
@@ -264,7 +264,7 @@ def save_composite(composites, results_directories):
     # Log end time
     end_time = time.time()
     formatted_end_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(end_time))
-    logging.info(f"Finished {len(results_directories)} cases at {formatted_end_time}")
+    logging.info(f"Finished {total_systems_count} cases at {formatted_end_time}")
 
 
 def process_system(system_dir):
@@ -374,7 +374,7 @@ def main():
     # Assuming a function to aggregate and save the results
     if composites:
         logging.info("Aggregating and saving PV composites...")
-        save_composite(composites, results_directories)
+        save_composite(composites, total_systems_count)
 
 if __name__ == "__main__":
     main()
