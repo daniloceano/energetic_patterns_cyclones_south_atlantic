@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/23 17:10:09 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/01 17:48:31 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/02 10:41:33 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -20,6 +20,39 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from glob import glob
 from tqdm import tqdm
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
+def process_event_directory(event_dir):
+    try:
+        ck_levels_path = glob(f'{event_dir}/Ck_level*.csv')
+        ca_levels_path = glob(f'{event_dir}/Ca_level*.csv')
+        periods_path = glob(f'{event_dir}/periods.csv')
+
+        if not ck_levels_path or not ca_levels_path or not periods_path:
+            return pd.DataFrame(), pd.DataFrame()  # Return empty DataFrames if files are not found
+
+        ck_levels_df = pd.read_csv(ck_levels_path[0], index_col='time', parse_dates=True)
+        ca_levels_df = pd.read_csv(ca_levels_path[0], index_col='time', parse_dates=True)
+        periods_df = pd.read_csv(periods_path[0], parse_dates=['start', 'end'], index_col=0)
+
+        # Convert levels to hPa and assign phases
+        ck_levels_df.columns = [float(col) / 100 for col in ck_levels_df.columns]
+        ca_levels_df.columns = [float(col) / 100 for col in ca_levels_df.columns]
+        
+        for phase in periods_df.index:
+            phase_start, phase_end = periods_df.loc[phase, ['start', 'end']]
+            ck_levels_df.loc[phase_start:phase_end, 'phase'] = phase
+            ca_levels_df.loc[phase_start:phase_end, 'phase'] = phase
+
+        melted_df_ck = ck_levels_df.melt(id_vars='phase', var_name='level', value_name='value')
+        melted_df_ca = ca_levels_df.melt(id_vars='phase', var_name='level', value_name='value')
+        
+        return melted_df_ck, melted_df_ca
+
+    except Exception as e:
+        print(f"Error processing {event_dir}: {e}")
+        return pd.DataFrame(), pd.DataFrame()  # Return empty DataFrames in case of an error
+
 
 def plot_boxplots(data, term, phases_order):
     plt.figure(figsize=(14, 8))
@@ -59,51 +92,29 @@ phases_order = ['incipient', 'intensification', 'mature', 'decay',
 # Get all directories containing event data
 directories_paths = glob('../../LEC_Results_energetic-patterns/*')
 
+# Select track to process
+selected_systems = pd.read_csv('systems_to_be_analysed.txt', header=None)[0].tolist()
+selected_systems = pd.read_csv('systems_to_be_analysed.txt', header=None)[0].tolist()
+selected_systems_str = [str(system) for system in selected_systems]
+filtered_directories = [directory for directory in directories_paths if any(system_id in directory for system_id in selected_systems_str)]
+
 # Prepare an empty DataFrame to collect all Ck data
 all_ck_data = pd.DataFrame()
 all_ca_data = pd.DataFrame()
 
-# Loop through each event directory to collect data, wrapped with tqdm for a progress bar
-for event_dir in tqdm(directories_paths, desc="Processing Events"):
-    ck_levels_path = glob(f'{event_dir}/Ck_level*.csv')
-    ca_levels_path = glob(f'{event_dir}/Ca_level*.csv')
-    periods_path = glob(f'{event_dir}/periods.csv')
+# Use ThreadPoolExecutor to process directories in parallel
+with ThreadPoolExecutor(max_workers=4) as executor:
+    future_to_event = {executor.submit(process_event_directory, dir_path): dir_path for dir_path in directories_paths}
+    for future in as_completed(future_to_event):
+        ck_data, ca_data = future.result()
+        all_ck_data = pd.concat([all_ck_data, ck_data], ignore_index=True)
+        all_ca_data = pd.concat([all_ca_data, ca_data], ignore_index=True)
 
-    if not ck_levels_path or not ca_levels_path or not periods_path:
-        continue  # Skip if necessary files are not found
-
-    ck_levels_df = pd.read_csv(ck_levels_path[0], index_col='time', parse_dates=True)
-    ca_levels_df = pd.read_csv(ca_levels_path[0], index_col='time', parse_dates=True)
-    periods_df = pd.read_csv(periods_path[0], parse_dates=['start', 'end'], index_col=0)
-
-    # Levels to hPa
-    ck_levels_df.columns = [float(col) / 100 for col in ck_levels_df.columns]
-    ca_levels_df.columns = [float(col) / 100 for col in ca_levels_df.columns]
-
-    for phase in periods_df.index:
-        phase_start, phase_end = periods_df.loc[phase, ['start', 'end']]
-
-        ck_levels_df.sort_index(inplace=True)
-        ck_levels_df.loc[phase_start:phase_end, 'phase'] = phase
-
-        ca_levels_df.sort_index(inplace=True)
-        ca_levels_df.loc[phase_start:phase_end, 'phase'] = phase
-
-    # Melt the DataFrame for easier plotting and append to the collective DataFrame
-    melted_df_ck = ck_levels_df.melt(id_vars='phase', var_name='level', value_name='value')
-    all_ck_data = pd.concat([all_ck_data, melted_df_ck], ignore_index=True)
-
-    melted_df_ca = ca_levels_df.melt(id_vars='phase', var_name='level', value_name='value')
-    all_ca_data = pd.concat([all_ca_data, melted_df_ca], ignore_index=True)
-
-# Drop rows with None values to avoid plotting issues
+# Now proceed with data cleaning and plotting as before
 all_ck_data = all_ck_data.dropna(subset=['value'])
 all_ca_data = all_ca_data.dropna(subset=['value'])
 
-# 1. Boxplot plot for each phase with data from all systems
 plot_boxplots(all_ck_data, 'ck', phases_order)
 plot_boxplots(all_ca_data, 'ca', phases_order)
-
-# 2. Panel with multiple plots, each displaying a different phase with violin plots for distinct vertical levels
 plot_violin_plots(all_ck_data, 'ck', phases_order)
 plot_violin_plots(all_ca_data, 'ca', phases_order)
