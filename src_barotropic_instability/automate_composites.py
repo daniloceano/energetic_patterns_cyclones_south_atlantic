@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/24 14:42:50 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/02 18:01:56 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/03 13:26:29 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -112,45 +112,6 @@ def calculate_eady_growth_rate(u, theta, pressure, f):
     EGR = 0.31 * (np.abs(f) / N) * np.abs(dudp)
 
     return EGR
-
-def calculate_thermal_wind(ds, lower_level, upper_level):
-    """
-    Calculate the thermal wind between two pressure levels.
-
-    Parameters:
-        ds (xarray.Dataset): Dataset containing the temperature and geopotential height.
-        lower_level (int): Lower pressure level in hPa.
-        upper_level (int): Upper pressure level in hPa.
-
-    Returns:
-        xarray.DataArray: Thermal wind vector components (u, v) at mid-level between input levels.
-    """
-    # Ensure the data is properly attached with units
-    ds = ds.metpy.quantify()
-
-    # Select the temperature and geopotential height at specified levels
-    T_lower = ds['t'].metpy.sel(vertical=lower_level * units.hPa)
-    T_upper = ds['t'].metpy.sel(vertical=upper_level * units.hPa)
-    Z_lower = ds['z'].metpy.sel(vertical=lower_level * units.hPa)
-    Z_upper = ds['z'].metpy.sel(vertical=upper_level * units.hPa)
-
-    # Calculate the temperature gradient
-    grad_T_lower = metpy.calc.gradient(T_lower, coordinates=['lat', 'lon'])
-    grad_T_upper = metpy.calc.gradient(T_upper, coordinates=['lat', 'lon'])
-
-    # Average the temperature gradients
-    avg_grad_T = (grad_T_lower + grad_T_upper) / 2
-
-    # Calculate the geopotential height difference
-    delta_Z = Z_upper - Z_lower
-
-    # Compute the Coriolis parameter (f)
-    f = metpy.calc.coriolis_parameter(ds['lat'])
-
-    # Calculate the thermal wind
-    thermal_wind = (f / 9.81 * np.cross(avg_grad_T, [0, 0, 1]) * delta_Z).to_base_units()
-
-    return thermal_wind
 
 def create_pv_composite(infile, track):
     # Load the dataset
@@ -311,11 +272,6 @@ def process_system(system_dir):
     pressure_levels = ['200', '250', '300', '350', '400', '450']
     variables = ["u_component_of_wind", "v_component_of_wind", "temperature"]
     infile_pv_egr = get_cdsapi_era5_data(f'{system_id}-pv-egr', track, pressure_levels, variables) 
-
-    # # Get ERA5 data for computing Thermal Wind
-    # pressure_levels = ['900', '600', '300']
-    # variables = ["temperature", "geopotential"]
-    # infile_thermal_wind = get_cdsapi_era5_data(f'{system_id}-pv-egr', track, pressure_levels, variables) 
 
     # Make PV composite
     ds_composite = create_pv_composite(infile_pv_egr, track) 
