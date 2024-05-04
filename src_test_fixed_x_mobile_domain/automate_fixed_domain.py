@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/05/03 14:41:39 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/03 23:50:31 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/04 08:48:36 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -98,7 +98,7 @@ def check_results_exist(system_id):
     Returns:
     bool: True if results exist, False otherwise.
     """
-    results_file_path = os.path.join(LEC_RESULTS_DIR, f"{system_id}_ERA5_track", f"{system_id}_ERA5_track_results.csv")
+    results_file_path = os.path.join(LEC_RESULTS_DIR, f"{system_id}_ERA5_fixed", f"{system_id}_ERA5_fixed_results.csv")
     return os.path.exists(results_file_path)
 
 def get_cdsapi_data(track, box_limits_file_path):
