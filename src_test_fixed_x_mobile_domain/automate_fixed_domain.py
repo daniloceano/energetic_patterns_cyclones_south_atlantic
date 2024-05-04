@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/05/03 14:41:39 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/03 16:58:44 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/03 23:18:45 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -225,7 +225,14 @@ LEC_PATH = os.path.abspath('../../lorenz-cycle/lorenz_cycle.py')  # Get absolute
 
 def main():
     # Set logging
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.INFO,
+                        format='%(asctime)s - %(levelname)s - %(message)s',
+                        handlers=[
+                            logging.FileHandler("debug.log"),  # Log to a file
+                            logging.StreamHandler(sys.stdout)  # Log to standard output
+                        ])
+    
+    # Start timer
     overall_start_time = time.time()
     logging.info(f"Script start time: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(overall_start_time))}")
     print("Script start time: " + time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(overall_start_time)))
