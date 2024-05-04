@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/05/03 14:41:39 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/03 23:18:45 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/03 23:50:31 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -29,8 +29,13 @@ from functools import partial
 from datetime import timedelta
 import cdsapi
 
+# Global counter
 global subprocess_counter
 subprocess_counter = 0
+
+# Set up logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s',
+                    handlers=[logging.FileHandler('log.automate_run_LEC.txt', mode='w')])
 
 def get_cdsapi_keys():
     """
@@ -224,14 +229,6 @@ CDSAPIRC_PATH = os.path.expanduser('~/.cdsapirc')
 LEC_PATH = os.path.abspath('../../lorenz-cycle/lorenz_cycle.py')  # Get absolute path
 
 def main():
-    # Set logging
-    logging.basicConfig(level=logging.INFO,
-                        format='%(asctime)s - %(levelname)s - %(message)s',
-                        handlers=[
-                            logging.FileHandler("debug.log"),  # Log to a file
-                            logging.StreamHandler(sys.stdout)  # Log to standard output
-                        ])
-    
     # Start timer
     overall_start_time = time.time()
     logging.info(f"Script start time: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(overall_start_time))}")
