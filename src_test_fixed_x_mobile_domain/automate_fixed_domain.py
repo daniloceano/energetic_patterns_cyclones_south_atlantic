@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/05/03 14:41:39 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/05 10:32:05 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/05 10:34:18 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -180,6 +180,7 @@ def run_lorenz_cycle(track_id, tracks_filtered_ids):
 
     if check_results_exist(track_id):
         logging.info(f"Results already exist for system ID {track_id}, skipping.")
+        print(f"Results already exist for system ID {track_id}, skipping.")
         return track_id
 
     # Pick a random .cdsapirc file for each process
@@ -190,8 +191,14 @@ def run_lorenz_cycle(track_id, tracks_filtered_ids):
     else:
         logging.error("No .cdsapirc files found. Please check the configuration.")
 
-    box_limits_file_path = prepare_box_limits_file(tracks_filtered_ids, track_id)
+    # Prepare box limits file
+    try:
+        box_limits_file_path = prepare_box_limits_file(tracks_filtered_ids, track_id)
+    except Exception as e:
+        logging.error(f"Error preparing track data for ID {track_id}: {e}")
+        return None
     
+    # Run Lorenz Cycle
     if box_limits_file_path:
         logging.info(f"Running Lorenz Cycle script for ID {track_id}")
 
@@ -202,7 +209,8 @@ def run_lorenz_cycle(track_id, tracks_filtered_ids):
             arguments = [infile, '-f', '-r', '-g', '-v', '-p', '--box_limits', f'{box_limits_file_path}']
             command = f"python {LEC_PATH} " + " ".join(arguments)
             subprocess.run(command, shell=True, executable='/bin/bash')
-            logging.info(f"Successfully ran Lorenz Cycle script for ID {track_id}")
+            logging.info(f"Successfully ran Lorenz Cycle script for ID {track_id}, process {subprocess_counter}")
+            print(f"Successfully ran Lorenz Cycle script for ID {track_id}, process {subprocess_counter}")
         except Exception as e:
             logging.error(f"Error running Lorenz Cycle script for ID {track_id}: {e}")
     else:
