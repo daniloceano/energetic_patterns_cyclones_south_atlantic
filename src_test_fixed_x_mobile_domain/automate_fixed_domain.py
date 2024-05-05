@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/05/03 14:41:39 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/04 08:48:36 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/05 10:32:05 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -174,9 +174,8 @@ def get_cdsapi_data(track, box_limits_file_path):
     return infile
 
 def run_lorenz_cycle(track_id, tracks_filtered_ids):
-    global subprocess_counter
-    subprocess_counter += 1
-
+    subprocess_counter = count_evaluated_systems()
+    logging.info(f"Process {subprocess_counter} started at {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())}")
     print(f"Process {subprocess_counter} started at {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())}")
 
     if check_results_exist(track_id):
@@ -194,8 +193,11 @@ def run_lorenz_cycle(track_id, tracks_filtered_ids):
     box_limits_file_path = prepare_box_limits_file(tracks_filtered_ids, track_id)
     
     if box_limits_file_path:
+        logging.info(f"Running Lorenz Cycle script for ID {track_id}")
+
         track = tracks_filtered_ids[tracks_filtered_ids['track_id'] == track_id]
         infile = get_cdsapi_data(track, box_limits_file_path)
+
         try:
             arguments = [infile, '-f', '-r', '-g', '-v', '-p', '--box_limits', f'{box_limits_file_path}']
             command = f"python {LEC_PATH} " + " ".join(arguments)
