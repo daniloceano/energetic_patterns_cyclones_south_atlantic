@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/05/05 18:56:28 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/06 11:37:10 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/06 15:14:22 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -87,13 +87,6 @@ def main():
     systems_energetics = read_life_cycles(base_path)
 
     plot_all_systems_by_region_season(systems_energetics, output_directory)
-
-    # clusters_to_use = ["ARG_DJF_cl_2", "ARG_JJA_cl_1",
-    #                    "LA-PLATA_DJF_cl_2", "LA-PLATA_JJA_cl_2",
-    #                    "SE-BR_DJF_cl_2", "SE-BR_JJA_cl_3"]
-    
-    # for cluster in clusters_to_use:
-    #     plot_all_systems_by_region_season(systems_energetics, id_list_directory, cluster, output_directory)
 
 if __name__ == "__main__":
     main()
