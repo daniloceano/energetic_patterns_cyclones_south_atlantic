@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/05/06 09:41:14 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/06 09:44:12 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/06 09:46:40 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -53,7 +53,7 @@ tracks_directory = '../tracks_SAt_filtered'
 
 # Find track IDs from results directory
 results = glob.glob(f'{results_directory}/*_ERA5_track')
-result_track_ids = [os.path.basename(result).split('_')[0] for result in results]
+result_track_ids = [int(os.path.basename(result).split('_')[0]) for result in results]
 
 # Read track IDs from tracks filtered CSV
 tracks_filtered = pd.read_csv(f'{tracks_directory}/tracks_SAt_filtered.csv')
