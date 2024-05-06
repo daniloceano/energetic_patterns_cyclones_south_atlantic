@@ -6,29 +6,20 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/05/05 19:19:34 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/06 09:07:38 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/06 09:37:36 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
+import os
 import logging
 from glob import glob
 import pandas as pd
 from tqdm import tqdm
 from multiprocessing import Pool, cpu_count, freeze_support
 
-# Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
-
-tracks_directory = '../tracks_SAt_filtered'
-results_directory = '../../LEC_Results_energetic-patterns'
-
-# Read tracks from the filtered dataset
-tracks_filtered = pd.read_csv(f'{tracks_directory}/tracks_SAt_filtered.csv')
-
 # Function to process each track in parallel
 def process_track(track_id):
-    track = tracks_filtered[tracks_filtered['track_id'] == track_id].copy()
+    track = tracks_filtered[tracks_filtered['track_id'] == int(track_id)].copy()
 
     # Check if there are any corresponding results
     corresponding_results = glob(f'{results_directory}/{track_id}_ERA5_track')
@@ -55,6 +46,19 @@ def process_track(track_id):
         logger.warning(f"No corresponding results found for track {track_id}")
         return None
 
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+
+tracks_directory = '../tracks_SAt_filtered'
+results_directory = '../../LEC_Results_energetic-patterns'
+
+results = glob(f'{results_directory}/*_ERA5_track')
+track_ids = [os.path.basename(result).split('_')[0] for result in results]
+
+# Read tracks from the filtered dataset
+tracks_filtered = pd.read_csv(f'{tracks_directory}/tracks_SAt_filtered.csv')
+
 if __name__ == '__main__':
     # Ensure proper forking on Windows
     freeze_support()
@@ -64,7 +68,7 @@ if __name__ == '__main__':
 
     # Parallelize processing tracks
     with Pool(num_processes) as pool:
-        tracks_with_periods_list = list(tqdm(pool.imap(process_track, tracks_filtered['track_id'].unique()), total=len(tracks_filtered)))
+        tracks_with_periods_list = list(tqdm(pool.imap(process_track, track_ids), total=len(track_ids)))
 
     # Concatenate the tracks with periods
     tracks_with_periods = pd.concat([track for track in tracks_with_periods_list if track is not None])
