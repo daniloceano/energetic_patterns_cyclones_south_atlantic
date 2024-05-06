@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/05/05 18:56:28 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/06 09:03:05 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/06 09:57:59 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -43,7 +43,8 @@ def main():
     base_path = '../csv_database_energy_by_periods'
     output_directory = '../figures_lps/test_fixed_framework/all_systems/'
 
-    tracks_filtered = pd.read_csv('../tracks_SAt_filtered/tracks_SAt_filtered_with_periods.csv')
+    tracks_filtered = pd.read_csv('../tracks_SAt_filtered/tracks_SAt_filtered.csv')
+    tracks_filtered_with_periods = pd.read_csv('../tracks_SAt_filtered/tracks_SAt_filtered_with_periods.csv')
 
     os.makedirs(output_directory, exist_ok=True)
 
