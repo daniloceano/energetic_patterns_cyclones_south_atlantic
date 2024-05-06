@@ -6,14 +6,19 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/05/05 19:19:34 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/05 21:02:23 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/06 09:07:38 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
+import logging
 from glob import glob
 import pandas as pd
 from tqdm import tqdm
 from multiprocessing import Pool, cpu_count, freeze_support
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 tracks_directory = '../tracks_SAt_filtered'
 results_directory = '../../LEC_Results_energetic-patterns'
@@ -33,7 +38,8 @@ def process_track(track_id):
         # Read periods from the LEC results
         try:
             periods = pd.read_csv(f"{corresponding_results}/periods.csv", index_col=0)
-        except:
+        except Exception as e:
+            logger.error(f"Error reading periods for track {track_id}: {e}")
             return None
 
         # Add periods to the track
@@ -46,6 +52,7 @@ def process_track(track_id):
 
         return track
     else:
+        logger.warning(f"No corresponding results found for track {track_id}")
         return None
 
 if __name__ == '__main__':
@@ -64,3 +71,5 @@ if __name__ == '__main__':
 
     # Save the tracks with periods
     tracks_with_periods.to_csv(f'{tracks_directory}/tracks_SAt_filtered_with_periods.csv', index=False)
+
+    logger.info("Script execution completed")
