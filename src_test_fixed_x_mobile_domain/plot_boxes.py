@@ -1,3 +1,15 @@
+# **************************************************************************** #
+#                                                                              #
+#                                                         :::      ::::::::    #
+#    plot_boxes.py                                      :+:      :+:    :+:    #
+#                                                     +:+ +:+         +:+      #
+#    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
+#                                                 +#+#+#+#+#+   +#+            #
+#    Created: 2024/05/06 15:55:30 by daniloceano       #+#    #+#              #
+#    Updated: 2024/05/06 15:55:31 by daniloceano      ###   ########.fr        #
+#                                                                              #
+# **************************************************************************** #
+
 import os
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -81,7 +93,7 @@ def plot_box_limits(df_boxes, figures_directory, plot_mean=True):
             ax.add_geometries([pgon], crs=ccrs.PlateCarree(), facecolor=COLORS[3], edgecolor='none', linewidth=1, alpha=0.1, zorder=3)
 
     plt.tight_layout()
-    
+
     os.makedirs(figures_directory, exist_ok=True)
     plot_type = 'mean' if plot_mean else 'individual'
     fig.savefig(os.path.join(figures_directory, f'box_limits_{plot_type}.png'))
