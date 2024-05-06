@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/05/05 18:56:28 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/05 19:00:44 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/06 09:03:05 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -16,8 +16,6 @@ from glob import glob
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 from lorenz_phase_space.phase_diagrams import Visualizer
-from plot_lps_aux import read_life_cycles, plot_system, determine_global_limits
-
 
 def plot_all_systems_by_region_season(systems_energetics, id_list_directory, season, region, output_directory):
 
@@ -44,6 +42,9 @@ def plot_all_systems_by_region_season(systems_energetics, id_list_directory, sea
 def main():
     base_path = '../csv_database_energy_by_periods'
     output_directory = '../figures_lps/test_fixed_framework/all_systems/'
+
+    tracks_filtered = pd.read_csv('../tracks_SAt_filtered/tracks_SAt_filtered_with_periods.csv')
+
     os.makedirs(output_directory, exist_ok=True)
 
     id_list_directory = '../csv_track_ids_by_region_season'
