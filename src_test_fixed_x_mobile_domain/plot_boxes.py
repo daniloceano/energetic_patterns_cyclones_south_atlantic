@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/05/06 15:55:30 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/06 15:55:31 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/06 16:07:44 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -72,7 +72,12 @@ def plot_box_limits(df_boxes, figures_directory, plot_mean=True):
     min_lon, min_lat = df_boxes['min_lon'].min(), df_boxes['min_lat'].min()
     max_lon, max_lat = df_boxes['max_lon'].max(), df_boxes['max_lat'].max()
 
-    ax.set_extent([min_lon-20, max_lon+20, max_lat+20, min_lat-20], crs=ccrs.PlateCarree())
+    min_lon_buff = min_lon - 20 if min_lon - 20 > -180 else -180
+    max_lon_buff = max_lon + 20 if max_lon + 20 < 180 else 180
+    min_lat_buff = min_lat - 20 if min_lat - 20 > -80 else -80
+    max_lat_buff = max_lat + 20 if max_lat + 20 < 0 else 0
+
+    ax.set_extent([min_lon_buff, max_lon_buff, min_lat_buff, max_lat_buff], crs=ccrs.PlateCarree())
     map_borders(ax)
     setup_map(ax)
     setup_gridlines(ax)
