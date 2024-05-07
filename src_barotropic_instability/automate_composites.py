@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/24 14:42:50 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/07 17:56:04 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/07 18:14:38 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -98,7 +98,7 @@ def get_cdsapi_era5_data(filename: str, track: pd.DataFrame, pressure_levels: li
         logging.info("CDS API file already exists.")
         return infile
     
-def calculate_eady_growth_rate(u, theta, pressure, f, hgt):
+def calculate_eady_growth_rate(u, theta, f, hgt):
     # Calculate the derivative of U with respect to log-pressure
     dudp = u.differentiate("level")
     
@@ -135,7 +135,7 @@ def create_pv_composite(infile, track):
     absolute_vorticity = zeta + f
 
     # Calculate Eady Growth Rate
-    eady_growth_rate = calculate_eady_growth_rate(    eady_growth_rate = calculate_eady_growth_rate(u, potential_temperature, pressure, f))
+    eady_growth_rate = calculate_eady_growth_rate(u, potential_temperature, f, hgt)
 
     # Select the 250 hPa level
     pv_baroclinic_250 = pv_baroclinic.sel(level=250)
