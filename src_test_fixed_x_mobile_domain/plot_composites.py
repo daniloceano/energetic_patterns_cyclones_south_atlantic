@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/23 19:56:13 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/06 18:39:07 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/07 09:10:02 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -33,7 +33,7 @@ def plot_map(ax, data, cmap, title, transform=ccrs.PlateCarree()):
     """Plot potential vorticity using dynamic normalization based on data values."""
     vmin, vmax = determine_norm_bounds(data)
     norm = colors.TwoSlopeNorm(vmin=vmin, vcenter=0, vmax=vmax)
-    cf = ax.contourf(data.x, data.y, data, cmap=cmap, norm=norm, transform=transform)
+    cf = ax.contourf(data['longitude'], data['latitude'], data, cmap=cmap, norm=norm, transform=transform)
     colorbar = plt.colorbar(cf, ax=ax, pad=0.1, orientation='horizontal', shrink=0.5)
     colorbar.ax.xaxis.set_major_formatter(ticker.ScalarFormatter(useMathText=True))
     colorbar.ax.xaxis.get_major_formatter().set_scientific(True)
@@ -47,7 +47,7 @@ def determine_norm_bounds(data, factor=1.0):
     max_abs_value = max(abs(data_min), abs(data_max)) * factor
     return -max_abs_value, max_abs_value
 
-def main(filepath='pv_egr_composite_mean_fixed.nc'):
+def main(filepath='pv_egr_weighted_composite.nc'):
 
     ds = xr.open_dataset(filepath)
     pv_baroclinic = ds['pv_baroclinic']
@@ -55,8 +55,8 @@ def main(filepath='pv_egr_composite_mean_fixed.nc'):
     egr = ds['EGR']
 
     # Calculate derivatives
-    pv_baroclinic_derivative = pv_baroclinic.diff('y')
-    absolute_vorticity_derivative = absolute_vorticity.diff('y')
+    pv_baroclinic_derivative = pv_baroclinic.diff('latitude')
+    absolute_vorticity_derivative = absolute_vorticity.diff('latitude')
     
     # Baroclinic PV
     fig = plt.figure()
@@ -79,7 +79,7 @@ def main(filepath='pv_egr_composite_mean_fixed.nc'):
     # Baroclinic PV derivative lon mean
     fig = plt.figure(figsize=(5, 5))
     ax = plt.gca()
-    ax.plot(pv_baroclinic_derivative.mean('x'), np.arange(len(pv_baroclinic_derivative.mean('x'))),
+    ax.plot(pv_baroclinic_derivative.mean('longitude'), np.arange(len(pv_baroclinic_derivative.mean('longitude'))),
                  color='#003049', linewidth=3)
     ax.axvline(0, color='#c1121f', linestyle='--', linewidth=0.5)
     ax.set_title(r'$\frac{\partial PV}{\partial y}$' + ' lon mean', fontsize=TITLE_SIZE)
@@ -111,7 +111,7 @@ def main(filepath='pv_egr_composite_mean_fixed.nc'):
     # Absolute Vorticity derivative lon mean
     fig = plt.figure(figsize=(5, 5))
     ax = plt.gca()
-    ax.plot(absolute_vorticity_derivative.mean('x'), np.arange(len(absolute_vorticity_derivative.mean('x'))),
+    ax.plot(absolute_vorticity_derivative.mean('longitude'), np.arange(len(absolute_vorticity_derivative.mean('longitude'))),
                  color='#003049', linewidth=3)
     ax.axvline(0, color='#c1121f', linestyle='--', linewidth=0.5)
     ax.set_title(r'$\frac{\partial \eta}{\partial y}$' + ' lon mean', fontsize=TITLE_SIZE)

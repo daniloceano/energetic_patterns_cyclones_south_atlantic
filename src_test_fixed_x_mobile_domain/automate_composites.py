@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/05/06 16:40:35 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/06 18:35:45 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/07 09:12:17 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -128,6 +128,7 @@ def create_pv_composite(infile, track):
     u = ds['u'] * units('m/s')
     v = ds['v'] * units('m/s')
     latitude = ds.latitude
+    lat, lon = ds.latitude.values, ds.longitude.values
 
     # Calculate potential temperature, vorticity and Coriolis parameter
     potential_temperature = metpy.calc.potential_temperature(pressure, temperature)
@@ -165,22 +166,22 @@ def create_pv_composite(infile, track):
     # Create DataArrays
     da_baroclinic = xr.DataArray(
         pv_baroclinic_mean.values,
-        dims=['y', 'x'],
-        coords={'y': y, 'x': x},
+        dims=['latitude', 'longitude'],
+        coords={'latitude': lat, 'longitude': lon},
         name='pv_baroclinic'
     )
 
     da_absolute_vorticity = xr.DataArray(
         absolute_vorticity_mean.values,
-        dims=['y', 'x'],
-        coords={'y': y, 'x': x},
+        dims=['latitude', 'longitude'],
+        coords={'latitude': lat, 'longitude': lon},
         name='absolute_vorticity'
     )
 
     da_edy = xr.DataArray(
         eady_growth_rate_mean.values,
-        dims=['y', 'x'],
-        coords={'y': y, 'x': x},
+        dims=['latitude', 'longitude'],
+        coords={'latitude': lat, 'longitude': lon},
         name='EGR'
     )
 
@@ -197,25 +198,67 @@ def create_pv_composite(infile, track):
 
     return ds_composite
 
+# def save_composite(composites, total_systems_count):
+#     # Create a composite across all systems
+#     logging.info("Finished processing all systems. Creating composite...")
+#     composites = [composite for composite in composites if composite is not None]
+
+#     # Concatenate the composites and calculate the mean
+#     da_composite = xr.concat(composites, dim='track_id')
+
+#     # Calculate the mean
+#     ds_composite_mean = da_composite.mean(dim='track_id')
+
+#     # Save the composites
+#     da_composite.to_netcdf('pv_egr_composite_track_ids_fixed.nc')
+#     ds_composite_mean.to_netcdf('pv_egr_composite_mean_fixed.nc')
+#     logging.info("Saved pv_egr_composite_track_ids.nc and pv_egr_composite_mean.nc")
+
+#     # Log end time
+#     end_time = time.time()
+#     formatted_end_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(end_time))
+#     logging.info(f"Finished {total_systems_count} cases at {formatted_end_time}")
+
 def save_composite(composites, total_systems_count):
     # Create a composite across all systems
     logging.info("Finished processing all systems. Creating composite...")
     composites = [composite for composite in composites if composite is not None]
 
-    # Concatenate the composites and calculate the mean
-    da_composite = xr.concat(composites, dim='track_id')
-    ds_composite_mean = da_composite.mean(dim='track_id')
+    if not composites:
+        logging.info("No valid composites found. Skipping composite creation.")
+        return
 
-    # Save the composites
-    da_composite.to_netcdf('pv_egr_composite_track_ids_fixed.nc')
-    ds_composite_mean.to_netcdf('pv_egr_composite_mean_fixed.nc')
-    logging.info("Saved pv_egr_composite_track_ids.nc and pv_egr_composite_mean.nc")
+    # Calculate weights based on spatial extent (area)
+    weights = [composite.latitude.size * composite.longitude.size for composite in composites]
+    weights /= np.sum(weights)
+
+    # Apply weighted average
+    weighted_composite = create_weighted_composite(composites, weights)
+
+    # Save the composite
+    weighted_composite.to_netcdf('pv_egr_weighted_composite.nc')
+    logging.info("Saved pv_egr_weighted_composite.nc")
 
     # Log end time
     end_time = time.time()
     formatted_end_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(end_time))
     logging.info(f"Finished {total_systems_count} cases at {formatted_end_time}")
 
+def create_weighted_composite(composites, weights):
+    # Normalize weights to sum to 1
+    weights /= np.sum(weights)
+    
+    # Initialize empty arrays to store weighted variables
+    weighted_variables = []
+    
+    # Apply weights to each variable in each composite
+    for composite, weight in zip(composites, weights):
+        weighted_variables.append(composite * weight)
+    
+    # Combine weighted variables into composite
+    composite = sum(weighted_variables)
+    
+    return composite
 
 def process_system(system_dir, tracks_with_periods):
     """
@@ -257,7 +300,7 @@ def process_system(system_dir, tracks_with_periods):
 def main():
 
     # Get all directories in the LEC_RESULTS_DIR
-    results_directories = sorted(glob(f'{LEC_RESULTS_DIR}/*'))[:5]
+    results_directories = sorted(glob(f'{LEC_RESULTS_DIR}/*'))
 
     # Get track and periods data
     tracks_with_periods = pd.read_csv('../tracks_SAt_filtered/tracks_SAt_filtered_with_periods.csv')
