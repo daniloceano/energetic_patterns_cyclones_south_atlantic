@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/05/06 16:40:35 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/06 17:22:48 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/06 18:35:45 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -32,16 +32,19 @@ from metpy.units import units
 
 # Update logging configuration to use the custom handler
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s',
-                    handlers=[logging.FileHandler('log.automate_run_LEC.txt', mode='w')])
+                    handlers=[logging.FileHandler('log.composite.txt', mode='w')])
 
 # REGION = sys.argv[1] # Region to process
-LEC_RESULTS_DIR = os.path.abspath('../../LEC_Results_energetic-patterns')  # Get absolute PATH
+LEC_RESULTS_DIR = os.path.abspath('../../LEC_Results_fixed_framework_test')  # Get absolute PATH
 
 def get_cdsapi_era5_data(filename: str, track: pd.DataFrame, pressure_levels: list, variables: list) -> xr.Dataset:
 
+    track.set_index('date', inplace=True)
+    track.index = pd.to_datetime(track.index)
+
     # Extract bounding box (lat/lon limits) from track
-    min_lat, max_lat = track['Lat'].min(), track['Lat'].max()
-    min_lon, max_lon = track['Lon'].min(), track['Lon'].max()
+    min_lat, max_lat = track['lat vor'].min(), track['lat vor'].max()
+    min_lon, max_lon = track['lon vor'].min(), track['lon vor'].max()
 
     # Apply a 15-degree buffer and round to nearest integer
     buffered_max_lat = math.ceil(max_lat + 15)
@@ -114,6 +117,8 @@ def calculate_eady_growth_rate(u, theta, pressure, f):
     return EGR
 
 def create_pv_composite(infile, track):
+    logging.info(f"Creating PV composite for {infile}")
+
     # Load the dataset
     ds = xr.open_dataset(infile)
 
@@ -130,11 +135,15 @@ def create_pv_composite(infile, track):
     f = metpy.calc.coriolis_parameter(latitude)
 
     # Calculate baroclinic and absolute vorticity
+    logging.info("Calculating baroclinic and absolute vorticity...")
     pv_baroclinic = metpy.calc.potential_vorticity_baroclinic(potential_temperature, pressure, u, v)
     absolute_vorticity = zeta + f
+    logging.info("Done.")
 
     # Calculate Eady Growth Rate
+    logging.info("Calculating Eady Growth Rate...")
     eady_growth_rate = calculate_eady_growth_rate(u, potential_temperature, pressure, f)
+    logging.info("Done.")
 
     # Select the 250 hPa level
     pv_baroclinic_250 = pv_baroclinic.sel(level=250)
@@ -142,11 +151,14 @@ def create_pv_composite(infile, track):
     eady_growth_rate_400 = eady_growth_rate.sel(level=250)
     
     # Calculate the composites for this system
+    logging.info("Calculating means...")
     pv_baroclinic_mean = pv_baroclinic_250.mean(dim='time')
     absolute_vorticity_mean = absolute_vorticity_250.mean(dim='time')
     eady_growth_rate_mean = eady_growth_rate_400.mean(dim='time')
+    logging.info("Done.")
 
     # Create a DataArray using an extra dimension for the type of PV
+    logging.info("Creating DataArray...")
     x, y = np.arange(pv_baroclinic_mean.shape[1]), np.arange(pv_baroclinic_mean.shape[0])
     track_id = int(infile.split('.')[0].split('-')[0])
 
@@ -181,6 +193,7 @@ def create_pv_composite(infile, track):
 
     # Assigning track_id as a coordinate
     ds_composite = ds_composite.assign_coords(track_id=track_id)  # Assigning track_id as a coordinate
+    logging.info(f"Finished creating PV composite for {infile}")
 
     return ds_composite
 
@@ -204,45 +217,27 @@ def save_composite(composites, total_systems_count):
     logging.info(f"Finished {total_systems_count} cases at {formatted_end_time}")
 
 
-def process_system(system_dir):
+def process_system(system_dir, tracks_with_periods):
     """
     Process the selected system.
     """
     # Get track and periods data
-    try:
-        logging.info(f"Processing started for {system_dir}")
-        track_file = glob(f'{system_dir}/*trackfile')[0]  # Assuming filename pattern
-        periods_file = glob(f'{system_dir}/*periods.csv')[0]
-    except Exception as e:
-        logging.error(f"Did not find files for {system_dir}: {e}")
-        return None     
+    system_id = os.path.basename(system_dir).split('_')[0] # Get system ID
+    logging.info(f"Processing {system_id}")
 
-    # Load track and periods data
-    try:
-        track = pd.read_csv(track_file, index_col=0, sep=';')
-        track.index = pd.to_datetime(track.index)
-        periods = pd.read_csv(periods_file, index_col=0, parse_dates=['start', 'end'])
-    except Exception as e:
-        logging.error(f"Error reading files for {system_dir}: {e}")
-        return None
-    
-    # Check if both track and periods data are available
-    if track.empty or periods.empty:
-        logging.info(f"No track or periods data for {system_dir}")
-        return None
-    if 'intensification' not in periods.index:
-        logging.info(f"No intensification phase data for {system_dir}")
+    # Get track data
+    sliced_track = tracks_with_periods[tracks_with_periods['track_id'] == int(system_id)]
+    if sliced_track.empty:
+        logging.info(f"No track data for {system_dir}")
         return None
 
     # Filter for intensification phase only
-    intensification_start = periods.loc['intensification', 'start']
-    intensification_end = periods.loc['intensification', 'end']
-    track = track[(track.index >= intensification_start) & (track.index <= intensification_end)]
+    intensification_start = sliced_track[sliced_track['period'] == 'intensification']['date'].min()
+    intensification_end = sliced_track[sliced_track['period'] == 'intensification']['date'].max()
+    track = sliced_track[(sliced_track['date'] >= intensification_start) & (sliced_track['date'] <= intensification_end)]
     if track.empty:
         logging.info(f"No intensification phase data for {system_dir}")
         return None
-
-    system_id = os.path.basename(system_dir).split('_')[0] # Get system ID
 
     # Get ERA5 data for computing PV and EGR
     pressure_levels = ['200', '250', '300', '350', '400', '450']
@@ -254,28 +249,18 @@ def process_system(system_dir):
     logging.info(f"Processing completed for {system_dir}")
 
     # Delete infile
-    if os.path.exists(infile_pv_egr):
-        os.remove(infile_pv_egr)
+    # if os.path.exists(infile_pv_egr):
+    #     os.remove(infile_pv_egr)
 
     return ds_composite 
 
 def main():
-    # Create a list to store the PV composites for all systems
-    pv_composites = []
 
     # Get all directories in the LEC_RESULTS_DIR
-    results_directories = sorted(glob(f'{LEC_RESULTS_DIR}/*'))
+    results_directories = sorted(glob(f'{LEC_RESULTS_DIR}/*'))[:5]
 
-    # Select track to process
-    selected_systems = pd.read_csv('../src_barotropic_instability/systems_to_be_analysed.txt', header=None)[0].tolist()
-
-    # Convert selected systems to string for easier comparison
-    selected_systems_str = [str(system) for system in selected_systems]
-
-    # Filter directories
-    filtered_directories = [directory for directory in results_directories if any(system_id in directory for system_id in selected_systems_str)]
-
-    filtered_directories = results_directories
+    # Get track and periods data
+    tracks_with_periods = pd.read_csv('../tracks_SAt_filtered/tracks_SAt_filtered_with_periods.csv')
 
     # # Determine the number of CPU cores to use
     if len(sys.argv) > 1:
@@ -288,7 +273,7 @@ def main():
     # Log start time and total number of systems
     start_time = time.time()
     formatted_start_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(start_time))
-    total_systems_count = len(filtered_directories)
+    total_systems_count = len(results_directories)
     logging.info(f"Starting {total_systems_count} cases at {formatted_start_time}")
 
     logging.info(f"Using {num_workers} CPU cores for processing")
@@ -296,7 +281,7 @@ def main():
     composites = []
 
     with ProcessPoolExecutor(max_workers=num_workers) as executor:
-        futures = [executor.submit(process_system, dir_path) for dir_path in filtered_directories]
+        futures = [executor.submit(process_system, dir_path, tracks_with_periods) for dir_path in results_directories]
         for future in as_completed(futures):
             result = future.result()
             if result is not None and np.any(result):
