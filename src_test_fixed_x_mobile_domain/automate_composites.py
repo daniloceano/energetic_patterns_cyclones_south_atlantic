@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/05/06 16:40:35 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/07 09:12:17 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/07 17:52:56 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -101,18 +101,18 @@ def get_cdsapi_era5_data(filename: str, track: pd.DataFrame, pressure_levels: li
         logging.info("CDS API file already exists.")
         return infile
     
-def calculate_eady_growth_rate(u, theta, pressure, f):
+def calculate_eady_growth_rate(u, theta, pressure, f, hgt):
     # Calculate the derivative of U with respect to log-pressure
     dudp = u.differentiate("level")
     
     # Calculate the derivative of theta with respect to log-pressure
-    dthetadp = theta.differentiate("level")
+    dthetadp = theta.sortby("level", ascending=True).differentiate("level")
     
     # Calculate Brunt-Väisälä Frequency (N)
-    N = np.sqrt((9.81 / theta) * (-dthetadp))
+    N = metpy.calc.brunt_vaisala_frequency(hgt, theta)
     
     # Calculate Eady Growth Rate
-    EGR = 0.31 * (np.abs(f) / N) * np.abs(dudp)
+    EGR = 0.3098 * (np.abs(f) *  np.abs(dudp)) / N
 
     return EGR
 
@@ -127,6 +127,7 @@ def create_pv_composite(infile, track):
     pressure = ds.level * units.hPa
     u = ds['u'] * units('m/s')
     v = ds['v'] * units('m/s')
+    hgt = (ds['z'] / 9.8) * units('gpm')
     latitude = ds.latitude
     lat, lon = ds.latitude.values, ds.longitude.values
 
@@ -143,7 +144,7 @@ def create_pv_composite(infile, track):
 
     # Calculate Eady Growth Rate
     logging.info("Calculating Eady Growth Rate...")
-    eady_growth_rate = calculate_eady_growth_rate(u, potential_temperature, pressure, f)
+    eady_growth_rate = calculate_eady_growth_rate(u, potential_temperature, pressure, f, hgt)
     logging.info("Done.")
 
     # Select the 250 hPa level
@@ -284,7 +285,7 @@ def process_system(system_dir, tracks_with_periods):
 
     # Get ERA5 data for computing PV and EGR
     pressure_levels = ['200', '250', '300', '350', '400', '450']
-    variables = ["u_component_of_wind", "v_component_of_wind", "temperature"]
+    variables = ["u_component_of_wind", "v_component_of_wind", "temperature", "geopotential"]
     infile_pv_egr = get_cdsapi_era5_data(f'{system_id}-pv-egr', track, pressure_levels, variables) 
 
     # Make PV composite
