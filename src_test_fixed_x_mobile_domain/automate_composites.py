@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/05/06 16:40:35 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/08 00:19:31 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/08 00:19:51 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -244,7 +244,7 @@ def save_composite(composites, total_systems_count):
     interpolated_composites = interpolate_to_common_grid(composites, common_lat, common_lon)
     mean_composite = compute_mean_composite(interpolated_composites)
 
-    mean_composite.to_netcdf('pv_egr_mean_composite.nc')
+    mean_composite.to_netcdf('pv_egr_mean _composite.nc')
     logging.info("Saved pv_egr_mean_composite.nc")
     
     end_time = time.time()
@@ -291,7 +291,7 @@ def process_system(system_dir, tracks_with_periods):
 def main():
 
     # Get all directories in the LEC_RESULTS_DIR
-    results_directories = sorted(glob(f'{LEC_RESULTS_DIR}/*'))[:5]
+    results_directories = sorted(glob(f'{LEC_RESULTS_DIR}/*'))
 
     # Get track and periods data
     tracks_with_periods = pd.read_csv('../tracks_SAt_filtered/tracks_SAt_filtered_with_periods.csv')
