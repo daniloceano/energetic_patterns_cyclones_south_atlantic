@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/05/08 14:17:01 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/08 15:04:00 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/08 15:26:28 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -240,6 +240,10 @@ def process_results(file_study_case, lowest_ck_date):
 
         # Assigning track_id as a coordinate
         ds = ds.assign_coords(track_id=track_id)  # Assigning track_id as a coordinate
+
+        # Assign date
+        ds = ds.assign_coords(time=lowest_ck_date)
+        
         print(f"Finished creating PV composite for {file_study_case}")
 
         return ds
@@ -259,7 +263,7 @@ def main():
     ds = process_results(file_study_case, lowest_ck_date)
 
     filename = f'{system_id}_results_study_case.nc'
-    ds.to_netcdf(os.path.join(system_dir, filename))
+    ds.to_netcdf(filename)
     print(f"Saved {filename}")
  
 if __name__ == '__main__':
