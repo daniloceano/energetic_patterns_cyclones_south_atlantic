@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/05/06 16:40:35 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/07 17:56:05 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/08 00:19:31 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -101,23 +101,26 @@ def get_cdsapi_era5_data(filename: str, track: pd.DataFrame, pressure_levels: li
         logging.info("CDS API file already exists.")
         return infile
     
-def calculate_eady_growth_rate(u, theta, pressure, f, hgt):
+def calculate_eady_growth_rate(u, theta, f):
     # Calculate the derivative of U with respect to log-pressure
     dudp = u.differentiate("level")
     
     # Calculate the derivative of theta with respect to log-pressure
-    dthetadp = theta.sortby("level", ascending=True).differentiate("level")
+    dthetadp = theta.differentiate("level")
     
     # Calculate Brunt-Väisälä Frequency (N)
-    N = metpy.calc.brunt_vaisala_frequency(hgt, theta)
+    N_sqrd = (9.81 / theta) * (-dthetadp)
+    N_sqrd = N_sqrd.where(N_sqrd > 0, 0)
+    N = np.sqrt(N_sqrd)
     
     # Calculate Eady Growth Rate
-    EGR = 0.3098 * (np.abs(f) *  np.abs(dudp)) / N
+    EGR = 0.31 * (np.abs(f) / N) * np.abs(dudp)
 
     return EGR
 
 def create_pv_composite(infile, track):
     logging.info(f"Creating PV composite for {infile}")
+    print(f"Creating PV composite for {infile}")
 
     # Load the dataset
     ds = xr.open_dataset(infile)
@@ -127,7 +130,6 @@ def create_pv_composite(infile, track):
     pressure = ds.level * units.hPa
     u = ds['u'] * units('m/s')
     v = ds['v'] * units('m/s')
-    hgt = (ds['z'] / 9.8) * units('gpm')
     latitude = ds.latitude
     lat, lon = ds.latitude.values, ds.longitude.values
 
@@ -144,7 +146,7 @@ def create_pv_composite(infile, track):
 
     # Calculate Eady Growth Rate
     logging.info("Calculating Eady Growth Rate...")
-    eady_growth_rate = calculate_eady_growth_rate(u, potential_temperature, pressure, f, hgt)
+    eady_growth_rate = calculate_eady_growth_rate(u, potential_temperature, f)
     logging.info("Done.")
 
     # Select the 250 hPa level
@@ -199,67 +201,55 @@ def create_pv_composite(infile, track):
 
     return ds_composite
 
-# def save_composite(composites, total_systems_count):
-#     # Create a composite across all systems
-#     logging.info("Finished processing all systems. Creating composite...")
-#     composites = [composite for composite in composites if composite is not None]
+def find_smallest_domain(composites):
+    min_lat_size = min([comp.latitude.size for comp in composites])
+    min_lon_size = min([comp.longitude.size for comp in composites])
+    
+    # Find the composite with the smallest area
+    smallest_composite = next((comp for comp in composites if comp.latitude.size == min_lat_size and comp.longitude.size == min_lon_size), None)
+    
+    if smallest_composite is not None:
+        return smallest_composite.latitude.values, smallest_composite.longitude.values
+    else:
+        return None, None
 
-#     # Concatenate the composites and calculate the mean
-#     da_composite = xr.concat(composites, dim='track_id')
+def find_largest_domain(composites):
+    max_lat = max([comp.latitude.max() for comp in composites])
+    min_lat = min([comp.latitude.min() for comp in composites])
+    max_lon = max([comp.longitude.max() for comp in composites])
+    min_lon = min([comp.longitude.min() for comp in composites])
 
-#     # Calculate the mean
-#     ds_composite_mean = da_composite.mean(dim='track_id')
+    return np.arange(min_lat, max_lat + 0.25, 0.25), np.arange(min_lon, max_lon + 0.25, 0.25)
+    
+def interpolate_to_common_grid(composites, common_lat, common_lon):
+    interpolated_composites = []
+    for composite in composites:
+        interpolated = composite.interp(latitude=common_lat, longitude=common_lon, method='linear')
+        interpolated_composites.append(interpolated)
+    return interpolated_composites
 
-#     # Save the composites
-#     da_composite.to_netcdf('pv_egr_composite_track_ids_fixed.nc')
-#     ds_composite_mean.to_netcdf('pv_egr_composite_mean_fixed.nc')
-#     logging.info("Saved pv_egr_composite_track_ids.nc and pv_egr_composite_mean.nc")
-
-#     # Log end time
-#     end_time = time.time()
-#     formatted_end_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(end_time))
-#     logging.info(f"Finished {total_systems_count} cases at {formatted_end_time}")
+def compute_mean_composite(interpolated_composites):
+    # Concatenate the datasets along a new dimension
+    combined = xr.concat(interpolated_composites, dim='composite')
+    # Compute the mean along the new dimension
+    mean_composite = combined.mean(dim='composite')
+    return mean_composite
 
 def save_composite(composites, total_systems_count):
-    # Create a composite across all systems
-    logging.info("Finished processing all systems. Creating composite...")
-    composites = [composite for composite in composites if composite is not None]
-
     if not composites:
         logging.info("No valid composites found. Skipping composite creation.")
         return
 
-    # Calculate weights based on spatial extent (area)
-    weights = [composite.latitude.size * composite.longitude.size for composite in composites]
-    weights /= np.sum(weights)
+    common_lat, common_lon = find_smallest_domain(composites)
+    interpolated_composites = interpolate_to_common_grid(composites, common_lat, common_lon)
+    mean_composite = compute_mean_composite(interpolated_composites)
 
-    # Apply weighted average
-    weighted_composite = create_weighted_composite(composites, weights)
-
-    # Save the composite
-    weighted_composite.to_netcdf('pv_egr_weighted_composite.nc')
-    logging.info("Saved pv_egr_weighted_composite.nc")
-
-    # Log end time
+    mean_composite.to_netcdf('pv_egr_mean_composite.nc')
+    logging.info("Saved pv_egr_mean_composite.nc")
+    
     end_time = time.time()
     formatted_end_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(end_time))
     logging.info(f"Finished {total_systems_count} cases at {formatted_end_time}")
-
-def create_weighted_composite(composites, weights):
-    # Normalize weights to sum to 1
-    weights /= np.sum(weights)
-    
-    # Initialize empty arrays to store weighted variables
-    weighted_variables = []
-    
-    # Apply weights to each variable in each composite
-    for composite, weight in zip(composites, weights):
-        weighted_variables.append(composite * weight)
-    
-    # Combine weighted variables into composite
-    composite = sum(weighted_variables)
-    
-    return composite
 
 def process_system(system_dir, tracks_with_periods):
     """
@@ -285,14 +275,14 @@ def process_system(system_dir, tracks_with_periods):
 
     # Get ERA5 data for computing PV and EGR
     pressure_levels = ['200', '250', '300', '350', '400', '450']
-    variables = ["u_component_of_wind", "v_component_of_wind", "temperature", "geopotential"]
+    variables = ["u_component_of_wind", "v_component_of_wind", "temperature"]
     infile_pv_egr = get_cdsapi_era5_data(f'{system_id}-pv-egr', track, pressure_levels, variables) 
 
     # Make PV composite
     ds_composite = create_pv_composite(infile_pv_egr, track) 
     logging.info(f"Processing completed for {system_dir}")
 
-    # # Delete infile
+    # Delete infile
     # if os.path.exists(infile_pv_egr):
     #     os.remove(infile_pv_egr)
 
@@ -301,7 +291,7 @@ def process_system(system_dir, tracks_with_periods):
 def main():
 
     # Get all directories in the LEC_RESULTS_DIR
-    results_directories = sorted(glob(f'{LEC_RESULTS_DIR}/*'))
+    results_directories = sorted(glob(f'{LEC_RESULTS_DIR}/*'))[:5]
 
     # Get track and periods data
     tracks_with_periods = pd.read_csv('../tracks_SAt_filtered/tracks_SAt_filtered_with_periods.csv')

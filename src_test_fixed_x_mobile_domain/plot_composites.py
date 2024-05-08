@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/23 19:56:13 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/07 09:10:02 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/07 23:20:20 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -47,7 +47,7 @@ def determine_norm_bounds(data, factor=1.0):
     max_abs_value = max(abs(data_min), abs(data_max)) * factor
     return -max_abs_value, max_abs_value
 
-def main(filepath='pv_egr_weighted_composite.nc'):
+def main(filepath='pv_egr_mean_composite.nc'):
 
     ds = xr.open_dataset(filepath)
     pv_baroclinic = ds['pv_baroclinic']
