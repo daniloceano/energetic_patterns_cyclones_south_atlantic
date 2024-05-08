@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/05/08 14:17:01 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/08 15:26:28 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/08 20:49:47 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -31,7 +31,10 @@ def choose_study_case(LEC_RESULTS_DIR, tracks_with_periods):
     min_ck_values = {}
     
     for directory in os.listdir(LEC_RESULTS_DIR):
-        results_file = glob(f"{LEC_RESULTS_DIR}/{directory}/*fixed_results.csv")[0]
+        if 'ERA5_fixed' in directory:
+            results_file = glob(f"{LEC_RESULTS_DIR}/{directory}/*fixed_results.csv")[0]
+        else:
+            continue
         track_id = directory.split('_')[0]
         
         track = tracks_with_periods[tracks_with_periods['track_id'] == int(track_id)]
