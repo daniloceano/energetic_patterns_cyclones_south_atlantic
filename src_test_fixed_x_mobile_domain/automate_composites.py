@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/05/06 16:40:35 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/08 00:21:31 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/08 00:33:04 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -224,7 +224,7 @@ def find_largest_domain(composites):
 def interpolate_to_common_grid(composites, common_lat, common_lon):
     interpolated_composites = []
     for composite in composites:
-        interpolated = composite.interp(latitude=common_lat, longitude=common_lon, method='polynomial')
+        interpolated = composite.interp(latitude=common_lat, longitude=common_lon, method='cubic')
         interpolated_composites.append(interpolated)
     return interpolated_composites
 
