@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/05/06 16:40:35 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/08 00:38:22 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/08 00:41:17 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -240,7 +240,7 @@ def save_composite(composites, total_systems_count):
         logging.info("No valid composites found. Skipping composite creation.")
         return
 
-    common_lat, common_lon = find_smallest_domain(composites)
+    common_lat, common_lon = find_largest_domain(composites)
     interpolated_composites = interpolate_to_common_grid(composites, common_lat, common_lon)
     mean_composite = compute_mean_composite(interpolated_composites)
 
