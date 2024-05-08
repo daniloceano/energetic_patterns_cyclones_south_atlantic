@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/05/06 16:40:35 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/08 00:33:04 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/08 00:38:22 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -244,7 +244,7 @@ def save_composite(composites, total_systems_count):
     interpolated_composites = interpolate_to_common_grid(composites, common_lat, common_lon)
     mean_composite = compute_mean_composite(interpolated_composites)
 
-    mean_composite.to_netcdf('pv_egr_mean _composite.nc')
+    mean_composite.to_netcdf('pv_egr_mean_composite.nc')
     logging.info("Saved pv_egr_mean_composite.nc")
     
     end_time = time.time()
