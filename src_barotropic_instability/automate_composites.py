@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/24 14:42:50 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/09 14:41:18 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/09 14:42:16 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -362,8 +362,6 @@ def main():
 
     # Filter directories
     filtered_directories = [directory for directory in results_directories if any(system_id in directory for system_id in selected_systems_str)]
-
-    filtered_directories = results_directories[:2]
 
     # # Determine the number of CPU cores to use
     if len(sys.argv) > 1:
