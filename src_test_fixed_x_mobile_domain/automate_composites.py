@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/05/06 16:40:35 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/08 00:41:17 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/09 16:06:48 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -18,6 +18,8 @@ This script will automate the process of creating composites for PV for each sys
 import sys
 import os
 import time
+import random
+import subprocess
 import logging
 import pandas as pd
 import numpy as np
@@ -29,15 +31,54 @@ from datetime import timedelta
 from glob import glob
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from metpy.units import units
+from metpy.interpolate import interpolate_1d
 
 # Update logging configuration to use the custom handler
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s',
                     handlers=[logging.FileHandler('log.composite.txt', mode='w')])
 
 # REGION = sys.argv[1] # Region to process
-LEC_RESULTS_DIR = os.path.abspath('../../LEC_Results_fixed_framework_test')  # Get absolute PATH
+LEC_RESULTS_DIR = os.path.abspath('../../LEC_Results_fixed_framework_test')  
+CDSAPIRC_PATH = os.path.expanduser('~/.cdsapirc')
+OUTPUT_DIR = '../results_nc_files/composites_test_fixed_x_mobile/'
+
+def get_cdsapi_keys():
+    """
+    Lists all files in the home directory that match the pattern 'cdsapirc-*'.
+
+    Returns:
+    list: A list of filenames matching the pattern.
+    """
+    home_dir = os.path.expanduser('~')
+    pattern = os.path.join(home_dir, '.cdsapirc-*')
+    files = glob(pattern)
+    logging.info(f"CDSAPIRC files available at '{home_dir}': {files}")
+    # Extract file suffixes from the full paths
+    suffixes = [os.path.basename(file) for file in files]
+    return suffixes
+
+def copy_cdsapirc(suffix):
+    """
+    Copies a specific .cdsapirc file to the default .cdsapirc location.
+    Args:
+    suffix (str): The suffix of the .cdsapi file to be copied.
+    """
+    try:
+        source_path = os.path.expanduser(f'~/{suffix}')
+        subprocess.run(['cp', source_path, CDSAPIRC_PATH], check=True)
+        logging.info(f"Copied {source_path} to {CDSAPIRC_PATH}")
+    except Exception as e:
+        logging.error(f"Error copying {source_path} to {CDSAPIRC_PATH}: {e}")
 
 def get_cdsapi_era5_data(filename: str, track: pd.DataFrame, pressure_levels: list, variables: list) -> xr.Dataset:
+
+    # Pick a random .cdsapirc file for each process
+    if CDSAPIRC_SUFFIXES:
+        chosen_suffix = random.choice(CDSAPIRC_SUFFIXES)
+        copy_cdsapirc(chosen_suffix)
+        logging.info(f"Switched .cdsapirc file to {chosen_suffix}")
+    else:
+        logging.error("No .cdsapirc files found. Please check the configuration.")
 
     track.set_index('date', inplace=True)
     track.index = pd.to_datetime(track.index)
@@ -101,20 +142,39 @@ def get_cdsapi_era5_data(filename: str, track: pd.DataFrame, pressure_levels: li
         logging.info("CDS API file already exists.")
         return infile
     
-def calculate_eady_growth_rate(u, theta, f):
+def calculate_eady_growth_rate(u, theta, f, hgt):
+
+    # Define new target geopotential heights
+    new_geopotential_heights = np.linspace(float(hgt.min()), float(hgt.max()), 6) * units.meters  # Example range
+
+    # Interpolate u from pressure levels to new geopotential heights
+    u_on_geopotential_height_levels = interpolate_1d(new_geopotential_heights, hgt, u, axis=1)
+    hgt_on_geopotential_height_levels = interpolate_1d(new_geopotential_heights, hgt, hgt, axis=1)
+
+    theta_reordered = theta.transpose('time', 'level', 'latitude', 'longitude')
+    theta_on_geopotential_height_levels = interpolate_1d(new_geopotential_heights, hgt, theta_reordered, axis=1)
+
+    # Convert u to DataArray
+    u_height_levels = xr.DataArray(u_on_geopotential_height_levels, dims=["time", "level", "latitude", "longitude"],
+                    coords={"time": u.time, "level": new_geopotential_heights, "latitude": u.latitude, "longitude": u.longitude})
+    hgt_height_levels = xr.DataArray(hgt_on_geopotential_height_levels, dims=["time", "level", "latitude", "longitude"],
+                    coords={"time": u.time, "level": new_geopotential_heights, "latitude": u.latitude, "longitude": u.longitude})
+    theta_height_levels = xr.DataArray(theta_on_geopotential_height_levels, dims=["time", "level", "latitude", "longitude"],
+                    coords={"time": theta.time, "level": new_geopotential_heights, "latitude": theta.latitude, "longitude": theta.longitude})
+    
+    # Drop NaN values
+    u_height_levels = u_height_levels.dropna(dim="level")
+    hgt_height_levels = hgt_height_levels.dropna(dim="level")
+    theta_height_levels = theta_height_levels.dropna(dim="level")
+
     # Calculate the derivative of U with respect to log-pressure
-    dudp = u.differentiate("level")
-    
-    # Calculate the derivative of theta with respect to log-pressure
-    dthetadp = theta.differentiate("level")
-    
+    dudz = u_height_levels.differentiate("level") / units('m')
+
     # Calculate Brunt-Väisälä Frequency (N)
-    N_sqrd = (9.81 / theta) * (-dthetadp)
-    N_sqrd = N_sqrd.where(N_sqrd > 0, 0)
-    N = np.sqrt(N_sqrd)
+    N = metpy.calc.brunt_vaisala_frequency(hgt_height_levels, theta_height_levels, vertical_dim=1)
     
     # Calculate Eady Growth Rate
-    EGR = 0.31 * (np.abs(f) / N) * np.abs(dudp)
+    EGR = 0.3098 * (np.abs(f) *  np.abs(dudz)) / N
 
     return EGR
 
@@ -152,7 +212,7 @@ def create_pv_composite(infile, track):
     # Select the 250 hPa level
     pv_baroclinic_250 = pv_baroclinic.sel(level=250)
     absolute_vorticity_250 = absolute_vorticity.sel(level=250)
-    eady_growth_rate_400 = eady_growth_rate.sel(level=250)
+    eady_growth_rate_400 = eady_growth_rate.sel.isel(level=1) # 400 hPa level is the 2nd vertical level
     
     # Calculate the composites for this system
     logging.info("Calculating means...")
@@ -235,7 +295,7 @@ def compute_mean_composite(interpolated_composites):
     mean_composite = combined.mean(dim='composite')
     return mean_composite
 
-def save_composite(composites, total_systems_count):
+def save_composite(composites, total_systems_count, output_dir):
     if not composites:
         logging.info("No valid composites found. Skipping composite creation.")
         return
@@ -244,7 +304,7 @@ def save_composite(composites, total_systems_count):
     interpolated_composites = interpolate_to_common_grid(composites, common_lat, common_lon)
     mean_composite = compute_mean_composite(interpolated_composites)
 
-    mean_composite.to_netcdf('pv_egr_mean_composite.nc')
+    mean_composite.to_netcdf(os.path.join(output_dir, 'pv_egr_mean_composite.nc'))
     logging.info("Saved pv_egr_mean_composite.nc")
     
     end_time = time.time()
@@ -283,10 +343,12 @@ def process_system(system_dir, tracks_with_periods):
     logging.info(f"Processing completed for {system_dir}")
 
     # Delete infile
-    # if os.path.exists(infile_pv_egr):
-    #     os.remove(infile_pv_egr)
+    if os.path.exists(infile_pv_egr):
+        os.remove(infile_pv_egr)
 
     return ds_composite 
+
+CDSAPIRC_SUFFIXES = get_cdsapi_keys()
 
 def main():
 
@@ -324,7 +386,7 @@ def main():
     # Assuming a function to aggregate and save the results
     if composites:
         logging.info("Aggregating and saving PV composites...")
-        save_composite(composites, total_systems_count)
+        save_composite(composites, total_systems_count, OUTPUT_DIR)
 
 if __name__ == "__main__":
     main()
