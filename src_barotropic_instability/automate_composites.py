@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/24 14:42:50 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/09 14:38:56 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/09 14:41:18 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -283,8 +283,8 @@ def save_composite(composites, output_dir, total_systems_count):
     ds_composite_mean = da_composite.mean(dim='track_id')
 
     # Save the composites
-    da_composite.to_netcdf('pv_egr_composite_track_ids.nc')
-    ds_composite_mean.to_netcdf('pv_egr_composite_mean.nc')
+    da_composite.to_netcdf(f'{output_dir}/pv_egr_composite_track_ids.nc')
+    ds_composite_mean.to_netcdf(f'{output_dir}/pv_egr_composite_mean.nc')
     logging.info("Saved pv_egr_composite_track_ids.nc and pv_egr_composite_mean.nc")
 
     # Log end time
