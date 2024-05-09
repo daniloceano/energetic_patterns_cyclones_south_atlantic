@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/05/06 16:40:35 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/09 16:06:48 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/09 17:28:36 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -206,7 +206,7 @@ def create_pv_composite(infile, track):
 
     # Calculate Eady Growth Rate
     logging.info("Calculating Eady Growth Rate...")
-    eady_growth_rate = calculate_eady_growth_rate(u, potential_temperature, f)
+    eady_growth_rate = calculate_eady_growth_rate(u, potential_temperature, f, ht)
     logging.info("Done.")
 
     # Select the 250 hPa level
