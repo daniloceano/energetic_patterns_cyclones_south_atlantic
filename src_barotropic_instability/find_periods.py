@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/23 17:10:09 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/09 23:43:03 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/10 13:52:10 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -32,7 +32,7 @@ def process_event_directory(event_dir, track_with_periods):
         return pd.DataFrame(), pd.DataFrame()  # Return empty DataFrames if files are not found
 
     ck_levels_df = pd.read_csv(ck_levels_path[0], index_col='time', parse_dates=True)
-    ca_levels_df = pd.read_csv(ca_levels_path[0], index_col='time', parse_dates=True)
+    ca_levels_df = - pd.read_csv(ca_levels_path[0], index_col='time', parse_dates=True)
 
     # Get periods data
     system_id = int(os.path.basename(event_dir).split('_')[0])
@@ -58,7 +58,7 @@ def process_event_directory(event_dir, track_with_periods):
 
 def plot_boxplots_all_phases(data, term, phases_order):
     plt.figure(figsize=(14, 8))
-    sns.boxplot(x='period', y='value', data=data, order=phases_order, showfliers=False)
+    sns.boxplot(x='period', y='value', data=data, order=phases_order, showfliers=False, hue='period', palette='deep')
     plt.axhline(y=0, color='r', linestyle='-', linewidth=1.25)
     plt.ylabel(f'{term.capitalize()} (W/m²)')
     plt.xlabel('Phase')
@@ -73,7 +73,7 @@ def plot_boxplots_each_phase(data, term, phases_order):
     for i, phase in enumerate(phases_order):
         if data[data['period'] == phase].empty:
             continue
-        sns.boxplot(x='level', y='value', data=data[data['period'] == phase], ax=axes[i], showfliers=False)
+        sns.boxplot(x='level', y='value', data=data[data['period'] == phase], ax=axes[i], showfliers=False, hue='level', palette='deep')
         axes[i].axhline(y=0, color='r', linestyle='-', linewidth=1.25)
         axes[i].set_title(f'{phase}')
         axes[i].set_ylabel(f'{term.capitalize()} (W/m²)')
