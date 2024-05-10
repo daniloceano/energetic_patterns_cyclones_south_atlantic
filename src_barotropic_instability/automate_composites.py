@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/24 14:42:50 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/09 14:42:16 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/10 14:15:39 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -200,9 +200,9 @@ def create_pv_composite(infile, track):
     eady_growth_rate = calculate_eady_growth_rate(u, potential_temperature, f, hgt)
 
     # Select the 250 hPa level
-    pv_baroclinic_250 = pv_baroclinic.sel(level=250)
+    pv_baroclinic_1000 = pv_baroclinic.sel(level=1000)
     absolute_vorticity_250 = absolute_vorticity.sel(level=250)
-    eady_growth_rate_400 = eady_growth_rate.isel(level=1) # 400 hPa level is the 2nd vertical level
+    eady_growth_rate_1000 = eady_growth_rate.isel(level=0) # 1000 hPa level is the 1st vertical level
 
     # Empty lists to store the slices
     pv_baroclinic_slices_system, absolute_vorticity_slices_system = [], []
@@ -210,23 +210,23 @@ def create_pv_composite(infile, track):
 
     for time_step in track.index:
         # Select the time step
-        pv_baroclinic_250_time = pv_baroclinic_250.sel(time=time_step)
+        pv_baroclinic_1000_time = pv_baroclinic_1000.sel(time=time_step)
         absolute_vorticity_250_time = absolute_vorticity_250.sel(time=time_step)
-        eady_growth_rate_400_time = eady_growth_rate_400.sel(time=time_step)
+        eady_growth_rate_1000_time = eady_growth_rate_1000.sel(time=time_step)
 
         # Select the track limits
         min_lon, max_lon = track.loc[time_step, 'min_lon'], track.loc[time_step, 'max_lon']
         min_lat, max_lat = track.loc[time_step, 'min_lat'], track.loc[time_step, 'max_lat']
 
         # Slice for track limits
-        pv_baroclinic_250_time_slice = pv_baroclinic_250_time.sel(longitude=slice(min_lon, max_lon), latitude=slice(max_lat, min_lat))
-        pv_baroclinic_slices_system.append(pv_baroclinic_250_time_slice)
+        pv_baroclinic_1000_time_slice = pv_baroclinic_1000_time.sel(longitude=slice(min_lon, max_lon), latitude=slice(max_lat, min_lat))
+        pv_baroclinic_slices_system.append(pv_baroclinic_1000_time_slice)
 
         absolute_vorticity_250_time_slice = absolute_vorticity_250_time.sel(longitude=slice(min_lon, max_lon), latitude=slice(max_lat, min_lat))
         absolute_vorticity_slices_system.append(absolute_vorticity_250_time_slice)
 
-        eady_growth_rate_400_time_slice = eady_growth_rate_400_time.sel(longitude=slice(min_lon, max_lon), latitude=slice(max_lat, min_lat))
-        eady_growth_rate_slices_system.append(eady_growth_rate_400_time_slice)
+        eady_growth_rate_1000_time_slice = eady_growth_rate_1000_time.sel(longitude=slice(min_lon, max_lon), latitude=slice(max_lat, min_lat))
+        eady_growth_rate_slices_system.append(eady_growth_rate_1000_time_slice)
     
     # Calculate the composites for this system
     pv_baroclinic_mean = np.mean(pv_baroclinic_slices_system, axis=0)
@@ -234,7 +234,9 @@ def create_pv_composite(infile, track):
     eady_growth_rate_mean = np.mean(eady_growth_rate_slices_system, axis=0)
 
     # Create a DataArray using an extra dimension for the type of PV
-    x, y = np.arange(pv_baroclinic_mean.shape[1]), np.arange(pv_baroclinic_mean.shape[0])
+    x_size, y_size = pv_baroclinic_mean.shape[1], pv_baroclinic_mean.shape[0]
+    x = np.linspace(- x_size / 2, x_size / 2, x_size + 1)
+    y = np.linspace(- y_size / 2, y_size / 2, y_size + 1)
     track_id = int(infile.split('.')[0].split('-')[0])
 
     # Create DataArrays
@@ -334,7 +336,7 @@ def process_system(system_dir):
     system_id = os.path.basename(system_dir).split('_')[0] # Get system ID
 
     # Get ERA5 data for computing PV and EGR
-    pressure_levels = ['200', '250', '300', '350', '400', '450']
+    pressure_levels = ['250', '300', '350', '975', '1000']
     variables = ["u_component_of_wind", "v_component_of_wind", "temperature", "geopotential"]
     infile_pv_egr = get_cdsapi_era5_data(f'{system_id}-pv-egr', track, pressure_levels, variables) 
 
@@ -362,6 +364,9 @@ def main():
 
     # Filter directories
     filtered_directories = [directory for directory in results_directories if any(system_id in directory for system_id in selected_systems_str)]
+
+    ##### DEBUG #####
+    filtered_directories = results_directories[:1]
 
     # # Determine the number of CPU cores to use
     if len(sys.argv) > 1:
