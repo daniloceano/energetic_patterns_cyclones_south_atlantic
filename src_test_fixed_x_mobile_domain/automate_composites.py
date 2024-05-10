@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/05/06 16:40:35 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/09 17:29:55 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/10 16:26:04 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -212,13 +212,13 @@ def create_pv_composite(infile, track):
 
     # Select the 250 hPa level
     pv_baroclinic_250 = pv_baroclinic.sel(level=250)
-    absolute_vorticity_250 = absolute_vorticity.sel(level=250)
-    eady_growth_rate_400 = eady_growth_rate.sel.isel(level=1) # 400 hPa level is the 2nd vertical level
+    absolute_vorticity_1000 = absolute_vorticity.sel(level=250)
+    eady_growth_rate_400 = eady_growth_rate.isel(level=0) # 1000 hPa level is the 1st vertical level
     
     # Calculate the composites for this system
     logging.info("Calculating means...")
     pv_baroclinic_mean = pv_baroclinic_250.mean(dim='time')
-    absolute_vorticity_mean = absolute_vorticity_250.mean(dim='time')
+    absolute_vorticity_mean = absolute_vorticity_1000.mean(dim='time')
     eady_growth_rate_mean = eady_growth_rate_400.mean(dim='time')
     logging.info("Done.")
 
@@ -335,7 +335,7 @@ def process_system(system_dir, tracks_with_periods):
         return None
 
     # Get ERA5 data for computing PV and EGR
-    pressure_levels = ['200', '250', '300', '350', '400', '450']
+    pressure_levels = ['250', '300', '350', '975', '1000']
     variables = ["u_component_of_wind", "v_component_of_wind", "temperature", "geopotential"]
     infile_pv_egr = get_cdsapi_era5_data(f'{system_id}-pv-egr', track, pressure_levels, variables) 
 
@@ -343,9 +343,9 @@ def process_system(system_dir, tracks_with_periods):
     ds_composite = create_pv_composite(infile_pv_egr, track) 
     logging.info(f"Processing completed for {system_dir}")
 
-    # Delete infile
-    if os.path.exists(infile_pv_egr):
-        os.remove(infile_pv_egr)
+    # # Delete infile
+    # if os.path.exists(infile_pv_egr):
+    #     os.remove(infile_pv_egr)
 
     return ds_composite 
 

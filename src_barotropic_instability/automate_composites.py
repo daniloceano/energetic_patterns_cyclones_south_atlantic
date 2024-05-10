@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/24 14:42:50 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/10 15:41:57 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/10 16:32:29 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -235,8 +235,8 @@ def create_pv_composite(infile, track):
 
     # Create a DataArray using an extra dimension for the type of PV
     x_size, y_size = pv_baroclinic_mean.shape[1], pv_baroclinic_mean.shape[0]
-    x = np.linspace(- x_size / 2, x_size / 2, x_size + 1)
-    y = np.linspace(- y_size / 2, y_size / 2, y_size + 1)
+    x = np.linspace(- x_size / 2, (x_size / 2) - 1 , x_size)
+    y = np.linspace(- y_size / 2, (y_size / 2) - 1, y_size)
     track_id = int(infile.split('.')[0].split('-')[0])
 
     # Create DataArrays
