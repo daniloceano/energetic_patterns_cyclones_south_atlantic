@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/23 15:00:18 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/02 15:04:24 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/10 13:57:44 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -25,6 +25,8 @@ from tqdm import tqdm  # Import tqdm for the progress bar
 
 def read_and_process(file_path):
     df = pd.read_csv(file_path, index_col=0)
+    if 'Ca' in file_path:
+        df = - df
     df.columns = [float(col) / 100 for col in df.columns]
     return df
 
@@ -45,7 +47,7 @@ figures_dir = '../figures_barotropic_baroclinic_instability'
 os.makedirs(figures_dir, exist_ok=True)
 
 # Select track to process
-directories_paths = glob('../../LEC_Results_energetic-patterns/*')
+directories_paths = glob('../../LEC_Results_fixed_framework_test/*')
 selected_systems = pd.read_csv('systems_to_be_analysed.txt', header=None)[0].tolist()
 selected_systems = pd.read_csv('systems_to_be_analysed.txt', header=None)[0].tolist()
 selected_systems_str = [str(system) for system in selected_systems]
@@ -56,10 +58,10 @@ ck_paths = [os.path.join(directory, 'Ck_level.csv') for directory in filtered_di
 ca_paths = [os.path.join(directory, 'Ca_level.csv') for directory in filtered_directories]
 
 # Step 2: Use ProcessPoolExecutor to read files in parallel
-with ProcessPoolExecutor() as executor:
+with ProcessPoolExecutor(max_workers=4) as executor:
     results_ck = list(tqdm(executor.map(read_and_process, ck_paths), total=len(ck_paths), desc="Processing Files"))
 
-with ProcessPoolExecutor() as executor:
+with ProcessPoolExecutor(max_workers=4) as executor:
     results_ca = list(tqdm(executor.map(read_and_process, ca_paths), total=len(ca_paths), desc="Processing Files"))
 
 # Step 3: Combine the data into a single DataFrame
