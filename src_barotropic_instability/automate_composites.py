@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/24 14:42:50 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/10 14:18:59 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/10 15:41:57 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -344,9 +344,9 @@ def process_system(system_dir):
     ds_composite = create_pv_composite(infile_pv_egr, track) 
     logging.info(f"Processing completed for {system_dir}")
 
-    # Delete infile
-    if os.path.exists(infile_pv_egr):
-        os.remove(infile_pv_egr)
+    # # Delete infile
+    # if os.path.exists(infile_pv_egr):
+    #     os.remove(infile_pv_egr)
 
     return ds_composite 
 
