@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/23 17:10:09 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/02 14:37:22 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/09 23:43:03 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -16,49 +16,51 @@ This scritps will find in which periods of the life cycle the barotropic instabi
 
 import os
 import pandas as pd
+import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 from glob import glob
 from tqdm import tqdm
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-def process_event_directory(event_dir):
-    try:
-        ck_levels_path = glob(f'{event_dir}/Ck_level*.csv')
-        ca_levels_path = glob(f'{event_dir}/Ca_level*.csv')
-        periods_path = glob(f'{event_dir}/periods.csv')
+def process_event_directory(event_dir, track_with_periods):
+    ck_levels_path = glob(f'{event_dir}/Ck_level*.csv')
+    ca_levels_path = glob(f'{event_dir}/Ca_level*.csv')
 
-        if not ck_levels_path or not ca_levels_path or not periods_path:
-            return pd.DataFrame(), pd.DataFrame()  # Return empty DataFrames if files are not found
+    if not ck_levels_path or not ca_levels_path:
+        print(f"No files found for {event_dir}")
+        return pd.DataFrame(), pd.DataFrame()  # Return empty DataFrames if files are not found
 
-        ck_levels_df = pd.read_csv(ck_levels_path[0], index_col='time', parse_dates=True)
-        ca_levels_df = pd.read_csv(ca_levels_path[0], index_col='time', parse_dates=True)
-        periods_df = pd.read_csv(periods_path[0], parse_dates=['start', 'end'], index_col=0)
+    ck_levels_df = pd.read_csv(ck_levels_path[0], index_col='time', parse_dates=True)
+    ca_levels_df = pd.read_csv(ca_levels_path[0], index_col='time', parse_dates=True)
 
-        # Convert levels to hPa and assign phases
-        ck_levels_df.columns = [float(col) / 100 for col in ck_levels_df.columns]
-        ca_levels_df.columns = [float(col) / 100 for col in ca_levels_df.columns]
-        
-        for phase in periods_df.index:
-            phase_start, phase_end = periods_df.loc[phase, ['start', 'end']]
-            ck_levels_df.loc[phase_start:phase_end, 'phase'] = phase
-            ca_levels_df.loc[phase_start:phase_end, 'phase'] = phase
+    # Get periods data
+    system_id = int(os.path.basename(event_dir).split('_')[0])
+    track_system = track_with_periods[track_with_periods['track_id'] == system_id].dropna(subset=['period'])
+    
+    # Assigning phases
+    for phase in track_system['period'].unique():
+        phase_data = track_system[track_system['period'] == phase]
+        phase_start = phase_data['date'].min()
+        phase_end = phase_data['date'].max()
+        ck_levels_df.loc[phase_start:phase_end, 'period'] = phase
+        ca_levels_df.loc[phase_start:phase_end, 'period'] = phase
 
-        melted_df_ck = ck_levels_df.melt(id_vars='phase', var_name='level', value_name='value')
-        melted_df_ca = ca_levels_df.melt(id_vars='phase', var_name='level', value_name='value')
-        
-        return melted_df_ck, melted_df_ca
+    # Removing nan and NaN values
+    ck_levels_df = ck_levels_df[~ck_levels_df['period'].isin(['nan', 'NaN', ''])].dropna()
+    ca_levels_df = ca_levels_df[~ca_levels_df['period'].isin(['nan', 'NaN', ''])].dropna()
 
-    except Exception as e:
-        print(f"Error processing {event_dir}: {e}")
-        return pd.DataFrame(), pd.DataFrame()  # Return empty DataFrames in case of an error
+    melted_df_ck = ck_levels_df.melt(id_vars='period', var_name='level', value_name='value')
+    melted_df_ca = ca_levels_df.melt(id_vars='period', var_name='level', value_name='value')
+    
+    return melted_df_ck, melted_df_ca
 
 
 def plot_boxplots_all_phases(data, term, phases_order):
     plt.figure(figsize=(14, 8))
-    sns.boxplot(x='phase', y='value', data=data, order=phases_order, showfliers=False)
+    sns.boxplot(x='period', y='value', data=data, order=phases_order, showfliers=False)
     plt.axhline(y=0, color='r', linestyle='-', linewidth=1.25)
-    plt.ylabel(f'{term.capitalize()} {term} (W/m²)')
+    plt.ylabel(f'{term.capitalize()} (W/m²)')
     plt.xlabel('Phase')
     plt.xticks(rotation=45)
     plt.tight_layout()
@@ -69,12 +71,12 @@ def plot_boxplots_each_phase(data, term, phases_order):
     fig, axes = plt.subplots(nrows=len(phases_order), figsize=(12, 2 * len(phases_order)), sharex=True)
 
     for i, phase in enumerate(phases_order):
-        if data[data['phase'] == phase].empty:
+        if data[data['period'] == phase].empty:
             continue
-        sns.boxplot(x='level', y='value', data=data[data['phase'] == phase], ax=axes[i], showfliers=False)
+        sns.boxplot(x='level', y='value', data=data[data['period'] == phase], ax=axes[i], showfliers=False)
         axes[i].axhline(y=0, color='r', linestyle='-', linewidth=1.25)
         axes[i].set_title(f'{phase}')
-        axes[i].set_ylabel(f'{term.capitalize()} {term} (W/m²)')
+        axes[i].set_ylabel(f'{term.capitalize()} (W/m²)')
         axes[i].set_xlabel('Vertical Level (hPa)')
 
     plt.xticks(rotation=90)
@@ -90,10 +92,12 @@ os.makedirs(figures_dir, exist_ok=True)
 phases_order = ['incipient', 'intensification', 'mature', 'decay']
 
 # Get all directories containing event data
-directories_paths = glob('../../LEC_Results_energetic-patterns/*')
+directories_paths = glob('../../LEC_Results_fixed_framework_test/*')
+
+# Get tracks with periods
+track_with_periods = pd.read_csv('../tracks_SAt_filtered/tracks_SAt_filtered_with_periods.csv')
 
 # Select track to process
-selected_systems = pd.read_csv('systems_to_be_analysed.txt', header=None)[0].tolist()
 selected_systems = pd.read_csv('systems_to_be_analysed.txt', header=None)[0].tolist()
 selected_systems_str = [str(system) for system in selected_systems]
 filtered_directories = [directory for directory in directories_paths if any(system_id in directory for system_id in selected_systems_str)]
@@ -105,7 +109,7 @@ all_ca_data = pd.DataFrame()
 # Use ThreadPoolExecutor to process directories in parallel
 with ThreadPoolExecutor(max_workers=4) as executor:
     # Prepare futures and a dict to track them
-    futures = [executor.submit(process_event_directory, dir_path) for dir_path in filtered_directories]
+    futures = [executor.submit(process_event_directory, dir_path, track_with_periods) for dir_path in filtered_directories]
     # Wrap futures with tqdm for a progress bar
     for future in tqdm(as_completed(futures), total=len(futures), desc="Processing Events"):
         ck_data, ca_data = future.result()
