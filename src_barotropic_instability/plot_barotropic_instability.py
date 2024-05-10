@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/23 19:56:13 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/09 15:54:17 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/10 20:43:55 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -76,8 +76,6 @@ def main(filepath='../results_nc_files/composites_barotropic_baroclinic/pv_egr_c
     for var in ds.data_vars:
         min_val = float(min(ds[var].min(), ds[var].min()))
         max_val = float(max(ds[var].max(), ds[var].max()))
-        if var == 'EGR':
-            max_val *= 0.7
         levels[var] = np.linspace(min_val, max_val, 11)
     levels['pv_baroclinic_derivative'] = np.linspace(np.min(pv_baroclinic_derivative), np.max(pv_baroclinic_derivative), 11)
     levels['absolute_vorticity_derivative'] = np.linspace(np.min(absolute_vorticity_derivative), np.max(absolute_vorticity_derivative), 11)

@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/05/06 16:40:35 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/10 19:22:21 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/10 20:27:29 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -263,16 +263,38 @@ def create_pv_composite(infile, track):
     return ds_composite
 
 def find_smallest_domain(composites):
-    min_lat_size = min([comp.latitude.size for comp in composites])
-    min_lon_size = min([comp.longitude.size for comp in composites])
-    
-    # Find the composite with the smallest area
-    smallest_composite = next((comp for comp in composites if comp.latitude.size == min_lat_size and comp.longitude.size == min_lon_size), None)
-    
-    if smallest_composite is not None:
-        return smallest_composite.latitude.values, smallest_composite.longitude.values
-    else:
+    """
+    Finds the smallest domain that includes all given composites by calculating the intersection
+    of their latitude and longitude ranges.
+    """
+    if not composites:
         return None, None
+
+    # Initialize with the range of the first composite
+    min_lat, max_lat = composites[0].latitude.min(), composites[0].latitude.max()
+    min_lon, max_lon = composites[0].longitude.min(), composites[0].longitude.max()
+
+    # Update the bounds based on all other composites
+    for comp in composites[1:]:
+        comp_min_lat, comp_max_lat = comp.latitude.min(), comp.latitude.max()
+        comp_min_lon, comp_max_lon = comp.longitude.min(), comp.longitude.max()
+
+        # Find the intersection of the ranges
+        min_lat = max(min_lat, comp_min_lat)
+        max_lat = min(max_lat, comp_max_lat)
+        min_lon = max(min_lon, comp_min_lon)
+        max_lon = min(max_lon, comp_max_lon)
+
+        # Check if there's no overlap
+        if min_lat > max_lat or min_lon > max_lon:
+            logging.warning("No overlapping region found among composites.")
+            return None, None
+
+    # Return the smallest domain's latitude and longitude ranges
+    common_lat = np.arange(min_lat, max_lat + 0.25, 0.25)  # Increment might need adjustment based on actual data resolution
+    common_lon = np.arange(min_lon, max_lon + 0.25, 0.25)
+
+    return common_lat, common_lon
 
 def find_largest_domain(composites):
     max_lat = max([comp.latitude.max() for comp in composites])
@@ -303,7 +325,7 @@ def save_composite(composites, total_systems_count, output_dir):
         logging.info("No valid composites found. Skipping composite creation.")
         return
 
-    common_lat, common_lon = find_largest_domain(composites)
+    common_lat, common_lon = find_smallest_domain(composites)
     interpolated_composites = interpolate_to_common_grid(composites, common_lat, common_lon)
     mean_composite = compute_mean_composite(interpolated_composites)
 
@@ -356,7 +378,7 @@ CDSAPIRC_SUFFIXES = get_cdsapi_keys()
 def main():
 
     # Get all directories in the LEC_RESULTS_DIR
-    results_directories = sorted(glob(f'{LEC_RESULTS_DIR}/*'))
+    results_directories = sorted(glob(f'{LEC_RESULTS_DIR}/*'))[:3]
 
     # Get track and periods data
     tracks_with_periods = pd.read_csv('../tracks_SAt_filtered/tracks_SAt_filtered_with_periods.csv')
