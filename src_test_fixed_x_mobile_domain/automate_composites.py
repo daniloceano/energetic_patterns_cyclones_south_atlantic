@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/05/06 16:40:35 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/10 16:26:04 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/10 19:22:21 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -297,6 +297,8 @@ def compute_mean_composite(interpolated_composites):
     return mean_composite
 
 def save_composite(composites, total_systems_count, output_dir):
+    os.makedirs(output_dir, exist_ok=True)
+
     if not composites:
         logging.info("No valid composites found. Skipping composite creation.")
         return
