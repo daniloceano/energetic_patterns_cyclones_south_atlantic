@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/05/06 16:40:35 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/11 17:06:45 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/11 17:45:01 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -179,7 +179,8 @@ def calculate_eady_growth_rate(u, theta, f, hgt):
     # Convert units for simplicity
     EGR = EGR.metpy.convert_units(' 1 / day')
 
-    return EGR
+    return EGR.transpose('level', 'time', 'latitude', 'longitude')
+
 
 def create_pv_composite(infile, track):
     logging.info(f"Creating PV composite for {infile}")
