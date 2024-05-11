@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/05/06 16:40:35 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/11 00:24:00 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/11 13:22:55 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -213,21 +213,28 @@ def create_pv_composite(infile, track):
     eady_growth_rate = calculate_eady_growth_rate(u, potential_temperature, f, hgt)
     logging.info("Done.")
 
-    # Select the 250 hPa level
+    # Select variables in their corresponding levels for composites
     pv_baroclinic_250 = pv_baroclinic.sel(level=250)
     absolute_vorticity_1000 = absolute_vorticity.sel(level=250)
     eady_growth_rate_400 = eady_growth_rate.isel(level=0) # 1000 hPa level is the 1st vertical level
+    u_250, v_250, hgt_250 = u.sel(level=250), v.sel(level=250), hgt.sel(level=250)
+    u_1000, v_1000, hgt_1000 = u.sel(level=1000), v.sel(level=1000), hgt.sel(level=1000)
     
     # Calculate the composites for this system
     logging.info("Calculating means...")
     pv_baroclinic_mean = pv_baroclinic_250.mean(dim='time')
     absolute_vorticity_mean = absolute_vorticity_1000.mean(dim='time')
     eady_growth_rate_mean = eady_growth_rate_400.mean(dim='time')
+    u_250_mean = u_250.mean(dim='time')
+    v_250_mean = v_250.mean(dim='time')
+    hgt_250_mean = hgt_250.mean(dim='time')
+    u_1000_mean = u_1000.mean(dim='time')
+    v_1000_mean = v_1000.mean(dim='time')
+    hgt_1000_mean = hgt_1000.mean(dim='time')
     logging.info("Done.")
 
     # Create a DataArray using an extra dimension for the type of PV
     logging.info("Creating DataArray...")
-    x, y = np.arange(pv_baroclinic_mean.shape[1]), np.arange(pv_baroclinic_mean.shape[0])
     track_id = int(infile.split('.')[0].split('-')[0])
 
     # Create DataArrays
@@ -255,11 +262,68 @@ def create_pv_composite(infile, track):
         attrs={'units': eady_growth_rate_mean.metpy.units},
     )
 
+    da_u_250 = xr.DataArray(
+        u_250_mean.values,
+        dims=['latitude', 'longitude'],
+        coords={'latitude': lat, 'longitude': lon},
+        name='u_250',
+        attrs={'units': u_250_mean.metpy.units},
+    )
+
+    da_v_250 = xr.DataArray(
+        v_250_mean.values,
+        dims=['latitude', 'longitude'],
+        coords={'latitude': lat, 'longitude': lon},
+        name='v_250',
+        attrs={'units': v_250_mean.metpy.units},
+    )
+
+    da_u_1000 = xr.DataArray(
+        u_1000_mean.values,
+        dims=['latitude', 'longitude'],
+        coords={'latitude': lat, 'longitude': lon},
+        name='u_1000',
+        attrs={'units': u_1000_mean.metpy.units},
+    )
+
+    da_v_1000 = xr.DataArray(
+        v_1000_mean.values,
+        dims=['latitude', 'longitude'],
+        coords={'latitude': lat, 'longitude': lon},
+        name='v_1000',
+        attrs={'units': v_1000_mean.metpy.units},
+    )
+
+    da_hgt_250 = xr.DataArray(
+        hgt_250_mean.values,
+        dims=['latitude', 'longitude'],
+        coords={'latitude': lat, 'longitude': lon},
+        name='hgt_250',
+        attrs={'units': hgt_250_mean.metpy.units},
+    )
+
+    da_hgt_1000 = xr.DataArray(
+        hgt_1000_mean.values,
+        dims=['latitude', 'longitude'],
+        coords={'latitude': lat, 'longitude': lon},
+        name='hgt_1000',
+        attrs={'units': hgt_1000_mean.metpy.units},
+    )
+
+    logging.info("Done.")
+
     # Combine into a Dataset and add track_id as a coordinate
     ds_composite = xr.Dataset({
         'pv_baroclinic': da_baroclinic,
         'absolute_vorticity': da_absolute_vorticity,
-        'EGR': da_edy})
+        'EGR': da_edy,
+        'u_250': da_u_250,
+        'v_250': da_v_250,
+        'hgt_250': da_hgt_250,
+        'u_1000': da_u_1000,
+        'v_1000': da_v_1000,
+        'hgt_1000': da_hgt_1000}
+    )
 
     # Assigning track_id as a coordinate
     ds_composite = ds_composite.assign_coords(track_id=track_id)  # Assigning track_id as a coordinate
