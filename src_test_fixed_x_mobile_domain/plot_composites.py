@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/23 19:56:13 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/11 00:53:43 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/11 01:12:27 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -26,6 +26,8 @@ import matplotlib.ticker as ticker
 
 TITLE_SIZE = 16
 TICK_LABEL_SIZE = 12
+LABEL_SIZE = 12
+GRID_LABEL_SIZE = 12
 FIGURES_DIR = '../figures_test_fixed_framework'
 CRS = ccrs.PlateCarree()
 COMPOSITE_DIR = '../results_nc_files/composites_test_fixed_x_mobile/'
@@ -61,14 +63,14 @@ def plot_map(ax, data, cmap, title, levels, units, transform=ccrs.PlateCarree())
                       linewidth=1, color='gray', alpha=0.5, linestyle='--')
     gl.top_labels = False   # Disable labels at the top
     gl.right_labels = False # Disable labels on the right
-    gl.xlabel_style = {'size': 12, 'color': 'gray', 'weight': 'bold'}  # Style for x-axis labels
-    gl.ylabel_style = {'size': 12, 'color': 'gray', 'weight': 'bold'}  # Style for y-axis labels
+    gl.xlabel_style = {'size': GRID_LABEL_SIZE, 'color': 'gray', 'weight': 'bold'}  # Style for x-axis labels
+    gl.ylabel_style = {'size': GRID_LABEL_SIZE, 'color': 'gray', 'weight': 'bold'}  # Style for y-axis labels
     
     # Optionally set the x and y locators to control the locations of the grid lines
     gl.xlocator = ticker.MaxNLocator(nbins=5)  # Adjust the number of bins as needed
     gl.ylocator = ticker.MaxNLocator(nbins=5)
 
-    ax.set_title(title, fontsize=12)  # You can adjust the fontsize as necessary
+    ax.set_title(title, fontsize=TITLE_SIZE)  # You can adjust the fontsize as necessary
 def determine_norm_bounds(data, factor=1.0):
     """Determines symmetric normalization bounds for plotting centered around zero."""
     data_min, data_max = data.min().values, data.max().values
@@ -119,12 +121,14 @@ def main():
     # Baroclinic PV derivative lon mean
     fig = plt.figure(figsize=(5, 5))
     ax = plt.gca()
-    ax.plot(pv_baroclinic_derivative.mean('longitude'), np.arange(len(pv_baroclinic_derivative.mean('longitude'))),
-                 color='#003049', linewidth=3)
     ax.axvline(0, color='#c1121f', linestyle='--', linewidth=0.5)
+    ax.plot(pv_baroclinic_derivative.mean('longitude'), pv_baroclinic_derivative.mean('longitude').latitude,
+                 color='#003049', linewidth=3)
     ax.set_title(r'$\frac{\partial PV}{\partial y}$' + ' @ 1000 hPa', fontsize=TITLE_SIZE)
-    ax.set_yticks([])
-    plt.tick_params(axis='x', labelsize=TICK_LABEL_SIZE)
+    ax.set_ylabel('Latitude', fontsize=LABEL_SIZE)
+    ax.set_xlabel('PVU', fontsize=LABEL_SIZE)
+    plt.tick_params(axis='both', labelsize=TICK_LABEL_SIZE)
+    plt.tight_layout()
     filename = 'pv_baroclinic_composite_derivative_lon_mean_fixed.png'
     file_path = os.path.join(FIGURES_DIR, filename)
     plt.savefig(file_path)
@@ -151,12 +155,14 @@ def main():
     # Absolute Vorticity derivative lon mean
     fig = plt.figure(figsize=(5, 5))
     ax = plt.gca()
-    ax.plot(absolute_vorticity_derivative.mean('longitude'), np.arange(len(absolute_vorticity_derivative.mean('longitude'))),
-                 color='#003049', linewidth=3)
     ax.axvline(0, color='#c1121f', linestyle='--', linewidth=0.5)
+    ax.plot(absolute_vorticity_derivative.mean('longitude'), absolute_vorticity_derivative.mean('longitude').latitude,
+                 color='#003049', linewidth=3)
     ax.set_title(r'$\frac{\partial \eta}{\partial y}$' + ' @ 250 hPa', fontsize=TITLE_SIZE)
-    ax.set_yticks([])
-    ax.tick_params(axis='x', labelsize=TICK_LABEL_SIZE)
+    ax.set_ylabel('Latitude', fontsize=LABEL_SIZE)
+    ax.set_xlabel(r's$^{-1}$', fontsize=LABEL_SIZE)
+    ax.tick_params(axis='both', labelsize=TICK_LABEL_SIZE)
+    plt.tight_layout()
     filename = 'absolute_vorticity_composite_derivative_lon_mean_fixed.png'
     file_path = os.path.join(FIGURES_DIR, filename)
     fig.savefig(file_path)
