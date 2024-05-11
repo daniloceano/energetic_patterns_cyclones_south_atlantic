@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/24 14:42:50 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/11 00:24:22 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/11 14:48:12 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -202,20 +202,26 @@ def create_pv_composite(infile, track):
     # Calculate Eady Growth Rate
     eady_growth_rate = calculate_eady_growth_rate(u, potential_temperature, f, hgt)
 
-    # Select the 250 hPa level
+    # Select variables in their corresponding levels for composites
     pv_baroclinic_1000 = pv_baroclinic.sel(level=1000)
     absolute_vorticity_250 = absolute_vorticity.sel(level=250)
     eady_growth_rate_1000 = eady_growth_rate.isel(level=0) # 1000 hPa level is the 1st vertical level
+    u_250, v_250, hgt_250 = u.sel(level=250), v.sel(level=250), hgt.sel(level=250)
+    u_1000, v_1000, hgt_1000 = u.sel(level=1000), v.sel(level=1000), hgt.sel(level=1000)
 
     # Empty lists to store the slices
     pv_baroclinic_slices_system, absolute_vorticity_slices_system = [], []
     eady_growth_rate_slices_system = []
+    u_250_slices_system, v_250_slices_system, hgt_250_slices_system = [], [], []
+    u_1000_slices_system, v_1000_slices_system, hgt_1000_slices_system = [], [], []
 
     for time_step in track.index:
         # Select the time step
         pv_baroclinic_1000_time = pv_baroclinic_1000.sel(time=time_step)
         absolute_vorticity_250_time = absolute_vorticity_250.sel(time=time_step)
         eady_growth_rate_1000_time = eady_growth_rate_1000.sel(time=time_step)
+        u_250_time, v_250_time, hgt_250_time = u_250.sel(time=time_step), v_250.sel(time=time_step), hgt_250.sel(time=time_step)
+        u_1000_time, v_1000_time, hgt_1000_time = u_1000.sel(time=time_step), v_1000.sel(time=time_step), hgt_1000.sel(time=time_step)
 
         # Select the track limits
         min_lon, max_lon = track.loc[time_step, 'min_lon'], track.loc[time_step, 'max_lon']
@@ -230,11 +236,32 @@ def create_pv_composite(infile, track):
 
         eady_growth_rate_1000_time_slice = eady_growth_rate_1000_time.sel(longitude=slice(min_lon, max_lon), latitude=slice(max_lat, min_lat))
         eady_growth_rate_slices_system.append(eady_growth_rate_1000_time_slice)
+
+        u_250_time_slice = u_250_time.sel(longitude=slice(min_lon, max_lon), latitude=slice(max_lat, min_lat))
+        v_250_time_slice = v_250_time.sel(longitude=slice(min_lon, max_lon), latitude=slice(max_lat, min_lat))
+        hgt_250_time_slice = hgt_250_time.sel(longitude=slice(min_lon, max_lon), latitude=slice(max_lat, min_lat))
+        u_250_slices_system.append(u_250_time_slice)
+        v_250_slices_system.append(v_250_time_slice)
+        hgt_250_slices_system.append(hgt_250_time_slice)
+
+        u_1000_time_slice = u_1000_time.sel(longitude=slice(min_lon, max_lon), latitude=slice(max_lat, min_lat))
+        v_1000_time_slice = v_1000_time.sel(longitude=slice(min_lon, max_lon), latitude=slice(max_lat, min_lat))
+        hgt_1000_time_slice = hgt_1000_time.sel(longitude=slice(min_lon, max_lon), latitude=slice(max_lat, min_lat))
+        u_1000_slices_system.append(u_1000_time_slice)
+        v_1000_slices_system.append(v_1000_time_slice)
     
     # Calculate the composites for this system
     pv_baroclinic_mean = np.mean(pv_baroclinic_slices_system, axis=0)
     absolute_vorticity_mean = np.mean(absolute_vorticity_slices_system, axis=0)
     eady_growth_rate_mean = np.mean(eady_growth_rate_slices_system, axis=0)
+
+    u_250_mean = np.mean(u_250_slices_system, axis=0)
+    v_250_mean = np.mean(v_250_slices_system, axis=0)
+    hgt_250_mean = np.mean(hgt_250_slices_system, axis=0)
+
+    u_1000_mean = np.mean(u_1000_slices_system, axis=0)
+    v_1000_mean = np.mean(v_1000_slices_system, axis=0)
+    hgt_1000_mean = np.mean(hgt_1000_slices_system, axis=0)
 
     # Create a DataArray using an extra dimension for the type of PV
     x_size, y_size = pv_baroclinic_mean.shape[1], pv_baroclinic_mean.shape[0]
@@ -267,11 +294,65 @@ def create_pv_composite(infile, track):
         attrs={'units': str(eady_growth_rate_1000_time_slice.metpy.units)}
     )
 
+    da_u_250 = xr.DataArray(
+        u_250_mean,
+        dims=['y', 'x'],
+        coords={'y': y, 'x': x},
+        name='u_250',
+        attrs={'units': str(u_250_time_slice.metpy.units)}
+    )
+
+    da_v_250 = xr.DataArray(
+        v_250_mean,
+        dims=['y', 'x'],
+        coords={'y': y, 'x': x},
+        name='v_250',
+        attrs={'units': str(v_250_time_slice.metpy.units)}
+    )
+
+    da_hgt_250 = xr.DataArray(
+        hgt_250_mean,
+        dims=['y', 'x'],
+        coords={'y': y, 'x': x},
+        name='hgt_250',
+        attrs={'units': str(hgt_250_time_slice.metpy.units)}
+    )
+
+    da_u_1000 = xr.DataArray(
+        u_1000_mean,
+        dims=['y', 'x'],
+        coords={'y': y, 'x': x},
+        name='u_1000',
+        attrs={'units': str(u_1000_time_slice.metpy.units)}
+    )
+
+    da_v_1000 = xr.DataArray(
+        v_1000_mean,
+        dims=['y', 'x'],
+        coords={'y': y, 'x': x},
+        name='v_1000',
+        attrs={'units': str(v_1000_time_slice.metpy.units)}
+    )
+
+    da_hgt_1000 = xr.DataArray(
+        hgt_1000_mean,
+        dims=['y', 'x'],
+        coords={'y': y, 'x': x},
+        name='hgt_1000',
+        attrs={'units': str(hgt_1000_time_slice.metpy.units)}
+    )
+
     # Combine into a Dataset and add track_id as a coordinate
     ds_composite = xr.Dataset({
         'pv_baroclinic': da_baroclinic,
         'absolute_vorticity': da_absolute_vorticity,
-        'EGR': da_edy
+        'EGR': da_edy,
+        'u_250': da_u_250,
+        'v_250': da_v_250,
+        'hgt_250': da_hgt_250,
+        'u_1000': da_u_1000,
+        'v_1000': da_v_1000,
+        'hgt_1000': da_hgt_1000
     })
 
     # Assigning track_id as a coordinate
