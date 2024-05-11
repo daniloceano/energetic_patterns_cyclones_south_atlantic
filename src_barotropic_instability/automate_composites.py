@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/24 14:42:50 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/11 00:04:39 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/11 00:24:22 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -248,7 +248,7 @@ def create_pv_composite(infile, track):
         dims=['y', 'x'],
         coords={'y': y, 'x': x},
         name='pv_baroclinic',
-        attrs={'units': pv_baroclinic_1000_time_slice.metpy.units}
+        attrs={'units': str(pv_baroclinic_1000_time_slice.metpy.units)}
     )
 
     da_absolute_vorticity = xr.DataArray(
@@ -256,7 +256,7 @@ def create_pv_composite(infile, track):
         dims=['y', 'x'],
         coords={'y': y, 'x': x},
         name='absolute_vorticity',
-        attrs={'units': absolute_vorticity_250_time_slice.metpy.units}
+        attrs={'units': str(absolute_vorticity_250_time_slice.metpy.units)}
     )
 
     da_edy = xr.DataArray(
@@ -264,7 +264,7 @@ def create_pv_composite(infile, track):
         dims=['y', 'x'],
         coords={'y': y, 'x': x},
         name='EGR',
-        attrs={'units': eady_growth_rate_1000_time_slice.metpy.units}
+        attrs={'units': str(eady_growth_rate_1000_time_slice.metpy.units)}
     )
 
     # Combine into a Dataset and add track_id as a coordinate
