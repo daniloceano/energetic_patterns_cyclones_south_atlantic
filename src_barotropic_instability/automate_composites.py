@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/24 14:42:50 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/10 23:50:53 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/11 00:04:39 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -248,7 +248,7 @@ def create_pv_composite(infile, track):
         dims=['y', 'x'],
         coords={'y': y, 'x': x},
         name='pv_baroclinic',
-        attrs={'units': pv_baroclinic_mean.metpy.units}
+        attrs={'units': pv_baroclinic_1000_time_slice.metpy.units}
     )
 
     da_absolute_vorticity = xr.DataArray(
@@ -256,7 +256,7 @@ def create_pv_composite(infile, track):
         dims=['y', 'x'],
         coords={'y': y, 'x': x},
         name='absolute_vorticity',
-        attrs={'units': absolute_vorticity_mean.metpy.units}
+        attrs={'units': absolute_vorticity_250_time_slice.metpy.units}
     )
 
     da_edy = xr.DataArray(
@@ -264,7 +264,7 @@ def create_pv_composite(infile, track):
         dims=['y', 'x'],
         coords={'y': y, 'x': x},
         name='EGR',
-        attrs={'units': eady_growth_rate_mean.metpy.units}
+        attrs={'units': eady_growth_rate_1000_time_slice.metpy.units}
     )
 
     # Combine into a Dataset and add track_id as a coordinate
@@ -370,6 +370,9 @@ def main():
 
     # Filter directories
     filtered_directories = [directory for directory in results_directories if any(system_id in directory for system_id in selected_systems_str)]
+
+    ##### DEBUG #####
+    # filtered_directories  = results_directories[:1]
 
     # # Determine the number of CPU cores to use
     if len(sys.argv) > 1:
