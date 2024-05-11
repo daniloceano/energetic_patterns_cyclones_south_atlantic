@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/05/08 14:17:01 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/11 16:24:33 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/11 17:09:09 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -154,7 +154,7 @@ def process_system(system_dir, file_study_case, tracks_with_periods, lowest_ck_d
     # Get ERA5 data for computing PV and EGR
     pressure_levels = ['250', '300', '350', '975', '1000']
     variables = ["u_component_of_wind", "v_component_of_wind", "temperature", "geopotential"]
-    infile = os.path.basename(file_study_case)
+    infile = f"{system_id}-pv-egr.nc"
     infile = get_cdsapi_era5_data(infile, track, pressure_levels, variables, lowest_ck_date) 
     
     return infile
@@ -197,7 +197,7 @@ def process_results(infile, lowest_ck_date):
 
         # Create a DataArray using an extra dimension for the type of PV
         print("Creating DataArray...")
-        track_id = int(os.path.basename(infile).split('.')[0].split('_')[0])
+        track_id = int(os.path.basename(infile).split('.')[0].split('-')[0])
 
         # Create DataArrays
         da_baroclinic = xr.DataArray(
