@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/23 19:56:13 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/11 00:50:08 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/11 00:58:37 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -119,12 +119,12 @@ def main(filepath='../results_nc_files/composites_barotropic_baroclinic/pv_egr_c
     # Baroclinic PV derivative lon mean
     fig = plt.figure(figsize=(5, 5))
     ax = plt.gca()
-    ax.plot(pv_baroclinic_derivative.mean('x'), np.arange(len(pv_baroclinic_derivative.mean('x'))),
-                 color='#003049', linewidth=3)
     ax.axvline(0, color='#c1121f', linestyle='--', linewidth=0.5)
+    ax.axhline(0, color='#c1121f', linestyle='--', linewidth=0.5)
+    ax.plot(pv_baroclinic_derivative.mean('x'), pv_baroclinic_derivative.mean('x').y,
+                 color='#003049', linewidth=3)
     ax.set_title(r'$\frac{\partial PV}{\partial y}$' + ' @ 1000 hPa', fontsize=TITLE_SIZE)
-    ax.set_yticks([])
-    plt.tick_params(axis='x', labelsize=TICK_LABEL_SIZE)
+    plt.tick_params(axis='both', labelsize=TICK_LABEL_SIZE)
     plt.tight_layout()
     filename = 'pv_baroclinic_composite_derivative_lon_mean.png'
     file_path = os.path.join(FIGURES_DIR, filename)
@@ -154,12 +154,12 @@ def main(filepath='../results_nc_files/composites_barotropic_baroclinic/pv_egr_c
     # Absolute Vorticity derivative lon mean
     fig = plt.figure(figsize=(5, 5))
     ax = plt.gca()
-    ax.plot(absolute_vorticity_derivative.mean('x'), np.arange(len(absolute_vorticity_derivative.mean('x'))),
-                 color='#003049', linewidth=3)
     ax.axvline(0, color='#c1121f', linestyle='--', linewidth=0.5)
+    ax.axhline(0, color='#c1121f', linestyle='--', linewidth=0.5)
+    ax.plot(absolute_vorticity_derivative.mean('x'), absolute_vorticity_derivative.mean('x').y,
+                 color='#003049', linewidth=3)
     ax.set_title(r'$\frac{\partial \eta}{\partial y}$' + ' @ 250 hPa', fontsize=TITLE_SIZE)
-    ax.set_yticks([])
-    ax.tick_params(axis='x', labelsize=TICK_LABEL_SIZE)
+    plt.tick_params(axis='both', labelsize=TICK_LABEL_SIZE)
     plt.tight_layout()
     filename = 'absolute_vorticity_composite_derivative_lon_mean.png'
     file_path = os.path.join(FIGURES_DIR, filename)
