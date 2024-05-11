@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/05/08 13:15:01 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/11 16:46:29 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/11 17:11:11 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -61,7 +61,7 @@ def plot_map(ax, data, u, v, hgt, **kwargs):
               width=0.008, headwidth=2, headlength=2, headaxislength=2,  scale=scale_factor)
     
     # Quiver key
-    label = 10 if min_u < 10 else 20
+    label = 10 if '1000' in title else 30
     ax.quiverkey(qu, X=0.9, Y=1.05, U=label, label=f'{label} m/s', labelpos='E', coordinates='axes')
 
     # Add a colorbar
