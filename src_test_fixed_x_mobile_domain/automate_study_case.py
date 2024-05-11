@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/05/08 14:17:01 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/08 20:49:47 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/11 10:40:28 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -21,8 +21,11 @@ from glob import glob
 import metpy.calc
 from metpy.units import units
 
+from automate_composites import calculate_eady_growth_rate
+
 
 LEC_RESULTS_DIR = '../../LEC_Results_fixed_framework_test'
+OUTPUT_DIR = '../results_nc_files/composites_test_fixed_x_mobile/'
 
 def choose_study_case(LEC_RESULTS_DIR, tracks_with_periods):
     """
@@ -70,7 +73,6 @@ def choose_study_case(LEC_RESULTS_DIR, tracks_with_periods):
     else:
         return None, None
     
-
 def get_cdsapi_era5_data(filename: str,
                          track: pd.DataFrame,
                          pressure_levels: list,
@@ -103,9 +105,7 @@ def get_cdsapi_era5_data(filename: str,
     final_hour = (lowest_ck_date + pd.Timedelta(hours=1)).strftime('%H')
 
     # Load ERA5 data
-    infile = f"{filename}.nc"
-
-    if not os.path.exists(infile):
+    if not os.path.exists(filename):
         print("Retrieving data from CDS API...")
         c = cdsapi.Client(timeout=600)
         c.retrieve(
@@ -118,35 +118,18 @@ def get_cdsapi_era5_data(filename: str,
                 "area": area,
                 'time': f'{initial_hour}/to/{final_hour}/by/1',
                 "variable": variables,
-            }, infile # save file as passed in arguments
+            }, filename # save file as passed in arguments
         )
 
-        if not os.path.exists(infile):
+        if not os.path.exists(filename):
             raise FileNotFoundError("CDS API file not created.")
-        return infile
+        return filename
     
     else:
         print("CDS API file already exists.")
-        return infile
-    
-def calculate_eady_growth_rate(u, theta, f):
-    # Calculate the derivative of U with respect to log-pressure
-    dudp = u.differentiate("level")
-    
-    # Calculate the derivative of theta with respect to log-pressure
-    dthetadp = theta.differentiate("level")
-    
-    # Calculate Brunt-Väisälä Frequency (N)
-    N_sqrd = (9.81 / theta) * (-dthetadp)
-    N_sqrd = N_sqrd.where(N_sqrd > 0, 0)
-    N = np.sqrt(N_sqrd)
-    
-    # Calculate Eady Growth Rate
-    EGR = 0.31 * (np.abs(f) / N) * np.abs(dudp)
+        return filename
 
-    return EGR
-    
-def process_system(system_dir, tracks_with_periods, lowest_ck_date):
+def process_system(system_dir, filename, tracks_with_periods, lowest_ck_date):
     """
     Process the selected system.
     """
@@ -169,9 +152,9 @@ def process_system(system_dir, tracks_with_periods, lowest_ck_date):
         return None
 
     # Get ERA5 data for computing PV and EGR
-    pressure_levels = ['200', '250', '300', '350', '400', '450']
-    variables = ["u_component_of_wind", "v_component_of_wind", "temperature"]
-    file_study_case = get_cdsapi_era5_data(f'{system_id}-study_case', track, pressure_levels, variables, lowest_ck_date) 
+    pressure_levels = ['250', '300', '350', '975', '1000']
+    variables = ["u_component_of_wind", "v_component_of_wind", "temperature", "geopotential"]
+    file_study_case = get_cdsapi_era5_data(filename, track, pressure_levels, variables, lowest_ck_date) 
     
     return file_study_case
 
@@ -184,6 +167,7 @@ def process_results(file_study_case, lowest_ck_date):
         pressure = ds.level * units.hPa
         u = ds['u'] * units('m/s')
         v = ds['v'] * units('m/s')
+        hgt = (ds['z'] / 9.8) * units('gpm')
         latitude = ds.latitude
         lat, lon = ds.latitude.values, ds.longitude.values
 
@@ -200,38 +184,41 @@ def process_results(file_study_case, lowest_ck_date):
 
         # Calculate Eady Growth Rate
         print("Calculating Eady Growth Rate...")
-        eady_growth_rate = calculate_eady_growth_rate(u, potential_temperature, f)
+        eady_growth_rate = calculate_eady_growth_rate(u, potential_temperature, f, hgt)
         print("Done.")
 
         # Select the 250 hPa level
-        pv_baroclinic_250 = pv_baroclinic.sel(time=lowest_ck_date).sel(level=250)
-        absolute_vorticity_250 = absolute_vorticity.sel(time=lowest_ck_date).sel(level=250)
-        eady_growth_rate_400 = eady_growth_rate.sel(time=lowest_ck_date).sel(level=400)
+        pv_baroclinic_1000 = pv_baroclinic.sel(time=lowest_ck_date).sel(level=250)
+        absolute_vorticity_1000 = absolute_vorticity.sel(time=lowest_ck_date).sel(level=1000)
+        eady_growth_rate_1000 = eady_growth_rate.sel(time=lowest_ck_date).isel(level=0)
 
         # Create a DataArray using an extra dimension for the type of PV
         print("Creating DataArray...")
-        track_id = int(file_study_case.split('.')[0].split('-')[0])
+        track_id = int(os.path.basename(file_study_case).split('.')[0].split('_')[0])
 
         # Create DataArrays
         da_baroclinic = xr.DataArray(
-            pv_baroclinic_250.values,
+            pv_baroclinic_1000.values,
             dims=['latitude', 'longitude'],
             coords={'latitude': lat, 'longitude': lon},
-            name='pv_baroclinic'
+            name='pv_baroclinic',
+            attrs={'units': str(pv_baroclinic_1000.metpy.units), 'description': 'PV Baroclinic'}
         )
 
         da_absolute_vorticity = xr.DataArray(
-            absolute_vorticity_250.values,
+            absolute_vorticity_1000.values,
             dims=['latitude', 'longitude'],
             coords={'latitude': lat, 'longitude': lon},
-            name='absolute_vorticity'
+            name='absolute_vorticity',
+            attrs={'units': str(absolute_vorticity_1000.metpy.units), 'description': 'Absolute Vorticity'}
         )
 
         da_edy = xr.DataArray(
-            eady_growth_rate_400.values,
+            eady_growth_rate_1000.values,
             dims=['latitude', 'longitude'],
             coords={'latitude': lat, 'longitude': lon},
-            name='EGR'
+            name='EGR',
+            attrs={'units': str(eady_growth_rate_1000.metpy.units), 'description': 'Eady Growth Rate'}
         )
 
         # Combine into a Dataset and add track_id as a coordinate
@@ -259,13 +246,15 @@ def main():
     lowest_track, lowest_ck_date = choose_study_case(LEC_RESULTS_DIR, tracks_with_periods)
     system_id = lowest_track['track_id'].unique()[0]
 
+    # Get system directory
     system_dir = os.path.join(LEC_RESULTS_DIR, f"{system_id}_ERA5_fixed")
 
-    file_study_case = process_system(system_dir, tracks_with_periods, lowest_ck_date)
-
+    # Process study case
+    filename = f'{OUTPUT_DIR}/{system_id}_results_study_case.nc'
+    file_study_case = process_system(system_dir, filename, tracks_with_periods, lowest_ck_date)
     ds = process_results(file_study_case, lowest_ck_date)
 
-    filename = f'{system_id}_results_study_case.nc'
+    
     ds.to_netcdf(filename)
     print(f"Saved {filename}")
  
