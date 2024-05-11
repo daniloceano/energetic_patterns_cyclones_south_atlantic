@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/24 14:42:50 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/10 16:32:29 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/10 23:50:53 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -173,6 +173,9 @@ def calculate_eady_growth_rate(u, theta, f, hgt):
     # Calculate Eady Growth Rate
     EGR = 0.3098 * (np.abs(f) *  np.abs(dudz)) / N
 
+    # Convert units for simplicity
+    EGR = EGR.metpy.convert_units(' 1 / day')
+
     return EGR
 
 def create_pv_composite(infile, track):
@@ -244,21 +247,24 @@ def create_pv_composite(infile, track):
         pv_baroclinic_mean,
         dims=['y', 'x'],
         coords={'y': y, 'x': x},
-        name='pv_baroclinic'
+        name='pv_baroclinic',
+        attrs={'units': pv_baroclinic_mean.metpy.units}
     )
 
     da_absolute_vorticity = xr.DataArray(
         absolute_vorticity_mean,
         dims=['y', 'x'],
         coords={'y': y, 'x': x},
-        name='absolute_vorticity'
+        name='absolute_vorticity',
+        attrs={'units': absolute_vorticity_mean.metpy.units}
     )
 
     da_edy = xr.DataArray(
         eady_growth_rate_mean,
         dims=['y', 'x'],
         coords={'y': y, 'x': x},
-        name='EGR'
+        name='EGR',
+        attrs={'units': eady_growth_rate_mean.metpy.units}
     )
 
     # Combine into a Dataset and add track_id as a coordinate

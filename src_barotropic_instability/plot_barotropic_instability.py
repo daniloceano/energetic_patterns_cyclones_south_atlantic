@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/23 19:56:13 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/10 20:43:55 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/10 21:09:09 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -48,6 +48,21 @@ def plot_map(ax, data, cmap, title, levels, transform=ccrs.PlateCarree()):
     current_ticks = colorbar.get_ticks()
     new_ticks = current_ticks[::2]  # Take every second tick
     colorbar.set_ticks(new_ticks)   # Set the modified ticks
+
+    # Set up grid lines
+    ax.grid(True, linestyle='--', alpha=0.5)
+
+    # Customize the ticks on x and y axes
+    ax.xaxis.set_major_locator(ticker.AutoLocator())  # Automatically determine the location of ticks
+    ax.yaxis.set_major_locator(ticker.AutoLocator())
+
+    # Label formatting to show just numbers
+    ax.xaxis.set_major_formatter(ticker.ScalarFormatter(useOffset=False))
+    ax.yaxis.set_major_formatter(ticker.ScalarFormatter(useOffset=False))
+
+    # Set specific tick values if needed
+    ax.set_xticks(np.arange(-30, 30, 5))
+    ax.set_yticks(np.arange(-30, 30, 5))
 
     colorbar.update_ticks()
     ax.set_title(title, fontsize=12)  # You can adjust the fontsize as necessary

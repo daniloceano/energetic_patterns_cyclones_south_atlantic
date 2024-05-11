@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/05/06 16:40:35 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/10 20:27:29 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/10 23:49:29 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -176,6 +176,9 @@ def calculate_eady_growth_rate(u, theta, f, hgt):
     # Calculate Eady Growth Rate
     EGR = 0.3098 * (np.abs(f) *  np.abs(dudz)) / N
 
+    # Convert units for simplicity
+    EGR = EGR.metpy.convert_units(' 1 / day')
+
     return EGR
 
 def create_pv_composite(infile, track):
@@ -232,29 +235,31 @@ def create_pv_composite(infile, track):
         pv_baroclinic_mean.values,
         dims=['latitude', 'longitude'],
         coords={'latitude': lat, 'longitude': lon},
-        name='pv_baroclinic'
+        name='pv_baroclinic',
+        attrs={'units': pv_baroclinic_mean.metpy.units},
     )
 
     da_absolute_vorticity = xr.DataArray(
         absolute_vorticity_mean.values,
         dims=['latitude', 'longitude'],
         coords={'latitude': lat, 'longitude': lon},
-        name='absolute_vorticity'
+        name='absolute_vorticity',
+        attrs={'units': absolute_vorticity_mean.metpy.units},
     )
 
     da_edy = xr.DataArray(
         eady_growth_rate_mean.values,
         dims=['latitude', 'longitude'],
         coords={'latitude': lat, 'longitude': lon},
-        name='EGR'
+        name='EGR',
+        attrs={'units': eady_growth_rate_mean.metpy.units},
     )
 
     # Combine into a Dataset and add track_id as a coordinate
     ds_composite = xr.Dataset({
         'pv_baroclinic': da_baroclinic,
         'absolute_vorticity': da_absolute_vorticity,
-        'EGR': da_edy
-    })
+        'EGR': da_edy})
 
     # Assigning track_id as a coordinate
     ds_composite = ds_composite.assign_coords(track_id=track_id)  # Assigning track_id as a coordinate

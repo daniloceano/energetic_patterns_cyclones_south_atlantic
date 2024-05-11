@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/23 19:56:13 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/10 19:57:23 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/10 21:17:00 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -31,18 +31,44 @@ CRS = ccrs.PlateCarree()
 COMPOSITE_DIR = '../results_nc_files/composites_test_fixed_x_mobile/'
 
 
-def plot_map(ax, data, cmap, title, transform=ccrs.PlateCarree()):
+def plot_map(ax, data, cmap, title, levels, transform=ccrs.PlateCarree()):
     """Plot potential vorticity using dynamic normalization based on data values."""
-    vmin, vmax = determine_norm_bounds(data)
-    norm = colors.TwoSlopeNorm(vmin=vmin, vcenter=0, vmax=vmax)
-    cf = ax.contourf(data['longitude'], data['latitude'], data, cmap=cmap, norm=norm, transform=transform)
+    levels_min, levels_max = np.min(levels), np.max(levels)
+    if levels_min < 0 and levels_max > 0:
+        norm = colors.TwoSlopeNorm(vmin=np.min(levels), vcenter=0, vmax=np.max(levels))
+    else:
+        norm = colors.Normalize(vmin=np.min(levels), vmax=np.max(levels))
+    cf = ax.contourf(data.longitude, data.latitude, data, cmap=cmap, norm=norm, transform=transform, levels=levels, extend='both')
     colorbar = plt.colorbar(cf, ax=ax, pad=0.1, orientation='horizontal', shrink=0.5)
-    colorbar.ax.xaxis.set_major_formatter(ticker.ScalarFormatter(useMathText=True))
-    colorbar.ax.xaxis.get_major_formatter().set_scientific(True)
-    colorbar.ax.xaxis.get_major_formatter().set_powerlimits((0, 0))
-    colorbar.ax.set_xticklabels(colorbar.ax.get_xticklabels(), rotation=45, fontsize=TICK_LABEL_SIZE)
-    ax.set_title(title, fontsize=TITLE_SIZE)
+    # Setup the colorbar to use scientific notation conditionally
+    formatter = ticker.ScalarFormatter(useMathText=True)
+    formatter.set_scientific(True)
+    formatter.set_powerlimits((-3, 3))  # Adjust these limits based on your specific needs
+    colorbar.ax.xaxis.set_major_formatter(formatter)
 
+    # Calculate ticks: Skip every 2 ticks
+    current_ticks = colorbar.get_ticks()
+    new_ticks = current_ticks[::2]  # Take every second tick
+    colorbar.set_ticks(new_ticks)   # Set the modified ticks
+
+    colorbar.update_ticks()
+
+    # Set up grid lines
+    ax.grid(True, linestyle='--', alpha=0.5)
+
+    # Setting gridlines and labels
+    gl = ax.gridlines(crs=ccrs.PlateCarree(), draw_labels=True,
+                      linewidth=1, color='gray', alpha=0.5, linestyle='--')
+    gl.top_labels = False   # Disable labels at the top
+    gl.right_labels = False # Disable labels on the right
+    gl.xlabel_style = {'size': 12, 'color': 'gray', 'weight': 'bold'}  # Style for x-axis labels
+    gl.ylabel_style = {'size': 12, 'color': 'gray', 'weight': 'bold'}  # Style for y-axis labels
+    
+    # Optionally set the x and y locators to control the locations of the grid lines
+    gl.xlocator = ticker.MaxNLocator(nbins=5)  # Adjust the number of bins as needed
+    gl.ylocator = ticker.MaxNLocator(nbins=5)
+
+    ax.set_title(title, fontsize=12)  # You can adjust the fontsize as necessary
 def determine_norm_bounds(data, factor=1.0):
     """Determines symmetric normalization bounds for plotting centered around zero."""
     data_min, data_max = data.min().values, data.max().values
@@ -61,11 +87,20 @@ def main():
     # Calculate derivatives
     pv_baroclinic_derivative = pv_baroclinic.diff('latitude')
     absolute_vorticity_derivative = absolute_vorticity.diff('latitude')
+
+    levels = {}
+    # Create levels for plot each variable
+    for var in ds.data_vars:
+        min_val = float(min(ds[var].min(), ds[var].min()))
+        max_val = float(max(ds[var].max(), ds[var].max()))
+        levels[var] = np.linspace(min_val, max_val, 11)
+    levels['pv_baroclinic_derivative'] = np.linspace(np.min(pv_baroclinic_derivative), np.max(pv_baroclinic_derivative), 11)
+    levels['absolute_vorticity_derivative'] = np.linspace(np.min(absolute_vorticity_derivative), np.max(absolute_vorticity_derivative), 11)
     
     # Baroclinic PV
     fig = plt.figure()
     ax = fig.add_subplot(111, projection=CRS)
-    plot_map(ax, pv_baroclinic, cmo.balance, r'$PV$')
+    plot_map(ax, pv_baroclinic, "Blues_r", r'$PV$', levels=levels['pv_baroclinic'])
     filename = 'pv_baroclinic_composite.png'
     file_path = os.path.join(FIGURES_DIR, filename)
     plt.savefig(file_path)
@@ -74,7 +109,7 @@ def main():
     # Barotropic PV derivative
     fig = plt.figure()
     ax = fig.add_subplot(111, projection=CRS)
-    plot_map(ax, pv_baroclinic_derivative, cmo.curl, r'$\frac{\partial PV}{\partial y}$')
+    plot_map(ax, pv_baroclinic_derivative, cmo.curl, r'$\frac{\partial PV}{\partial y}$', levels=levels['pv_baroclinic_derivative'])
     filename = 'pv_baroclinic_composite_derivative_fixed.png'
     file_path = os.path.join(FIGURES_DIR, filename)
     plt.savefig(file_path)
@@ -97,7 +132,7 @@ def main():
     # Absolute Vorticity 
     fig = plt.figure()
     ax = fig.add_subplot(111, projection=CRS)
-    plot_map(ax, absolute_vorticity, cmo.balance, r'$\eta$')
+    plot_map(ax, absolute_vorticity, "Blues_r", r'$\eta$', levels=levels['absolute_vorticity'])
     filename = 'absolute_vorticity_composite_fixed.png'
     file_path = os.path.join(FIGURES_DIR, filename)
     plt.savefig(file_path)
@@ -106,7 +141,7 @@ def main():
     # Absolute Vorticity derivative
     fig = plt.figure()
     ax = fig.add_subplot(111, projection=CRS)
-    plot_map(ax, absolute_vorticity_derivative, cmo.curl, r'$\frac{\partial \eta}{\partial y}$')
+    plot_map(ax, absolute_vorticity_derivative, cmo.curl, r'$\frac{\partial \eta}{\partial y}$', levels=levels['absolute_vorticity_derivative'])
     filename = 'absolute_vorticity_composite_derivative_fixed.png'
     file_path = os.path.join(FIGURES_DIR, filename)
     plt.savefig(file_path)
@@ -126,10 +161,10 @@ def main():
     fig.savefig(file_path)
     print(f'Saved {filename}')
 
-    # Absolute Vorticity 
+    # EGR 
     fig = plt.figure()
     ax = fig.add_subplot(111, projection=CRS)
-    plot_map(ax, egr, cmo.thermal, 'EGR')
+    plot_map(ax, egr, "rainbow", 'EGR', levels=levels['EGR'])
     filename = 'EGR_composite_fixed.png'
     file_path = os.path.join(FIGURES_DIR, filename)
     plt.savefig(file_path)
