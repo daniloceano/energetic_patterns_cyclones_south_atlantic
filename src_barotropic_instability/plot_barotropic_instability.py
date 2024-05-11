@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/23 19:56:13 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/11 00:58:37 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/11 01:05:50 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -25,7 +25,9 @@ import matplotlib.ticker as ticker
 from matplotlib.ticker import MaxNLocator
 
 TITLE_SIZE = 16
+LABEL_SIZE = 14
 TICK_LABEL_SIZE = 12
+GRID_LABEL_SIZE = 10
 FIGURES_DIR = '../figures_barotropic_baroclinic_instability'
 CRS = ccrs.PlateCarree()
 
@@ -64,8 +66,11 @@ def plot_map(ax, data, cmap, title, levels, units, transform=ccrs.PlateCarree())
     ax.set_xticks(np.arange(-30, 30, 5))
     ax.set_yticks(np.arange(-30, 30, 5))
 
+    # Adjusting font size for axis tick labels
+    ax.tick_params(axis='both', which='major', labelsize=GRID_LABEL_SIZE)
+
     colorbar.update_ticks()
-    ax.set_title(title, fontsize=12)  # You can adjust the fontsize as necessary
+    ax.set_title(title, fontsize=TITLE_SIZE)  # You can adjust the fontsize as necessary
 
 def determine_norm_bounds(data, factor=1.0):
     """Determines symmetric normalization bounds for plotting centered around zero."""
@@ -123,6 +128,7 @@ def main(filepath='../results_nc_files/composites_barotropic_baroclinic/pv_egr_c
     ax.axhline(0, color='#c1121f', linestyle='--', linewidth=0.5)
     ax.plot(pv_baroclinic_derivative.mean('x'), pv_baroclinic_derivative.mean('x').y,
                  color='#003049', linewidth=3)
+    plt.xlabel('PVU', fontsize=LABEL_SIZE)
     ax.set_title(r'$\frac{\partial PV}{\partial y}$' + ' @ 1000 hPa', fontsize=TITLE_SIZE)
     plt.tick_params(axis='both', labelsize=TICK_LABEL_SIZE)
     plt.tight_layout()
@@ -159,6 +165,7 @@ def main(filepath='../results_nc_files/composites_barotropic_baroclinic/pv_egr_c
     ax.plot(absolute_vorticity_derivative.mean('x'), absolute_vorticity_derivative.mean('x').y,
                  color='#003049', linewidth=3)
     ax.set_title(r'$\frac{\partial \eta}{\partial y}$' + ' @ 250 hPa', fontsize=TITLE_SIZE)
+    plt.xlabel(r's$^{-1}$', fontsize=LABEL_SIZE)
     plt.tick_params(axis='both', labelsize=TICK_LABEL_SIZE)
     plt.tight_layout()
     filename = 'absolute_vorticity_composite_derivative_lon_mean.png'
