@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/23 19:56:13 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/11 01:05:50 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/11 09:36:34 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -122,7 +122,7 @@ def main(filepath='../results_nc_files/composites_barotropic_baroclinic/pv_egr_c
     print(f'Saved {filename}')
 
     # Baroclinic PV derivative lon mean
-    fig = plt.figure(figsize=(5, 5))
+    fig = plt.figure(figsize=(4, 5))
     ax = plt.gca()
     ax.axvline(0, color='#c1121f', linestyle='--', linewidth=0.5)
     ax.axhline(0, color='#c1121f', linestyle='--', linewidth=0.5)
@@ -158,7 +158,7 @@ def main(filepath='../results_nc_files/composites_barotropic_baroclinic/pv_egr_c
     print(f'Saved {filename}')
 
     # Absolute Vorticity derivative lon mean
-    fig = plt.figure(figsize=(5, 5))
+    fig = plt.figure(figsize=(4, 5))
     ax = plt.gca()
     ax.axvline(0, color='#c1121f', linestyle='--', linewidth=0.5)
     ax.axhline(0, color='#c1121f', linestyle='--', linewidth=0.5)
