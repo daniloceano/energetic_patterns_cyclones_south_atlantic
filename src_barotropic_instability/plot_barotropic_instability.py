@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/23 19:56:13 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/11 09:36:34 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/11 15:10:30 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -31,14 +31,33 @@ GRID_LABEL_SIZE = 10
 FIGURES_DIR = '../figures_barotropic_baroclinic_instability'
 CRS = ccrs.PlateCarree()
 
-def plot_map(ax, data, cmap, title, levels, units, transform=ccrs.PlateCarree()):
+def plot_map(ax, data, u, v, hgt, **kwargs):
     """Plot potential vorticity using dynamic normalization based on data values."""
+    transform = ccrs.PlateCarree()
+    cmap, levels, title, units = kwargs.get('cmap'), kwargs.get('levels'), kwargs.get('title'), kwargs.get('units')
+
+    # Create the contour plot
     levels_min, levels_max = np.min(levels), np.max(levels)
     if levels_min < 0 and levels_max > 0:
         norm = colors.TwoSlopeNorm(vmin=np.min(levels), vcenter=0, vmax=np.max(levels))
     else:
         norm = colors.Normalize(vmin=np.min(levels), vmax=np.max(levels))
     cf = ax.contourf(data.x, data.y, data, cmap=cmap, norm=norm, transform=transform, levels=levels, extend='both')
+
+    # Add hgt 
+    ax.contour(data.x, data.y, hgt, colors='gray', linestyles='dashed', linewidths=2, transform=transform)
+
+    # Add quiver
+    min_u = np.min(u)
+    scale_factor = 100 if min_u < 10 else 400  # Adjust these values to tune the arrow
+    skip = (slice(None, None, 5), slice(None, None, 5))
+    qu = ax.quiver(data.x[skip[0]], data.y[skip[0]], u[skip], v[skip], transform=transform, zorder=1,
+              width=0.008, headwidth=2, headlength=2, headaxislength=2,  scale=scale_factor)
+    
+    # Quiver key
+    label = 10 if min_u < 10 else 20
+    ax.quiverkey(qu, X=0.9, Y=1.05, U=label, label=f'{label} m/s', labelpos='E', coordinates='axes')
+    
     colorbar = plt.colorbar(cf, ax=ax, pad=0.1, orientation='horizontal', shrink=0.5, label=units)
     # Setup the colorbar to use scientific notation conditionally
     formatter = ticker.ScalarFormatter(useMathText=True)
@@ -52,7 +71,7 @@ def plot_map(ax, data, cmap, title, levels, units, transform=ccrs.PlateCarree())
     colorbar.set_ticks(new_ticks)   # Set the modified ticks
 
     # Set up grid lines
-    ax.grid(True, linestyle='--', alpha=0.5)
+    ax.grid(True, linestyle='--', alpha=0.5, linewidth=0.5, color='k')
 
     # Customize the ticks on x and y axes
     ax.xaxis.set_major_locator(ticker.AutoLocator())  # Automatically determine the location of ticks
@@ -85,6 +104,8 @@ def main(filepath='../results_nc_files/composites_barotropic_baroclinic/pv_egr_c
     pv_baroclinic = ds['pv_baroclinic']
     absolute_vorticity = ds['absolute_vorticity']
     egr = ds['EGR']
+    u_1000, v_1000, hgt_1000 = ds['u_1000'], ds['v_1000'], ds['hgt_1000']
+    u_250, v_250, hgt_250 = ds['u_250'], ds['v_250'], ds['hgt_250']
 
     # Calculate derivatives
     pv_baroclinic_derivative = pv_baroclinic.diff('y')
@@ -102,19 +123,31 @@ def main(filepath='../results_nc_files/composites_barotropic_baroclinic/pv_egr_c
     levels['absolute_vorticity_derivative'] = np.linspace(np.min(absolute_vorticity_derivative), np.max(absolute_vorticity_derivative), 11)
     
     # Baroclinic PV
+    map_attrs = {
+        'cmap': 'Blues_r',
+        'title': r'$PV$' + ' @ 1000 hPa',
+        'levels': levels['pv_baroclinic'],
+        'units': 'PVU',
+    }
     fig = plt.figure(figsize=(5, 5))
     ax = fig.add_subplot(111, projection=CRS)
-    plot_map(ax, pv_baroclinic, 'Blues_r', r'$PV$' + ' @ 1000 hPa', levels['pv_baroclinic'], 'PVU')
+    plot_map(ax, pv_baroclinic, u_1000, v_1000, hgt_1000, **map_attrs)
     plt.tight_layout()
     filename = 'pv_baroclinic_composite.png'
     file_path = os.path.join(FIGURES_DIR, filename)
     plt.savefig(file_path)
     print(f'Saved {filename}')
 
-    # Barotropic PV derivative
+    # Baroclinic PV derivative
+    map_attrs = {
+        'cmap': cmo.curl,
+        'title': r'$\frac{\partial PV}{\partial y}$' + ' @ 1000 hPa',
+        'levels': levels['pv_baroclinic_derivative'],
+        'units': 'PVU',
+    }
     fig = plt.figure(figsize=(5, 5))
     ax = fig.add_subplot(111, projection=CRS)
-    plot_map(ax, pv_baroclinic_derivative, cmo.curl, r'$\frac{\partial PV}{\partial y}$' + ' @ 1000 hPa', levels['pv_baroclinic_derivative'], 'PVU')
+    plot_map(ax, pv_baroclinic_derivative, u_1000[:-1], v_1000[:-1], hgt_1000[:-1], **map_attrs)
     plt.tight_layout()
     filename = 'pv_baroclinic_composite_derivative.png'
     file_path = os.path.join(FIGURES_DIR, filename)
@@ -138,9 +171,15 @@ def main(filepath='../results_nc_files/composites_barotropic_baroclinic/pv_egr_c
     print(f'Saved {filename}')
 
     # Absolute Vorticity 
+    map_attrs = {
+        'cmap': 'Blues_r',
+        'title': r'$\eta$' + ' @ 250 hPa',
+        'levels': levels['absolute_vorticity'],
+        'units': r'$s^{-1}$',
+    }
     fig = plt.figure(figsize=(5, 5))
     ax = fig.add_subplot(111, projection=CRS)
-    plot_map(ax, absolute_vorticity, 'Blues_r', r'$\eta$' + ' @ 250 hPa', levels['absolute_vorticity'], r's$^{-1}$')
+    plot_map(ax, absolute_vorticity, u_250, v_250, hgt_250, **map_attrs)
     plt.tight_layout()
     filename = 'absolute_vorticity_composite.png'
     file_path = os.path.join(FIGURES_DIR, filename)
@@ -148,9 +187,15 @@ def main(filepath='../results_nc_files/composites_barotropic_baroclinic/pv_egr_c
     print(f'Saved {filename}')
 
     # Absolute Vorticity derivative
+    map_attrs = {
+        'cmap': cmo.curl,
+        'title': r'$\frac{\partial \eta}{\partial y}$' + ' @ 250 hPa',
+        'levels': levels['absolute_vorticity_derivative'],
+        'units': r'$s^{-1}$',
+    }
     fig = plt.figure(figsize=(5, 5))
     ax = fig.add_subplot(111, projection=CRS)
-    plot_map(ax, absolute_vorticity_derivative, cmo.curl, r'$\frac{\partial \eta}{\partial y}$' + ' @ 250 hPa', levels['absolute_vorticity_derivative'], r's$^{-1}$')
+    plot_map(ax, absolute_vorticity_derivative, u_250[:-1], v_250[:-1], hgt_250[:-1], **map_attrs)
     plt.tight_layout()
     filename = 'absolute_vorticity_composite_derivative.png'
     file_path = os.path.join(FIGURES_DIR, filename)
@@ -174,9 +219,15 @@ def main(filepath='../results_nc_files/composites_barotropic_baroclinic/pv_egr_c
     print(f'Saved {filename}')
 
     # EGR
+    map_attrs = {
+        'cmap': 'Spectral_r',
+        'title': 'EGR @ 1000 hPa',
+        'levels': levels['EGR'],
+        'units': r'$d^{-1}$',
+    }
     fig = plt.figure(figsize=(5, 5))
     ax = fig.add_subplot(111, projection=CRS)
-    plot_map(ax, egr, 'Spectral_r', 'EGR @ 1000 hPa', levels['EGR'], r'd$^{-1}$')
+    plot_map(ax, egr, u_1000, v_1000, hgt_1000, **map_attrs)
     plt.tight_layout()
     filename = 'EGR_composite.png'
     file_path = os.path.join(FIGURES_DIR, filename)
