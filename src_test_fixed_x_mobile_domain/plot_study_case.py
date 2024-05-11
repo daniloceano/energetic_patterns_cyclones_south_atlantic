@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/05/08 13:15:01 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/09 00:41:10 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/11 11:04:26 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -27,43 +27,25 @@ import matplotlib.ticker as ticker
 from matplotlib.ticker import MaxNLocator
 from shapely.geometry.polygon import Polygon
 
+from plot_composites import plot_map
+
 TITLE_SIZE = 16
 TICK_LABEL_SIZE = 12
+LABEL_SIZE = 12
 FIGURES_DIR = '../figures_test_fixed_framework/study_case/'
 CRS = ccrs.PlateCarree()
 
 
-def plot_map(ax, data, cmap, levels, title, transform=ccrs.PlateCarree()):
-    """Plot potential vorticity using dynamic normalization based on data values."""
-    levels_min, levels_max = np.amin(levels), np.amax(levels)
-    if levels_min < 0 and levels_max > 0:
-        norm = colors.TwoSlopeNorm(vmin=levels_min, vcenter=0, vmax=levels_max)
-    else:
-        norm = colors.Normalize(vmin=levels_min, vmax=levels_max)
-    
-    cf = ax.contourf(data['longitude'], data['latitude'], data, cmap=cmap, norm=norm, transform=transform, levels=levels, extend='both')
-    colorbar = plt.colorbar(cf, ax=ax, pad=0.1, orientation='horizontal', shrink=0.5)
-    colorbar.ax.xaxis.set_major_formatter(ticker.ScalarFormatter(useMathText=True))
-    colorbar.ax.xaxis.get_major_formatter().set_scientific(True)
-    colorbar.ax.xaxis.get_major_formatter().set_powerlimits((0, 0))
-
-    # Automatically adjust the number of ticks on the colorbar
-    colorbar.locator = MaxNLocator(nbins=7)  # Adjust 'nbins' to the desired number of ticks
-    colorbar.update_ticks()
-
-    colorbar.ax.set_xticklabels(colorbar.ax.get_xticklabels(), rotation=45, fontsize=TICK_LABEL_SIZE)
-    ax.set_title(title, fontsize=TITLE_SIZE)
-
-def plot_box(ax, min_lon, min_lat, max_lon, max_lat, var):
+def plot_box(ax, min_lon, min_lat, max_lon, max_lat):
     mean_pgon = Polygon([(min_lon, min_lat), (min_lon, max_lat), (max_lon, max_lat),
                          (max_lon, min_lat), (min_lon, min_lat)]) 
-    if var == 'pv_baroclinic' or var == 'absolute_vorticity':
-        edgecolor = 'k'
-    else:
-        edgecolor = 'red'
+    edgecolor = 'red'
     ax.add_geometries([mean_pgon], crs=ccrs.PlateCarree(), facecolor='none', edgecolor=edgecolor, linewidth=1, alpha=0.8, zorder=3)
 
-def main(filepath='19931164_results_study_case.nc'):
+def main():
+    # File
+    filepath = '../results_nc_files/composites_test_fixed_x_mobile/19931164_results_study_case.nc'
+
     # Create figures directory if it doesn't exist
     os.makedirs(FIGURES_DIR, exist_ok=True)
 
@@ -91,8 +73,8 @@ def main(filepath='19931164_results_study_case.nc'):
         'pv_baroclinic': r'$PV$',
         'absolute_vorticity': r'$\eta$',
         'EGR': 'EGR',
-        'pv_baroclinic_derivative': r'$\frac{\partial PV}{\partial t}$',
-        'absolute_vorticity_derivative': r'$\frac{\partial \eta}{\partial t}$',
+        'pv_baroclinic_derivative': r'$\frac{\partial PV}{\partial y}$',
+        'absolute_vorticity_derivative': r'$\frac{\partial \eta}{\partial y}$',
     }
 
     # Calculate derivatives
@@ -102,29 +84,39 @@ def main(filepath='19931164_results_study_case.nc'):
         ds_sliced[f'{var}_derivative'] = ds_sliced[var].diff('latitude')
         ds_sliced[f'{var}_derivative_lon_mean'] = ds_sliced[f'{var}_derivative'].mean('longitude')
 
+    units = {
+        'pv_baroclinic': 'PVU',
+        'absolute_vorticity': r'$s^{-1}$',
+        'EGR': r'$d^{-1}$'
+        }
+    
+    vertical_levels = {
+        'pv_baroclinic': '1000 hPa',
+        'absolute_vorticity': '250 hPa',
+        'EGR': '1000 hPa'
+    }
+
     levels = {}
     # Create levels for plot each variable
     for var in ds_original.data_vars:
         min_val = float(min(ds_original[var].min(), ds_sliced[var].min()))
         max_val = float(max(ds_original[var].max(), ds_sliced[var].max()))
-        if var == 'EGR':
-            max_val *= 0.7
-        levels[var] = np.linspace(min_val, max_val, 51)
+        levels[var] = np.linspace(min_val, max_val, 101)
 
     # Plotting
     for ds, method in zip([ds_original, ds_sliced], ['fixed', 'semi-lagrangian']):
         for var in var_names:
-            cmap = cmo.balance if var != 'EGR' else cmo.thermal
+            cmap = cmo.balance if var != 'EGR' else 'Spectral_r'
             method_label = 'F' if method == 'fixed' else 'SL'
         
             # Create map
             fig, ax = plt.subplots(subplot_kw={'projection': CRS})
             if var != 'EGR':
-                title = fr'{var_labels[var]}' + f' ({method_label})'
+                title = fr'{var_labels[var]}' + f' @ {vertical_levels[var]} ({method_label})'
             else:
-                title = fr'{var_labels[var]}' + f' ({method_label}) ({ds[var].mean().values:.2e})'
-            plot_map(ax, ds[var], cmap, levels[var], title)
-            plot_box(ax, min_lon, min_lat, max_lon, max_lat, var)
+                title = fr'{var_labels[var]}' + f' @ {vertical_levels[var]} ({method_label}) ({ds[var].mean().values:.2f})'
+            plot_map(ax, ds[var], cmap, title, levels[var], units[var])
+            plot_box(ax, min_lon, min_lat, max_lon, max_lat)
             filename = f'{var}_{method}.png'
             plt.tight_layout()
             plt.savefig(os.path.join(FIGURES_DIR, filename))
@@ -133,8 +125,9 @@ def main(filepath='19931164_results_study_case.nc'):
             if var != 'EGR':
                 derivative_var = f'{var}_derivative'
                 fig, ax = plt.subplots(subplot_kw={'projection': CRS})
-                plot_map(ax, ds[derivative_var], cmo.curl, levels[var], fr'{var_labels[derivative_var]}' + f' ({method_label})')
-                plot_box(ax, min_lon, min_lat, max_lon, max_lat, var)
+                title = fr'{var_labels[derivative_var]}' + f' @ {vertical_levels[var]} ({method_label})'
+                plot_map(ax, ds[derivative_var], cmo.curl, title, levels[var], units[var])
+                plot_box(ax, min_lon, min_lat, max_lon, max_lat)
                 plt.tight_layout()
                 filename = f'{derivative_var}_{method}.png'
                 plt.savefig(os.path.join(FIGURES_DIR, filename))
@@ -145,10 +138,11 @@ def main(filepath='19931164_results_study_case.nc'):
                 ax = plt.gca()
                 ax.plot(ds[derivative_lon_mean_var], ds[derivative_lon_mean_var].latitude, color='#003049', linewidth=3)
                 ax.axvline(0, color='#c1121f', linestyle='--', linewidth=0.5)
-                ax.set_title(fr'{var_labels[derivative_var]}' + f' lon_mean ({method_label})', fontsize=TITLE_SIZE)
-                plt.xlim(levels[derivative_lon_mean_var].min(), levels[derivative_lon_mean_var].max())
-                ax.set_yticks([])
-                plt.tick_params(axis='x', labelsize=TICK_LABEL_SIZE)
+                title = fr'{var_labels[derivative_var]}' + f' @ {vertical_levels[var]} ({method_label})'
+                ax.set_title(title, fontsize=TITLE_SIZE)
+                ax.set_ylabel('Latitude', fontsize=LABEL_SIZE)
+                ax.set_xlabel(r's$^{-1}$', fontsize=LABEL_SIZE)
+                ax.tick_params(axis='both', labelsize=TICK_LABEL_SIZE)
                 plt.tight_layout()
                 filename = f'{derivative_lon_mean_var}_{method}.png'
                 plt.savefig(os.path.join(FIGURES_DIR, filename))
