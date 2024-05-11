@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/05/08 14:17:01 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/11 15:37:51 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/11 15:58:39 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -129,7 +129,7 @@ def get_cdsapi_era5_data(filename: str,
         print("CDS API file already exists.")
         return filename
 
-def process_system(system_dir, filename, tracks_with_periods, lowest_ck_date):
+def process_system(system_dir, file_study_case, tracks_with_periods, lowest_ck_date):
     """
     Process the selected system.
     """
@@ -154,13 +154,14 @@ def process_system(system_dir, filename, tracks_with_periods, lowest_ck_date):
     # Get ERA5 data for computing PV and EGR
     pressure_levels = ['250', '300', '350', '975', '1000']
     variables = ["u_component_of_wind", "v_component_of_wind", "temperature", "geopotential"]
-    file_study_case = get_cdsapi_era5_data(filename, track, pressure_levels, variables, lowest_ck_date) 
+    infile = os.path.basename(file_study_case)
+    infile = get_cdsapi_era5_data(infile, track, pressure_levels, variables, lowest_ck_date) 
     
-    return file_study_case
+    return infile
 
-def process_results(file_study_case, lowest_ck_date):
+def process_results(infile, lowest_ck_date):
         # Load the dataset
-        ds = xr.open_dataset(file_study_case)
+        ds = xr.open_dataset(infile)
 
         # Open variables for calculations and assign units
         temperature = ds['t'] * units.kelvin
@@ -188,13 +189,15 @@ def process_results(file_study_case, lowest_ck_date):
         print("Done.")
 
         # Select variables in their corresponding levels for composites 
-        pv_baroclinic_1000 = pv_baroclinic.sel(time=lowest_ck_date).sel(level=250)
+        pv_baroclinic_1000 = pv_baroclinic.sel(time=lowest_ck_date).sel(level=1000)
         absolute_vorticity_1000 = absolute_vorticity.sel(time=lowest_ck_date).sel(level=1000)
         eady_growth_rate_1000 = eady_growth_rate.sel(time=lowest_ck_date).isel(level=0)
+        u_250, v_250, hgt_250 = u.sel(level=250, time=lowest_ck_date), v.sel(level=250, time=lowest_ck_date), hgt.sel(level=250, time=lowest_ck_date)
+        u_1000, v_1000, hgt_1000 = u.sel(level=1000, time=lowest_ck_date), v.sel(level=1000, time=lowest_ck_date), hgt.sel(level=1000, time=lowest_ck_date)
 
         # Create a DataArray using an extra dimension for the type of PV
         print("Creating DataArray...")
-        track_id = int(os.path.basename(file_study_case).split('.')[0].split('_')[0])
+        track_id = int(os.path.basename(infile).split('.')[0].split('_')[0])
 
         # Create DataArrays
         da_baroclinic = xr.DataArray(
@@ -221,11 +224,65 @@ def process_results(file_study_case, lowest_ck_date):
             attrs={'units': str(eady_growth_rate_1000.metpy.units), 'description': 'Eady Growth Rate'}
         )
 
+        da_u_250 = xr.DataArray(
+            u_250.values,
+            dims=['latitude', 'longitude'],
+            coords={'latitude': lat, 'longitude': lon},
+            name='u_250',
+            attrs={'units': str(u_250.metpy.units), 'description': '250 hPa U-Wind'}
+        )
+
+        da_v_250 = xr.DataArray(
+            v_250.values,
+            dims=['latitude', 'longitude'],
+            coords={'latitude': lat, 'longitude': lon},
+            name='v_250',
+            attrs={'units': str(v_250.metpy.units), 'description': '250 hPa V-Wind'}
+        )
+
+        da_u_1000 = xr.DataArray(
+            u_1000.values,
+            dims=['latitude', 'longitude'],
+            coords={'latitude': lat, 'longitude': lon},
+            name='u_1000',
+            attrs={'units': str(u_1000.metpy.units), 'description': '1000 hPa U-Wind'}
+        )
+
+        da_v_1000 = xr.DataArray(
+            v_1000.values,
+            dims=['latitude', 'longitude'],
+            coords={'latitude': lat, 'longitude': lon},
+            name='v_1000',
+            attrs={'units': str(v_1000.metpy.units), 'description': '1000 hPa V-Wind'}
+        )
+
+        da_hgt_250 = xr.DataArray(
+            hgt_250.values,
+            dims=['latitude', 'longitude'],
+            coords={'latitude': lat, 'longitude': lon},
+            name='hgt_250',
+            attrs={'units': str(hgt_250.metpy.units), 'description': '250 hPa Geopotential Height'}
+        )
+
+        da_hgt_1000 = xr.DataArray(
+            hgt_1000.values,
+            dims=['latitude', 'longitude'],
+            coords={'latitude': lat, 'longitude': lon},
+            name='hgt_1000',
+            attrs={'units': str(hgt_1000.metpy.units), 'description': '1000 hPa Geopotential Height'}
+        )   
+
         # Combine into a Dataset and add track_id as a coordinate
         ds = xr.Dataset({
             'pv_baroclinic': da_baroclinic,
             'absolute_vorticity': da_absolute_vorticity,
-            'EGR': da_edy
+            'EGR': da_edy,
+            'u_250': da_u_250,
+            'v_250': da_v_250,
+            'u_1000': da_u_1000,
+            'v_1000': da_v_1000,
+            'hgt_250': da_hgt_250,
+            'hgt_1000': da_hgt_1000
         })
 
         # Assigning track_id as a coordinate
@@ -234,7 +291,7 @@ def process_results(file_study_case, lowest_ck_date):
         # Assign date
         ds = ds.assign_coords(time=lowest_ck_date)
         
-        print(f"Finished creating PV composite for {file_study_case}")
+        print(f"Finished creating PV composite for {infile}")
 
         return ds
 
@@ -250,13 +307,12 @@ def main():
     system_dir = os.path.join(LEC_RESULTS_DIR, f"{system_id}_ERA5_fixed")
 
     # Process study case
-    filename = f'{OUTPUT_DIR}/{system_id}_results_study_case.nc'
-    file_study_case = process_system(system_dir, filename, tracks_with_periods, lowest_ck_date)
-    ds = process_results(file_study_case, lowest_ck_date)
-
+    file_study_case = f'{OUTPUT_DIR}/{system_id}_results_study_case.nc'
+    infile = process_system(system_dir, file_study_case, tracks_with_periods, lowest_ck_date)
+    ds = process_results(infile, lowest_ck_date)
     
-    ds.to_netcdf(filename)
-    print(f"Saved {filename}")
+    ds.to_netcdf(file_study_case)
+    print(f"Saved {file_study_case}")
  
 if __name__ == '__main__':
     main()
