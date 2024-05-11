@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/23 19:56:13 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/10 21:09:09 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/11 00:50:08 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -29,7 +29,7 @@ TICK_LABEL_SIZE = 12
 FIGURES_DIR = '../figures_barotropic_baroclinic_instability'
 CRS = ccrs.PlateCarree()
 
-def plot_map(ax, data, cmap, title, levels, transform=ccrs.PlateCarree()):
+def plot_map(ax, data, cmap, title, levels, units, transform=ccrs.PlateCarree()):
     """Plot potential vorticity using dynamic normalization based on data values."""
     levels_min, levels_max = np.min(levels), np.max(levels)
     if levels_min < 0 and levels_max > 0:
@@ -37,7 +37,7 @@ def plot_map(ax, data, cmap, title, levels, transform=ccrs.PlateCarree()):
     else:
         norm = colors.Normalize(vmin=np.min(levels), vmax=np.max(levels))
     cf = ax.contourf(data.x, data.y, data, cmap=cmap, norm=norm, transform=transform, levels=levels, extend='both')
-    colorbar = plt.colorbar(cf, ax=ax, pad=0.1, orientation='horizontal', shrink=0.5)
+    colorbar = plt.colorbar(cf, ax=ax, pad=0.1, orientation='horizontal', shrink=0.5, label=units)
     # Setup the colorbar to use scientific notation conditionally
     formatter = ticker.ScalarFormatter(useMathText=True)
     formatter.set_scientific(True)
@@ -76,6 +76,7 @@ def determine_norm_bounds(data, factor=1.0):
 def main(filepath='../results_nc_files/composites_barotropic_baroclinic/pv_egr_composite_mean.nc'):
 
     ds = xr.open_dataset(filepath)
+    ds['pv_baroclinic'] = ds['pv_baroclinic'] * 1e6
     pv_baroclinic = ds['pv_baroclinic']
     absolute_vorticity = ds['absolute_vorticity']
     egr = ds['EGR']
@@ -98,7 +99,7 @@ def main(filepath='../results_nc_files/composites_barotropic_baroclinic/pv_egr_c
     # Baroclinic PV
     fig = plt.figure(figsize=(5, 5))
     ax = fig.add_subplot(111, projection=CRS)
-    plot_map(ax, pv_baroclinic, 'Blues_r', r'$PV$', levels['pv_baroclinic'])
+    plot_map(ax, pv_baroclinic, 'Blues_r', r'$PV$' + ' @ 1000 hPa', levels['pv_baroclinic'], 'PVU')
     plt.tight_layout()
     filename = 'pv_baroclinic_composite.png'
     file_path = os.path.join(FIGURES_DIR, filename)
@@ -108,7 +109,7 @@ def main(filepath='../results_nc_files/composites_barotropic_baroclinic/pv_egr_c
     # Barotropic PV derivative
     fig = plt.figure(figsize=(5, 5))
     ax = fig.add_subplot(111, projection=CRS)
-    plot_map(ax, pv_baroclinic_derivative, cmo.curl, r'$\frac{\partial PV}{\partial y}$', levels['pv_baroclinic_derivative'])
+    plot_map(ax, pv_baroclinic_derivative, cmo.curl, r'$\frac{\partial PV}{\partial y}$' + ' @ 1000 hPa', levels['pv_baroclinic_derivative'], 'PVU')
     plt.tight_layout()
     filename = 'pv_baroclinic_composite_derivative.png'
     file_path = os.path.join(FIGURES_DIR, filename)
@@ -121,7 +122,7 @@ def main(filepath='../results_nc_files/composites_barotropic_baroclinic/pv_egr_c
     ax.plot(pv_baroclinic_derivative.mean('x'), np.arange(len(pv_baroclinic_derivative.mean('x'))),
                  color='#003049', linewidth=3)
     ax.axvline(0, color='#c1121f', linestyle='--', linewidth=0.5)
-    ax.set_title(r'$\frac{\partial PV}{\partial y}$' + ' lon mean', fontsize=TITLE_SIZE)
+    ax.set_title(r'$\frac{\partial PV}{\partial y}$' + ' @ 1000 hPa', fontsize=TITLE_SIZE)
     ax.set_yticks([])
     plt.tick_params(axis='x', labelsize=TICK_LABEL_SIZE)
     plt.tight_layout()
@@ -133,7 +134,7 @@ def main(filepath='../results_nc_files/composites_barotropic_baroclinic/pv_egr_c
     # Absolute Vorticity 
     fig = plt.figure(figsize=(5, 5))
     ax = fig.add_subplot(111, projection=CRS)
-    plot_map(ax, absolute_vorticity, 'Blues_r', r'$\eta$', levels['absolute_vorticity'])
+    plot_map(ax, absolute_vorticity, 'Blues_r', r'$\eta$' + ' @ 250 hPa', levels['absolute_vorticity'], r's$^{-1}$')
     plt.tight_layout()
     filename = 'absolute_vorticity_composite.png'
     file_path = os.path.join(FIGURES_DIR, filename)
@@ -143,7 +144,7 @@ def main(filepath='../results_nc_files/composites_barotropic_baroclinic/pv_egr_c
     # Absolute Vorticity derivative
     fig = plt.figure(figsize=(5, 5))
     ax = fig.add_subplot(111, projection=CRS)
-    plot_map(ax, absolute_vorticity_derivative, cmo.curl, r'$\frac{\partial \eta}{\partial y}$', levels['absolute_vorticity_derivative'])
+    plot_map(ax, absolute_vorticity_derivative, cmo.curl, r'$\frac{\partial \eta}{\partial y}$' + ' @ 250 hPa', levels['absolute_vorticity_derivative'], r's$^{-1}$')
     plt.tight_layout()
     filename = 'absolute_vorticity_composite_derivative.png'
     file_path = os.path.join(FIGURES_DIR, filename)
@@ -156,7 +157,7 @@ def main(filepath='../results_nc_files/composites_barotropic_baroclinic/pv_egr_c
     ax.plot(absolute_vorticity_derivative.mean('x'), np.arange(len(absolute_vorticity_derivative.mean('x'))),
                  color='#003049', linewidth=3)
     ax.axvline(0, color='#c1121f', linestyle='--', linewidth=0.5)
-    ax.set_title(r'$\frac{\partial \eta}{\partial y}$' + ' lon mean', fontsize=TITLE_SIZE)
+    ax.set_title(r'$\frac{\partial \eta}{\partial y}$' + ' @ 250 hPa', fontsize=TITLE_SIZE)
     ax.set_yticks([])
     ax.tick_params(axis='x', labelsize=TICK_LABEL_SIZE)
     plt.tight_layout()
@@ -165,10 +166,10 @@ def main(filepath='../results_nc_files/composites_barotropic_baroclinic/pv_egr_c
     fig.savefig(file_path)
     print(f'Saved {filename}')
 
-    # Absolute Vorticity 
+    # EGR
     fig = plt.figure(figsize=(5, 5))
     ax = fig.add_subplot(111, projection=CRS)
-    plot_map(ax, egr, 'rainbow', 'EGR', levels['EGR'])
+    plot_map(ax, egr, 'Spectral_r', 'EGR @ 1000 hPa', levels['EGR'], r'd$^{-1}$')
     plt.tight_layout()
     filename = 'EGR_composite.png'
     file_path = os.path.join(FIGURES_DIR, filename)
