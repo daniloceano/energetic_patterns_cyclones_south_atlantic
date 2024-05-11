@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/23 19:56:13 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/11 14:42:27 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/11 15:06:31 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -136,7 +136,7 @@ def main():
     plt.savefig(file_path)
     print(f'Saved {filename}')
 
-    # Barotropic PV derivative
+    # Baroclinic PV derivative
     map_attrs = {
         'cmap': 'RdBu_r',
         'title': r'$\frac{\partial PV}{\partial y}$' + ' @ 1000 hPa',
