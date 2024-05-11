@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/05/08 14:17:01 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/11 10:40:28 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/11 15:37:51 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -187,7 +187,7 @@ def process_results(file_study_case, lowest_ck_date):
         eady_growth_rate = calculate_eady_growth_rate(u, potential_temperature, f, hgt)
         print("Done.")
 
-        # Select the 250 hPa level
+        # Select variables in their corresponding levels for composites 
         pv_baroclinic_1000 = pv_baroclinic.sel(time=lowest_ck_date).sel(level=250)
         absolute_vorticity_1000 = absolute_vorticity.sel(time=lowest_ck_date).sel(level=1000)
         eady_growth_rate_1000 = eady_growth_rate.sel(time=lowest_ck_date).isel(level=0)

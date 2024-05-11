@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/05/06 16:40:35 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/11 13:22:55 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/11 15:41:00 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -214,7 +214,7 @@ def create_pv_composite(infile, track):
     logging.info("Done.")
 
     # Select variables in their corresponding levels for composites
-    pv_baroclinic_250 = pv_baroclinic.sel(level=250)
+    pv_baroclinic_1000 = pv_baroclinic.sel(level=1000)
     absolute_vorticity_1000 = absolute_vorticity.sel(level=250)
     eady_growth_rate_400 = eady_growth_rate.isel(level=0) # 1000 hPa level is the 1st vertical level
     u_250, v_250, hgt_250 = u.sel(level=250), v.sel(level=250), hgt.sel(level=250)
@@ -222,7 +222,7 @@ def create_pv_composite(infile, track):
     
     # Calculate the composites for this system
     logging.info("Calculating means...")
-    pv_baroclinic_mean = pv_baroclinic_250.mean(dim='time')
+    pv_baroclinic_mean = pv_baroclinic_1000.mean(dim='time')
     absolute_vorticity_mean = absolute_vorticity_1000.mean(dim='time')
     eady_growth_rate_mean = eady_growth_rate_400.mean(dim='time')
     u_250_mean = u_250.mean(dim='time')
