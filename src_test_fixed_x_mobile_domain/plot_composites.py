@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/23 19:56:13 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/10 21:17:00 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/11 00:53:43 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -31,7 +31,7 @@ CRS = ccrs.PlateCarree()
 COMPOSITE_DIR = '../results_nc_files/composites_test_fixed_x_mobile/'
 
 
-def plot_map(ax, data, cmap, title, levels, transform=ccrs.PlateCarree()):
+def plot_map(ax, data, cmap, title, levels, units, transform=ccrs.PlateCarree()):
     """Plot potential vorticity using dynamic normalization based on data values."""
     levels_min, levels_max = np.min(levels), np.max(levels)
     if levels_min < 0 and levels_max > 0:
@@ -39,7 +39,7 @@ def plot_map(ax, data, cmap, title, levels, transform=ccrs.PlateCarree()):
     else:
         norm = colors.Normalize(vmin=np.min(levels), vmax=np.max(levels))
     cf = ax.contourf(data.longitude, data.latitude, data, cmap=cmap, norm=norm, transform=transform, levels=levels, extend='both')
-    colorbar = plt.colorbar(cf, ax=ax, pad=0.1, orientation='horizontal', shrink=0.5)
+    colorbar = plt.colorbar(cf, ax=ax, pad=0.1, orientation='horizontal', shrink=0.5, label=units)
     # Setup the colorbar to use scientific notation conditionally
     formatter = ticker.ScalarFormatter(useMathText=True)
     formatter.set_scientific(True)
@@ -80,6 +80,7 @@ def main():
     filepath = f'{COMPOSITE_DIR}/pv_egr_mean_composite.nc'
 
     ds = xr.open_dataset(filepath)
+    ds['pv_baroclinic'] = ds['pv_baroclinic'] * 1e6
     pv_baroclinic = ds['pv_baroclinic']
     absolute_vorticity = ds['absolute_vorticity']
     egr = ds['EGR']
@@ -100,7 +101,7 @@ def main():
     # Baroclinic PV
     fig = plt.figure()
     ax = fig.add_subplot(111, projection=CRS)
-    plot_map(ax, pv_baroclinic, "Blues_r", r'$PV$', levels=levels['pv_baroclinic'])
+    plot_map(ax, pv_baroclinic, "Blues_r", r'$PV$' + ' @ 1000 hPa', levels['pv_baroclinic'], 'PVU')
     filename = 'pv_baroclinic_composite.png'
     file_path = os.path.join(FIGURES_DIR, filename)
     plt.savefig(file_path)
@@ -109,7 +110,7 @@ def main():
     # Barotropic PV derivative
     fig = plt.figure()
     ax = fig.add_subplot(111, projection=CRS)
-    plot_map(ax, pv_baroclinic_derivative, cmo.curl, r'$\frac{\partial PV}{\partial y}$', levels=levels['pv_baroclinic_derivative'])
+    plot_map(ax, pv_baroclinic_derivative, cmo.curl, r'$\frac{\partial PV}{\partial y}$' + ' @ 1000 hPa', levels['pv_baroclinic_derivative'], 'PVU')
     filename = 'pv_baroclinic_composite_derivative_fixed.png'
     file_path = os.path.join(FIGURES_DIR, filename)
     plt.savefig(file_path)
@@ -121,7 +122,7 @@ def main():
     ax.plot(pv_baroclinic_derivative.mean('longitude'), np.arange(len(pv_baroclinic_derivative.mean('longitude'))),
                  color='#003049', linewidth=3)
     ax.axvline(0, color='#c1121f', linestyle='--', linewidth=0.5)
-    ax.set_title(r'$\frac{\partial PV}{\partial y}$' + ' lon mean', fontsize=TITLE_SIZE)
+    ax.set_title(r'$\frac{\partial PV}{\partial y}$' + ' @ 1000 hPa', fontsize=TITLE_SIZE)
     ax.set_yticks([])
     plt.tick_params(axis='x', labelsize=TICK_LABEL_SIZE)
     filename = 'pv_baroclinic_composite_derivative_lon_mean_fixed.png'
@@ -132,7 +133,7 @@ def main():
     # Absolute Vorticity 
     fig = plt.figure()
     ax = fig.add_subplot(111, projection=CRS)
-    plot_map(ax, absolute_vorticity, "Blues_r", r'$\eta$', levels=levels['absolute_vorticity'])
+    plot_map(ax, absolute_vorticity, "Blues_r", r'$\eta$' + ' @ 250 hPa', levels['absolute_vorticity'], r's$^{-1}$')
     filename = 'absolute_vorticity_composite_fixed.png'
     file_path = os.path.join(FIGURES_DIR, filename)
     plt.savefig(file_path)
@@ -141,7 +142,7 @@ def main():
     # Absolute Vorticity derivative
     fig = plt.figure()
     ax = fig.add_subplot(111, projection=CRS)
-    plot_map(ax, absolute_vorticity_derivative, cmo.curl, r'$\frac{\partial \eta}{\partial y}$', levels=levels['absolute_vorticity_derivative'])
+    plot_map(ax, absolute_vorticity_derivative, cmo.curl, r'$\frac{\partial \eta}{\partial y}$' + ' @ 250 hPa', levels['absolute_vorticity_derivative'], r's$^{-1}$')
     filename = 'absolute_vorticity_composite_derivative_fixed.png'
     file_path = os.path.join(FIGURES_DIR, filename)
     plt.savefig(file_path)
@@ -153,7 +154,7 @@ def main():
     ax.plot(absolute_vorticity_derivative.mean('longitude'), np.arange(len(absolute_vorticity_derivative.mean('longitude'))),
                  color='#003049', linewidth=3)
     ax.axvline(0, color='#c1121f', linestyle='--', linewidth=0.5)
-    ax.set_title(r'$\frac{\partial \eta}{\partial y}$' + ' lon mean', fontsize=TITLE_SIZE)
+    ax.set_title(r'$\frac{\partial \eta}{\partial y}$' + ' @ 250 hPa', fontsize=TITLE_SIZE)
     ax.set_yticks([])
     ax.tick_params(axis='x', labelsize=TICK_LABEL_SIZE)
     filename = 'absolute_vorticity_composite_derivative_lon_mean_fixed.png'
@@ -164,7 +165,7 @@ def main():
     # EGR 
     fig = plt.figure()
     ax = fig.add_subplot(111, projection=CRS)
-    plot_map(ax, egr, "rainbow", 'EGR', levels=levels['EGR'])
+    plot_map(ax, egr, "Spectral_r", 'EGR @ 1000 hPa', levels['EGR'], 'd$^{-1}$')
     filename = 'EGR_composite_fixed.png'
     file_path = os.path.join(FIGURES_DIR, filename)
     plt.savefig(file_path)
