@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/05/06 16:40:35 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/11 15:41:00 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/11 17:06:45 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -447,7 +447,7 @@ CDSAPIRC_SUFFIXES = get_cdsapi_keys()
 def main():
 
     # Get all directories in the LEC_RESULTS_DIR
-    results_directories = sorted(glob(f'{LEC_RESULTS_DIR}/*'))[:3]
+    results_directories = sorted(glob(f'{LEC_RESULTS_DIR}/*'))
 
     # Get track and periods data
     tracks_with_periods = pd.read_csv('../tracks_SAt_filtered/tracks_SAt_filtered_with_periods.csv')
