@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/05/08 13:15:01 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/11 17:11:11 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/13 12:03:12 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -25,6 +25,7 @@ import cartopy.crs as ccrs
 import matplotlib.colors as colors
 import cmocean.cm as cmo
 import matplotlib.ticker as ticker
+from glob import glob
 from matplotlib.ticker import MaxNLocator
 from shapely.geometry.polygon import Polygon
 
@@ -33,7 +34,7 @@ TITLE_SIZE = 16
 TICK_LABEL_SIZE = 12
 LABEL_SIZE = 12
 GRID_LABEL_SIZE = 12
-FIGURES_DIR = '../figures_test_fixed_framework/study_case/'
+FIGURES_DIR = '../figures_test_fixed_framework/'
 CRS = ccrs.PlateCarree()
 
 def plot_map(ax, data, u, v, hgt, **kwargs):
@@ -54,7 +55,7 @@ def plot_map(ax, data, u, v, hgt, **kwargs):
 
     # Add quiver
     min_u = np.min(u)
-    scale_factor = 200 if '1000' in title else 800  # Adjust these values to tune the arrow
+    scale_factor = 300 if '1000' in title else 800  # Adjust these values to tune the arrow
     skip_n = 10 if '1000' in title else 15
     skip = (slice(None, None, skip_n), slice(None, None, skip_n))
     qu = ax.quiver(data.longitude[skip[0]], data.latitude[skip[0]], u[skip], v[skip], transform=transform, zorder=1,
@@ -108,14 +109,7 @@ def plot_box(ax, min_lon, min_lat, max_lon, max_lat):
     edgecolor = 'red'
     ax.add_geometries([mean_pgon], crs=ccrs.PlateCarree(), facecolor='none', edgecolor=edgecolor, linewidth=1, alpha=0.8, zorder=3)
 
-def main():
-    # File
-    filepath = '../results_nc_files/composites_test_fixed_x_mobile/19931164_results_study_case.nc'
-
-    # Create figures directory if it doesn't exist
-    os.makedirs(FIGURES_DIR, exist_ok=True)
-
-    tracks_with_periods = pd.read_csv('../tracks_SAt_filtered/tracks_SAt_filtered_with_periods.csv')
+def plot_study_case(filepath, tracks_with_periods, figures_dir):
     ds_original = xr.open_dataset(filepath)
 
     # Choose study case and extract track
@@ -125,8 +119,12 @@ def main():
 
     # Extract central point
     date_study_case = pd.to_datetime(ds_original['time'].values)
-    central_lon = float(track_study_case[track_study_case['date'] == date_study_case]['lon vor'])
-    central_lat = float(track_study_case[track_study_case['date'] == date_study_case]['lat vor'])
+    date_study_case = pd.to_datetime(date_study_case.values[0])
+    central_lon = float(track_study_case[track_study_case['date'] == date_study_case]['lon vor'].iloc[0])
+    central_lat = float(track_study_case[track_study_case['date'] == date_study_case]['lat vor'].iloc[0])
+
+    # Make data 2D
+    ds_original = ds_original.sel(time=date_study_case)
 
     # Slicing data around central point
     min_lon, max_lon = central_lon - 7.5, central_lon + 7.5
@@ -181,7 +179,7 @@ def main():
                 title = fr'{var_labels[var]}' + f' @ {vertical_levels[var]} ({method_label})'
                 cmap = cmo.balance
             else:
-                title = fr'{var_labels[var]}' + f' @ {vertical_levels[var]} ({method_label}) ({ds[var].mean().values:.2f})'
+                title = fr'{var_labels[var]}' + f' @ {vertical_levels[var]} ({method_label})\n({ds[var].mean().values:.2f})'
                 cmap = 'Spectral_r'
 
             plot_attrs = {
@@ -200,7 +198,7 @@ def main():
             plot_box(ax, min_lon, min_lat, max_lon, max_lat)
             filename = f'{var}_{method}.png'
             plt.tight_layout()
-            plt.savefig(os.path.join(FIGURES_DIR, filename))
+            plt.savefig(os.path.join(figures_dir, filename))
             print(f'Saved {filename}')
 
             if var != 'EGR':
@@ -216,7 +214,7 @@ def main():
                 plot_box(ax, min_lon, min_lat, max_lon, max_lat)
                 plt.tight_layout()
                 filename = f'{derivative_var}_{method}.png'
-                plt.savefig(os.path.join(FIGURES_DIR, filename))
+                plt.savefig(os.path.join(figures_dir, filename))
                 print(f'Saved {filename}')
 
                 derivative_lon_mean_var = f'{var}_derivative_lon_mean'
@@ -231,9 +229,22 @@ def main():
                 ax.tick_params(axis='both', labelsize=TICK_LABEL_SIZE)
                 plt.tight_layout()
                 filename = f'{derivative_lon_mean_var}_{method}.png'
-                plt.savefig(os.path.join(FIGURES_DIR, filename))
+                plt.savefig(os.path.join(figures_dir, filename))
                 print(f'Saved {filename}')
 
+def main():
+
+    files = glob('../results_nc_files/composites_test_fixed_x_mobile/*study_case.nc')
+
+    tracks_with_periods = pd.read_csv('../tracks_SAt_filtered/tracks_SAt_filtered_with_periods.csv')
+
+    for filepath in files:
+        print(f'Plotting {filepath}')
+        system_id = os.path.basename(filepath).split('_')[0]
+        figures_dir = os.path.join(FIGURES_DIR, f'{system_id}_study_case')
+        os.makedirs(figures_dir, exist_ok=True)
+        
+        plot_study_case(filepath, tracks_with_periods, figures_dir)
 
 if __name__ == '__main__':
     main()
