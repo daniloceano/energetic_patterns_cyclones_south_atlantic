@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/23 19:56:13 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/13 10:36:58 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/13 10:43:35 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -46,19 +46,19 @@ def plot_map(ax, data, u, v, hgt, **kwargs):
         norm = colors.Normalize(vmin=np.min(levels), vmax=np.max(levels))
     cf = ax.contourf(data.longitude, data.latitude, data, cmap=cmap, norm=norm, transform=transform, levels=levels, extend='both')
 
-    # Add hgt 
-    ax.contour(data.longitude, data.latitude, hgt, colors='gray', linestyles='dashed', linewidths=2, transform=transform)
+    # # Add hgt 
+    # ax.contour(data.longitude, data.latitude, hgt, colors='gray', linestyles='dashed', linewidths=2, transform=transform)
 
-    # Add quiver
-    min_u = np.min(u)
-    scale_factor = 100 if min_u < 10 else 400  # Adjust these values to tune the arrow
-    skip = (slice(None, None, 15), slice(None, None, 15))
-    qu = ax.quiver(data.longitude[skip[0]], data.latitude[skip[0]], u[skip], v[skip], transform=transform, zorder=1,
-              width=0.008, headwidth=2, headlength=2, headaxislength=2,  scale=scale_factor)
+    # # Add quiver
+    # min_u = np.min(u)
+    # scale_factor = 100 if min_u < 10 else 400  # Adjust these values to tune the arrow
+    # skip = (slice(None, None, 15), slice(None, None, 15))
+    # qu = ax.quiver(data.longitude[skip[0]], data.latitude[skip[0]], u[skip], v[skip], transform=transform, zorder=1,
+    #           width=0.008, headwidth=2, headlength=2, headaxislength=2,  scale=scale_factor)
     
-    # Quiver key
-    label = 10 if min_u < 10 else 20
-    ax.quiverkey(qu, X=0.9, Y=1.05, U=label, label=f'{label} m/s', labelpos='E', coordinates='axes')
+    # # Quiver key
+    # label = 10 if min_u < 10 else 20
+    # ax.quiverkey(qu, X=0.9, Y=1.05, U=label, label=f'{label} m/s', labelpos='E', coordinates='axes')
 
     # Add a colorbar
     colorbar = plt.colorbar(cf, ax=ax, pad=0.1, orientation='horizontal', shrink=0.5, label=units)
