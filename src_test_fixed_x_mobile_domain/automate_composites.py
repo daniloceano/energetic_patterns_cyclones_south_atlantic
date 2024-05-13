@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/05/06 16:40:35 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/11 17:45:01 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/13 09:40:21 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -332,52 +332,52 @@ def create_pv_composite(infile, track):
 
     return ds_composite
 
-def find_smallest_domain(composites):
+def find_mean_domain(composites):
     """
-    Finds the smallest domain that includes all given composites by calculating the intersection
-    of their latitude and longitude ranges.
+    Find the mean domain of a list of composites.
+
+    Args:
+        composites (list): A list of composites.
+
+    Returns:
+        tuple: A tuple containing the common latitude and longitude values.
+
+    Description:
+        This function takes a list of composites and calculates the mean minimum and maximum latitude and longitude values. 
+        It then calculates the mean of these values and defines a grid based on the mean values with a reasonable step, 
+        e.g., 0.25 degree. The function returns the common latitude and longitude values as a tuple.
+
+    Example:
+        >>> composites = [comp1, comp2, comp3]
+        >>> find_mean_domain(composites)
+        (array([-10.,  -5.,   0.,   5.,  10.]), array([-50.,  50.]))
     """
-    if not composites:
-        return None, None
+    mean_min_lat, mean_max_lat = [], []
+    mean_min_lon, mean_max_lon = [], []
 
-    # Initialize with the range of the first composite
-    min_lat, max_lat = composites[0].latitude.min(), composites[0].latitude.max()
-    min_lon, max_lon = composites[0].longitude.min(), composites[0].longitude.max()
+    # Gather all lat/lon extents
+    for comp in composites:
+        mean_min_lat.append(comp.latitude.min().item())
+        mean_max_lat.append(comp.latitude.max().item())
+        mean_min_lon.append(comp.longitude.min().item())
+        mean_max_lon.append(comp.longitude.max().item())
 
-    # Update the bounds based on all other composites
-    for comp in composites[1:]:
-        comp_min_lat, comp_max_lat = comp.latitude.min(), comp.latitude.max()
-        comp_min_lon, comp_max_lon = comp.longitude.min(), comp.longitude.max()
+    # Calculate means of the extents
+    avg_min_lat = np.mean(mean_min_lat)
+    avg_max_lat = np.mean(mean_max_lat)
+    avg_min_lon = np.mean(mean_min_lon)
+    avg_max_lon = np.mean(mean_max_lon)
 
-        # Find the intersection of the ranges
-        min_lat = max(min_lat, comp_min_lat)
-        max_lat = min(max_lat, comp_max_lat)
-        min_lon = max(min_lon, comp_min_lon)
-        max_lon = min(max_lon, comp_max_lon)
-
-        # Check if there's no overlap
-        if min_lat > max_lat or min_lon > max_lon:
-            logging.warning("No overlapping region found among composites.")
-            return None, None
-
-    # Return the smallest domain's latitude and longitude ranges
-    common_lat = np.arange(min_lat, max_lat + 0.25, 0.25)  # Increment might need adjustment based on actual data resolution
-    common_lon = np.arange(min_lon, max_lon + 0.25, 0.25)
+    # Define grid based on mean values with a reasonable step, e.g., 0.25 degree
+    common_lat = np.arange(avg_min_lat, avg_max_lat  + 0.25, 0.25)
+    common_lon = np.arange(avg_min_lon, avg_max_lon + 0.25, 0.25)
 
     return common_lat, common_lon
 
-def find_largest_domain(composites):
-    max_lat = max([comp.latitude.max() for comp in composites])
-    min_lat = min([comp.latitude.min() for comp in composites])
-    max_lon = max([comp.longitude.max() for comp in composites])
-    min_lon = min([comp.longitude.min() for comp in composites])
-
-    return np.arange(min_lat, max_lat + 0.25, 0.25), np.arange(min_lon, max_lon + 0.25, 0.25)
-    
 def interpolate_to_common_grid(composites, common_lat, common_lon):
     interpolated_composites = []
     for composite in composites:
-        interpolated = composite.interp(latitude=common_lat, longitude=common_lon, method='cubic')
+        interpolated = composite.interp(latitude=common_lat, longitude=common_lon, method='polynomial', kwargs={"fill_value": "extrapolate", 'order': 3})
         interpolated_composites.append(interpolated)
     return interpolated_composites
 
@@ -395,7 +395,7 @@ def save_composite(composites, total_systems_count, output_dir):
         logging.info("No valid composites found. Skipping composite creation.")
         return
 
-    common_lat, common_lon = find_smallest_domain(composites)
+    common_lat, common_lon = find_mean_domain(composites)
     interpolated_composites = interpolate_to_common_grid(composites, common_lat, common_lon)
     mean_composite = compute_mean_composite(interpolated_composites)
 
