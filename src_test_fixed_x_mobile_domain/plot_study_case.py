@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/05/08 13:15:01 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/13 12:03:12 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/13 13:23:02 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -26,9 +26,10 @@ import matplotlib.colors as colors
 import cmocean.cm as cmo
 import matplotlib.ticker as ticker
 from glob import glob
-from matplotlib.ticker import MaxNLocator
 from shapely.geometry.polygon import Polygon
-
+import cartopy.feature as cfeature
+from cartopy.feature import NaturalEarthFeature, COASTLINE
+from cartopy.feature import BORDERS
 
 TITLE_SIZE = 16
 TICK_LABEL_SIZE = 12
@@ -36,6 +37,7 @@ LABEL_SIZE = 12
 GRID_LABEL_SIZE = 12
 FIGURES_DIR = '../figures_test_fixed_framework/'
 CRS = ccrs.PlateCarree()
+COLORS = ['#3B95BF', '#87BF4B', '#BFAB37', '#BF3D3B', '#873e23', '#A13BF0']
 
 def plot_map(ax, data, u, v, hgt, **kwargs):
     """Plot potential vorticity using dynamic normalization based on data values."""
@@ -48,9 +50,11 @@ def plot_map(ax, data, u, v, hgt, **kwargs):
         norm = colors.TwoSlopeNorm(vmin=np.min(levels), vcenter=0, vmax=np.max(levels))
     else:
         norm = colors.Normalize(vmin=np.min(levels), vmax=np.max(levels))
+    
+    # Plot the colour filled contours
     cf = ax.contourf(data.longitude, data.latitude, data, cmap=cmap, norm=norm, transform=transform, levels=levels, extend='both')
 
-    # Add hgt 
+    # Add hgt as a contour
     ax.contour(data.longitude, data.latitude, hgt, colors='gray', linestyles='dashed', linewidths=2, transform=transform)
 
     # Add quiver
@@ -148,12 +152,14 @@ def plot_study_case(filepath, tracks_with_periods, figures_dir):
         ds_sliced[f'{var}_derivative'] = ds_sliced[var].diff('latitude')
         ds_sliced[f'{var}_derivative_lon_mean'] = ds_sliced[f'{var}_derivative'].mean('longitude')
 
+    # Units dictionary
     units = {
         'pv_baroclinic': 'PVU',
         'absolute_vorticity': r'$s^{-1}$',
         'EGR': r'$d^{-1}$'
         }
     
+    # Vertical levels to plot
     vertical_levels = {
         'pv_baroclinic': '1000 hPa',
         'absolute_vorticity': '250 hPa',
@@ -182,6 +188,7 @@ def plot_study_case(filepath, tracks_with_periods, figures_dir):
                 title = fr'{var_labels[var]}' + f' @ {vertical_levels[var]} ({method_label})\n({ds[var].mean().values:.2f})'
                 cmap = 'Spectral_r'
 
+            # Create plot
             plot_attrs = {
                 'cmap': cmap,
                 'levels': levels[var],
@@ -189,11 +196,13 @@ def plot_study_case(filepath, tracks_with_periods, figures_dir):
                 'units': units[var]
             }
 
+            # Choose variable
             if 'absolute_vorticity' in var:
                 u, v, hgt = ds['u_250'], ds['v_250'], ds['hgt_250']
             else:
                 u, v, hgt = ds['u_1000'], ds['v_1000'], ds['hgt_1000']
 
+            # Plot the data
             plot_map(ax, ds[var], u, v, hgt, **plot_attrs)
             plot_box(ax, min_lon, min_lat, max_lon, max_lat)
             filename = f'{var}_{method}.png'
@@ -201,6 +210,7 @@ def plot_study_case(filepath, tracks_with_periods, figures_dir):
             plt.savefig(os.path.join(figures_dir, filename))
             print(f'Saved {filename}')
 
+            # Plot the derivative
             if var != 'EGR':
                 derivative_var = f'{var}_derivative'
                 plot_attrs = {
@@ -217,6 +227,8 @@ def plot_study_case(filepath, tracks_with_periods, figures_dir):
                 plt.savefig(os.path.join(figures_dir, filename))
                 print(f'Saved {filename}')
 
+            # Plot the derivative lon mean
+            if var != 'EGR':
                 derivative_lon_mean_var = f'{var}_derivative_lon_mean'
                 fig = plt.figure(figsize=(5, 5))
                 ax = plt.gca()
@@ -232,19 +244,167 @@ def plot_study_case(filepath, tracks_with_periods, figures_dir):
                 plt.savefig(os.path.join(figures_dir, filename))
                 print(f'Saved {filename}')
 
-def main():
+def setup_map(ax):
+    TEXT_COLOR = '#383838'
 
+    # Add land feature (no facecolor)
+    ax.add_feature(cfeature.NaturalEarthFeature('physical', 'land', '50m', edgecolor='face', facecolor='none'))
+
+    # Add state borders
+    states = NaturalEarthFeature(category='cultural', scale='50m', facecolor='none', name='admin_1_states_provinces_lines')
+    ax.add_feature(states, edgecolor='#283618', linewidth=1)
+
+    # Add populated places (cities)
+    cities = NaturalEarthFeature(category='cultural', scale='50m', facecolor='none', name='populated_places')
+    ax.add_feature(cities, edgecolor='#283618', linewidth=1)
+
+    # Add country borders
+    countries = NaturalEarthFeature(category='cultural', scale='50m', facecolor='none', name='admin_0_countries')
+    ax.add_feature(countries, edgecolor='black', linewidth=1)
+
+    # Add coastlines
+    ax.coastlines(zorder=1)
+
+    # Add gridlines
+    gl = ax.gridlines(draw_labels=True, zorder=2, linestyle='-', alpha=0.8, color=TEXT_COLOR, linewidth=0.25)
+    gl.xlabel_style = {'size': 14, 'color': TEXT_COLOR}
+    gl.ylabel_style = {'size': 14, 'color': TEXT_COLOR}
+    gl.bottom_labels = None
+    gl.right_labels = None
+
+
+def plot_domain_box(track_id, tracks_with_periods, filepath, figures_dir):
+    plt.close('all')
+    # Get track data
+    track_data = tracks_with_periods[tracks_with_periods['track_id'] == int(track_id)]
+
+    # Get mininum and maximum latitude and longitude and create a 15x15 degree bounding box
+    min_lat = track_data['lat vor'].min()
+    max_lat = track_data['lat vor'].max()
+    min_lon = track_data['lon vor'].min()
+    max_lon = track_data['lon vor'].max()
+    bbox_lat_min = np.floor(min_lat - 7.5)
+    bbox_lat_max = np.ceil(max_lat + 7.5)
+    bbox_lon_min = np.floor(min_lon - 7.5)
+    bbox_lon_max = np.ceil(max_lon + 7.5)
+
+    # Get position of system
+    ds = xr.open_dataset(filepath)
+    ds_time = pd.to_datetime(ds.time.values).item()
+    track_data['date'].loc[:] = pd.to_datetime(track_data['date'].copy())
+    track_time = track_data[track_data['date'] == ds_time]
+
+    # Create a dataframe with the box limits
+    df_boxes = pd.DataFrame([[track_id, bbox_lat_min, bbox_lat_max, bbox_lon_min, bbox_lon_max]], columns=['track_id', 'min_lat', 'max_lat', 'min_lon', 'max_lon'])
+
+    # Plot the box limits
+    plt.close('all')
+    fig, ax = plt.subplots(figsize=(8, 8), subplot_kw={'projection': ccrs.PlateCarree()})
+
+    # Set extent
+    min_lon, min_lat = df_boxes['min_lon'].min(), df_boxes['min_lat'].min()
+    max_lon, max_lat = df_boxes['max_lon'].max(), df_boxes['max_lat'].max()
+
+    # Add 20 degrees on each side
+    min_lon_buff = min_lon - 10 if min_lon - 10 > -180 else -180
+    max_lon_buff = max_lon + 10 if max_lon + 10 < 180 else 180
+    min_lat_buff = min_lat - 10 if min_lat - 10 > -80 else -80
+    max_lat_buff = max_lat + 10 if max_lat + 10 < 0 else 0
+
+    # Set extent
+    ax.set_extent([min_lon_buff, max_lon_buff, min_lat_buff, max_lat_buff], crs=ccrs.PlateCarree())
+    setup_map(ax)
+
+    # Plot polygons
+    for _, row in df_boxes.iterrows():
+        min_lon, max_lon, min_lat, max_lat = row['min_lon'], row['max_lon'], row['min_lat'], row['max_lat']
+        pgon = Polygon([(min_lon, min_lat), (min_lon, max_lat), (max_lon, max_lat), (max_lon, min_lat), (min_lon, min_lat)])
+        ax.add_geometries([pgon], crs=ccrs.PlateCarree(), facecolor='none', edgecolor=COLORS[3], linewidth=2, alpha=1, zorder=3)
+
+    # Plot position of system
+    ax.scatter(track_time['lon vor'].values, track_time['lat vor'].values, s=100, edgecolor='k', facecolor='none')
+    ax.scatter(track_time['lon vor'].values, track_time['lat vor'].values, s=100, edgecolor='none', facecolor='k', alpha=0.3)
+
+    # Save figure
+    plt.tight_layout()
+    os.makedirs(figures_dir, exist_ok=True)
+    fig.savefig(os.path.join(figures_dir, f'box_limits_{track_id}.png'))
+    print('Figure saved in directory: {}'.format(figures_dir))
+
+def plot_track(track_id, tracks_with_periods, filepath, figures_dir):
+    plt.close('all')
+    
+    # Subset the track data
+    track_data = tracks_with_periods[tracks_with_periods['track_id'] == int(track_id)]
+    min_lon, min_lat = track_data['lon vor'].min(), track_data['lat vor'].min()
+    max_lon, max_lat = track_data['lon vor'].max(), track_data['lat vor'].max()
+
+    # Get mininum and maximum latitude and longitude and create a 15x15 degree bounding box
+    min_lon_buff = min_lon - 20 if min_lon - 20 > -180 else -180
+    max_lon_buff = max_lon + 20 if max_lon + 20 < 180 else 180
+    min_lat_buff = min_lat - 20 if min_lat - 20 > -90 else -90
+    max_lat_buff = max_lat + 20 if max_lat + 20 < 90 else 90
+
+    # Get position of system
+    ds = xr.open_dataset(filepath)
+    ds_time = pd.to_datetime(ds.time.values).item()
+    track_data.loc[:, 'date'] = pd.to_datetime(track_data['date'])
+    track_time = track_data[track_data['date'] == ds_time]
+
+    # Create 15x15 degree bounding box around the system
+    central_lat, central_lon = track_time['lat vor'].item(), track_time['lon vor'].item()
+    bbox_lon_min = central_lon - 7.5
+    bbox_lon_max = central_lon + 7.5
+    bbox_lat_min = central_lat - 7.5
+    bbox_lat_max = central_lat + 7.5
+    df_boxes = pd.DataFrame([[track_id, bbox_lat_min, bbox_lat_max, bbox_lon_min, bbox_lon_max]], columns=['track_id', 'min_lat', 'max_lat', 'min_lon', 'max_lon'])
+
+    # Create figure
+    fig, ax = plt.subplots(figsize=(8, 8), subplot_kw={'projection': ccrs.PlateCarree()})
+    ax.set_extent([min_lon_buff, max_lon_buff, min_lat_buff, max_lat_buff], crs=ccrs.PlateCarree())
+    setup_map(ax)
+
+    # Plot track
+    plt.plot(track_data['lon vor'], track_data['lat vor'], color=COLORS[3], linewidth=5, alpha=0.75)
+
+    # Plot position of system
+    ax.scatter(track_time['lon vor'].values, track_time['lat vor'].values, s=100, edgecolor='k', facecolor='none', zorder=100)
+    ax.scatter(track_time['lon vor'].values, track_time['lat vor'].values, s=100, edgecolor='none', facecolor='k', alpha=0.3, zorder=100)
+
+    # Plot polygons
+    for _, row in df_boxes.iterrows():
+        min_lon, max_lon, min_lat, max_lat = row['min_lon'], row['max_lon'], row['min_lat'], row['max_lat']
+        pgon = Polygon([(min_lon, min_lat), (min_lon, max_lat), (max_lon, max_lat), (max_lon, min_lat), (min_lon, min_lat)])
+        ax.add_geometries([pgon], crs=ccrs.PlateCarree(), facecolor='none', edgecolor=COLORS[3], linewidth=2, alpha=1, zorder=3)
+
+    plt.tight_layout()
+    fig.savefig(os.path.join(figures_dir, f'track_{track_id}.png'))
+    print('Track figure saved in directory: {}'.format(figures_dir))
+
+def main():
+    # Get list of files
     files = glob('../results_nc_files/composites_test_fixed_x_mobile/*study_case.nc')
 
+    # Get tracks
     tracks_with_periods = pd.read_csv('../tracks_SAt_filtered/tracks_SAt_filtered_with_periods.csv')
 
     for filepath in files:
+        # Get system id
         print(f'Plotting {filepath}')
         system_id = os.path.basename(filepath).split('_')[0]
+
+        # Create figures directory
         figures_dir = os.path.join(FIGURES_DIR, f'{system_id}_study_case')
         os.makedirs(figures_dir, exist_ok=True)
         
+        # Plot study case variables
         plot_study_case(filepath, tracks_with_periods, figures_dir)
+
+        # Plot domain box
+        plot_domain_box(system_id, tracks_with_periods, filepath, figures_dir)
+
+        # Plot track
+        plot_track(system_id, tracks_with_periods, filepath, figures_dir)
 
 if __name__ == '__main__':
     main()
