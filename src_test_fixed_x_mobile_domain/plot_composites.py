@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/23 19:56:13 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/11 15:06:31 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/13 10:36:58 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -131,7 +131,7 @@ def main():
     fig = plt.figure()
     ax = fig.add_subplot(111, projection=CRS)
     plot_map(ax, pv_baroclinic, u_1000, v_1000, hgt_1000, **map_attrs)
-    filename = 'pv_baroclinic_composite.png'
+    filename = 'composite_fixed_pv_baroclinic.png'
     file_path = os.path.join(FIGURES_DIR, filename)
     plt.savefig(file_path)
     print(f'Saved {filename}')
@@ -146,7 +146,7 @@ def main():
     fig = plt.figure()
     ax = fig.add_subplot(111, projection=CRS)
     plot_map(ax, pv_baroclinic_derivative, u_1000[:-1], v_1000[:-1], hgt_1000[:-1], **map_attrs)
-    filename = 'pv_baroclinic_composite_derivative_fixed.png'
+    filename = 'composite_fixed_pv_baroclinic_derivative.png'
     file_path = os.path.join(FIGURES_DIR, filename)
     plt.savefig(file_path)
     print(f'Saved {filename}')
@@ -162,7 +162,7 @@ def main():
     ax.set_xlabel('PVU', fontsize=LABEL_SIZE)
     plt.tick_params(axis='both', labelsize=TICK_LABEL_SIZE)
     plt.tight_layout()
-    filename = 'pv_baroclinic_composite_derivative_lon_mean_fixed.png'
+    filename = 'composite_fixed_pv_baroclinic_derivative_lon_mean.png'
     file_path = os.path.join(FIGURES_DIR, filename)
     plt.savefig(file_path)
     print(f'Saved {filename}')
@@ -177,7 +177,7 @@ def main():
     fig = plt.figure()
     ax = fig.add_subplot(111, projection=CRS)
     plot_map(ax, absolute_vorticity, u_250, v_250, hgt_250, **map_attrs)
-    filename = 'absolute_vorticity_composite_fixed.png'
+    filename = 'composite_fixed_absolute_vorticity.png'
     file_path = os.path.join(FIGURES_DIR, filename)
     plt.savefig(file_path)
     print(f'Saved {filename}')
@@ -192,7 +192,7 @@ def main():
     fig = plt.figure()
     ax = fig.add_subplot(111, projection=CRS)
     plot_map(ax, absolute_vorticity_derivative, u_250[:-1], v_250[:-1], hgt_250[:-1], **map_attrs)
-    filename = 'absolute_vorticity_composite_derivative_fixed.png'
+    filename = 'composite_fixed_absolute_vorticity_derivative.png'
     file_path = os.path.join(FIGURES_DIR, filename)
     plt.savefig(file_path)
     print(f'Saved {filename}')
@@ -208,7 +208,7 @@ def main():
     ax.set_xlabel(r's$^{-1}$', fontsize=LABEL_SIZE)
     ax.tick_params(axis='both', labelsize=TICK_LABEL_SIZE)
     plt.tight_layout()
-    filename = 'absolute_vorticity_composite_derivative_lon_mean_fixed.png'
+    filename = 'composite_fixed_absolute_vorticity_derivative_lon_mean.png'
     file_path = os.path.join(FIGURES_DIR, filename)
     fig.savefig(file_path)
     print(f'Saved {filename}')
@@ -223,7 +223,7 @@ def main():
     fig = plt.figure()
     ax = fig.add_subplot(111, projection=CRS)
     plot_map(ax, egr, u_1000, v_1000, hgt_1000, **map_attrs)
-    filename = 'EGR_composite_fixed.png'
+    filename = 'composite_fixed_EGR.png'
     file_path = os.path.join(FIGURES_DIR, filename)
     plt.savefig(file_path)
     print(f'Saved {filename}')

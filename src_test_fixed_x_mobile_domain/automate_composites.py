@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/05/06 16:40:35 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/13 09:40:21 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/13 10:35:25 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -374,10 +374,29 @@ def find_mean_domain(composites):
 
     return common_lat, common_lon
 
+def find_smallest_domain(composites):
+    """
+    Identify the composite with the smallest geographic domain.
+    """
+    min_area = np.inf
+    smallest_composite = None
+    for composite in composites:
+        lat_range = composite.latitude.max() - composite.latitude.min()
+        lon_range = composite.longitude.max() - composite.longitude.min()
+        area = lat_range * lon_range
+        if area < min_area:
+            min_area = area
+            smallest_composite = composite
+
+    common_lat = np.arange(smallest_composite.latitude.min(), smallest_composite.latitude.max() + 0.25, 0.25)
+    common_lon = np.arange(smallest_composite.longitude.min(), smallest_composite.longitude.max() + 0.25, 0.25)
+            
+    return common_lat, common_lon
+
 def interpolate_to_common_grid(composites, common_lat, common_lon):
     interpolated_composites = []
     for composite in composites:
-        interpolated = composite.interp(latitude=common_lat, longitude=common_lon, method='polynomial', kwargs={"fill_value": "extrapolate", 'order': 3})
+        interpolated = composite.interp(latitude=common_lat, longitude=common_lon, method='linear')
         interpolated_composites.append(interpolated)
     return interpolated_composites
 
