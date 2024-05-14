@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/05/08 14:17:01 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/14 09:47:29 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/14 10:10:16 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -313,12 +313,19 @@ def process_single_case(system_dir, tracks_with_periods):
     # Process study case
     file_path_study_case = f'{OUTPUT_DIR}/{system_id}_results_study_case.nc'
     lowest_ck_date = get_lowest_ck_date(system_dir, system_id, tracks_with_periods)
-    ds = process_results(system_dir, tracks_with_periods, lowest_ck_date, file_path_study_case)
 
-    # Save study case
-    ds.to_netcdf(file_path_study_case)
-    print(f"Finished processing {system_dir}")
-    return f"Finished {system_id}"
+    if not os.path.exists(file_path_study_case):
+        ds = process_results(system_dir, tracks_with_periods, lowest_ck_date, file_path_study_case)
+
+        # Save study case
+        ds.to_netcdf(file_path_study_case)
+        logging.info(f"Saved {file_path_study_case}")
+        print(f"Finished processing {system_dir}")
+        return f"Finished {system_id}"
+    
+    else:
+        logging.info(f"{file_path_study_case} already exists")
+        return f"{system_id} already exists"
 
 CDSAPIRC_SUFFIXES = get_cdsapi_keys()
 
