@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/05/08 14:17:01 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/14 16:14:39 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/14 16:18:25 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -184,72 +184,72 @@ def process_results(system_dir, tracks_with_periods, lowest_ck_date, file_path_s
     # Create DataArrays
     da_baroclinic = xr.DataArray(
         pv_baroclinic_1000.values,
-        dims=['time', 'latitude', 'longitude'],
-        coords={'time': pv_baroclinic_1000.time, 'latitude': lat, 'longitude': lon},
+        dims=['latitude', 'longitude'],
+        coords={'latitude': lat, 'longitude': lon},
         name='pv_baroclinic',
         attrs={'units': str(pv_baroclinic_1000.metpy.units), 'description': 'PV Baroclinic'}
     )
 
     da_absolute_vorticity = xr.DataArray(
         absolute_vorticity_1000.values,
-        dims=['time', 'latitude', 'longitude'],
-        coords={'time': absolute_vorticity_1000.time, 'latitude': lat, 'longitude': lon},
+        dims=['latitude', 'longitude'],
+        coords={'latitude': lat, 'longitude': lon},
         name='absolute_vorticity',
         attrs={'units': str(absolute_vorticity_1000.metpy.units), 'description': 'Absolute Vorticity'}
     )
 
     da_edy = xr.DataArray(
         eady_growth_rate_1000.values,
-        dims=['time', 'latitude', 'longitude'],
-        coords={'time': eady_growth_rate_1000.time, 'latitude': lat, 'longitude': lon},
+        dims=['latitude', 'longitude'],
+        coords={'latitude': lat, 'longitude': lon},
         name='EGR',
         attrs={'units': str(eady_growth_rate_1000.metpy.units), 'description': 'Eady Growth Rate'}
     )
 
     da_u_250 = xr.DataArray(
         u_250.values,
-        dims=['time', 'latitude', 'longitude'],
-        coords={'time': u_250.time, 'latitude': lat, 'longitude': lon},
+        dims=['latitude', 'longitude'],
+        coords={'latitude': lat, 'longitude': lon},
         name='u_250',
         attrs={'units': str(u_250.metpy.units), 'description': '250 hPa Wind Speed'}
     )
 
     da_v_250 = xr.DataArray(
         v_250.values,
-        dims=['time', 'latitude', 'longitude'],
-        coords={'time': v_250.time, 'latitude': lat, 'longitude': lon},
+        dims=['latitude', 'longitude'],
+        coords={'latitude': lat, 'longitude': lon},
         name='v_250',
         attrs={'units': str(v_250.metpy.units), 'description': '250 hPa Wind Speed'}
     )
 
     da_u_1000 = xr.DataArray(
         u_1000.values,
-        dims=['time', 'latitude', 'longitude'],
-        coords={'time': u_1000.time, 'latitude': lat, 'longitude': lon},
+        dims=['latitude', 'longitude'],
+        coords={'latitude': lat, 'longitude': lon},
         name='u_1000',
         attrs={'units': str(u_1000.metpy.units), 'description': '1000 hPa Wind Speed'}
     )
 
     da_v_1000 = xr.DataArray(
         v_1000.values,
-        dims=['time', 'latitude', 'longitude'],
-        coords={'time': v_1000.time, 'latitude': lat, 'longitude': lon},
+        dims=['latitude', 'longitude'],
+        coords={'latitude': lat, 'longitude': lon},
         name='v_1000',
         attrs={'units': str(v_1000.metpy.units), 'description': '1000 hPa Wind Speed'}
     )
 
     da_hgt_250 = xr.DataArray(
         hgt_250.values,
-        dims=['time', 'latitude', 'longitude'],
-        coords={'time': hgt_250.time, 'latitude': lat, 'longitude': lon},
+        dims=['latitude', 'longitude'],
+        coords={'latitude': lat, 'longitude': lon},
         name='hgt_250',
         attrs={'units': str(hgt_250.metpy.units), 'description': '250 hPa Geopotential Height'}
     )
 
     da_hgt_1000 = xr.DataArray(
         hgt_1000.values,
-        dims=['time', 'latitude', 'longitude'],
-        coords={'time': hgt_1000.time, 'latitude': lat, 'longitude': lon},
+        dims=['latitude', 'longitude'],
+        coords={'latitude': lat, 'longitude': lon},
         name='hgt_1000',
         attrs={'units': str(hgt_1000.metpy.units), 'description': '1000 hPa Geopotential Height'}
     )
@@ -268,7 +268,7 @@ def process_results(system_dir, tracks_with_periods, lowest_ck_date, file_path_s
     })
 
     # Assigning track_id as a coordinate
-    ds = ds.assign_coords(track_id=track_id)  # Assigning track_id as a coordinate
+    ds = ds.assign_coords(track_id=track_id, time=pv_baroclinic_1000.time)  # Assigning track_id as a coordinate
     # Assign date
     ds = ds.assign_coords(time=lowest_ck_date)
     print(f"Finished creating PV composite for {file_path_study_case}")
@@ -320,10 +320,10 @@ def main():
     process_single_case(test_results_dir, tracks_with_periods)
     sys.exit()
 
-    # Get CPU count 
-    max_cores = os.cpu_count()
-    num_workers = max(1, max_cores - 4) if max_cores else 1
-    logging.info(f"Using {num_workers} CPU cores")
+    # # Get CPU count 
+    # max_cores = os.cpu_count()
+    # num_workers = max(1, max_cores - 4) if max_cores else 1
+    # logging.info(f"Using {num_workers} CPU cores")
 
     # Using ProcessPoolExecutor to handle parallel processing
     with ProcessPoolExecutor(max_workers=os.cpu_count() - 1) as executor:
