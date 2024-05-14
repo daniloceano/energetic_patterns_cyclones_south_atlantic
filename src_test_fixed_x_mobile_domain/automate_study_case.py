@@ -6,11 +6,12 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/05/08 14:17:01 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/14 15:00:02 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/14 15:39:49 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
 import os
+import sys
 import math
 import random
 import cdsapi
@@ -24,11 +25,17 @@ from metpy.units import units
 from concurrent.futures import ProcessPoolExecutor
 from automate_composites import calculate_eady_growth_rate, get_cdsapi_keys,copy_cdsapirc
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s',
-                    handlers=[logging.FileHandler('log.study-case.txt', mode='w')])
-
 LEC_RESULTS_DIR = '../../LEC_Results_fixed_framework_test'
 OUTPUT_DIR = '../results_nc_files/composites_test_fixed_x_mobile/'
+
+
+def setup_logging():
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s',
+                        handlers=[logging.FileHandler('log.study-case.txt', mode='w')])
+    logger = logging.getLogger()
+    logger.handlers.clear()
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s',
+                        handlers=[logging.FileHandler('log.study-case.txt', mode='w')])
 
 def get_lowest_ck_date(results_directory, system_id, tracks_with_periods):
     # Open the results file
@@ -46,10 +53,14 @@ def get_lowest_ck_date(results_directory, system_id, tracks_with_periods):
 
     # Get the lowest Ck value during the intensification period
     lowest_ck = df_intensification['Ck'].min()
-    lowest_ck_date = pd.to_datetime(df[df['Ck'] == lowest_ck].index)
+    lowest_ck_row = df_intensification[df_intensification['Ck'] == lowest_ck]
 
-    logging.info(f"Lowest Ck value for system {system_id}: {lowest_ck}")
+    # Get the datetime index of the lowest Ck value
+    lowest_ck_date = lowest_ck_row.index[0]
+
+    logging.info(f"Lowest Ck value for system {system_id}: {lowest_ck} on {lowest_ck_date}")
     return lowest_ck_date
+
 
 def get_cdsapi_era5_data(filename: str,
                          track: pd.DataFrame,
@@ -272,12 +283,7 @@ def process_single_case(system_dir, tracks_with_periods):
     lowest_ck_date = get_lowest_ck_date(system_dir, system_id, tracks_with_periods)
 
     if not os.path.exists(file_path_study_case):
-        try:
-            ds = process_results(system_dir, tracks_with_periods, lowest_ck_date, file_path_study_case)
-        except Exception as e:
-            logging.error(f"Error processing {system_id}: {e}")
-            print(f"Error processing {system_id}: {e}")
-            return f"Error processing {system_id}: {e}"
+        ds = process_results(system_dir, tracks_with_periods, lowest_ck_date, file_path_study_case)
 
         # Save study case
         ds.to_netcdf(file_path_study_case)
@@ -292,6 +298,8 @@ def process_single_case(system_dir, tracks_with_periods):
 CDSAPIRC_SUFFIXES = get_cdsapi_keys()
 
 def main():
+    setup_logging()
+
     # Get all directories in the LEC_RESULTS_DIR
     results_directories = sorted(glob(f'{LEC_RESULTS_DIR}/*'))
 
@@ -304,6 +312,12 @@ def main():
    
     # Get track and periods data
     tracks_with_periods = pd.read_csv('../tracks_SAt_filtered/tracks_SAt_filtered_with_periods.csv')
+
+    # ##### TEST CASE #####
+    # test_system = '19910624'
+    # test_results_dir = glob(f'{LEC_RESULTS_DIR}/{test_system}*')[0]
+    # process_single_case(test_results_dir, tracks_with_periods)
+    # sys.exit()
 
     # Get CPU count 
     max_cores = os.cpu_count()
