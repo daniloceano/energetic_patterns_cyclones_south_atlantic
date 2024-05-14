@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/05/08 14:17:01 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/14 10:10:16 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/14 15:00:02 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -30,52 +30,6 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 LEC_RESULTS_DIR = '../../LEC_Results_fixed_framework_test'
 OUTPUT_DIR = '../results_nc_files/composites_test_fixed_x_mobile/'
 
-def choose_study_case(LEC_RESULTS_DIR, tracks_with_periods):
-    """
-    Determine which case had the lowest Ck values for plotting.
-    """
-    min_ck_values = {}
-    
-    for directory in os.listdir(LEC_RESULTS_DIR):
-        if 'ERA5_fixed' in directory:
-            results_file = glob(f"{LEC_RESULTS_DIR}/{directory}/*fixed_results.csv")[0]
-        else:
-            continue
-        track_id = directory.split('_')[0]
-        
-        track = tracks_with_periods[tracks_with_periods['track_id'] == int(track_id)]
-        track_intensification_period = track[track['period'] == 'intensification']
-        intensification_dates = pd.to_datetime(track_intensification_period['date'].values)
-
-        df = pd.read_csv(results_file, index_col=0)
-        df.index = pd.to_datetime(df.index)
-        df_intensification = df.loc[df.index.intersection(intensification_dates)]
-
-        # Find the maximum Ck value during the intensification period
-        if not df_intensification.empty:
-            min_ck = df_intensification['Ck'].min()
-            min_ck_values[track_id] = min_ck
-    
-    # Find the track ID with the highest Ck value
-    if min_ck_values:
-        # System id with the lowest Ck value and corresponding Ck value
-        lowest_ck_track_id = min(min_ck_values, key=min_ck_values.get)
-        lowest_ck_value = min_ck_values[lowest_ck_track_id]
-
-        # Find the track corresponding to the system with lowest Ck value
-        lowest_track = tracks_with_periods[tracks_with_periods['track_id'] == int(lowest_ck_track_id)]
-        
-        # Determine in which date and time the highest Ck value occurred
-        results_file = glob(f"{LEC_RESULTS_DIR}/{lowest_ck_track_id}*/*fixed_results.csv")[0]
-        df = pd.read_csv(results_file, index_col=0)
-        df.index = pd.to_datetime(df.index)
-
-        lowest_ck_date = df[df['Ck'] == lowest_ck_value].index[0]
-
-        return lowest_track, lowest_ck_date
-    else:
-        return None, None
-
 def get_lowest_ck_date(results_directory, system_id, tracks_with_periods):
     # Open the results file
     results = sorted(glob(f'{results_directory}/*{system_id}*.csv'))
@@ -93,6 +47,8 @@ def get_lowest_ck_date(results_directory, system_id, tracks_with_periods):
     # Get the lowest Ck value during the intensification period
     lowest_ck = df_intensification['Ck'].min()
     lowest_ck_date = pd.to_datetime(df[df['Ck'] == lowest_ck].index)
+
+    logging.info(f"Lowest Ck value for system {system_id}: {lowest_ck}")
     return lowest_ck_date
 
 def get_cdsapi_era5_data(filename: str,
@@ -308,6 +264,7 @@ def process_results(system_dir, tracks_with_periods, lowest_ck_date, file_path_s
 
 def process_single_case(system_dir, tracks_with_periods):
     system_id = int(os.path.basename(system_dir).split('_')[0])
+    logging.info(f"Processing {system_id}")
     print(f"Processing {system_dir}")
 
     # Process study case
@@ -315,7 +272,12 @@ def process_single_case(system_dir, tracks_with_periods):
     lowest_ck_date = get_lowest_ck_date(system_dir, system_id, tracks_with_periods)
 
     if not os.path.exists(file_path_study_case):
-        ds = process_results(system_dir, tracks_with_periods, lowest_ck_date, file_path_study_case)
+        try:
+            ds = process_results(system_dir, tracks_with_periods, lowest_ck_date, file_path_study_case)
+        except Exception as e:
+            logging.error(f"Error processing {system_id}: {e}")
+            print(f"Error processing {system_id}: {e}")
+            return f"Error processing {system_id}: {e}"
 
         # Save study case
         ds.to_netcdf(file_path_study_case)
@@ -333,8 +295,20 @@ def main():
     # Get all directories in the LEC_RESULTS_DIR
     results_directories = sorted(glob(f'{LEC_RESULTS_DIR}/*'))
 
+    completed_systems = glob(f'{OUTPUT_DIR}/*_results_study_case.nc')
+    completed_ids = [os.path.basename(dir_path).split('_')[0] for dir_path in completed_systems]
+
+    results_directories = [dir_path for dir_path in results_directories if os.path.basename(dir_path).split('_')[0] not in completed_ids]
+    logging.info(f"Found {len(completed_ids)} cases already processed")
+    logging.info(f"Found {len(results_directories)} cases to process: {results_directories}")
+   
     # Get track and periods data
     tracks_with_periods = pd.read_csv('../tracks_SAt_filtered/tracks_SAt_filtered_with_periods.csv')
+
+    # Get CPU count 
+    max_cores = os.cpu_count()
+    num_workers = max(1, max_cores - 4) if max_cores else 1
+    logging.info(f"Using {num_workers} CPU cores")
 
     # Using ProcessPoolExecutor to handle parallel processing
     with ProcessPoolExecutor(max_workers=os.cpu_count() - 1) as executor:
