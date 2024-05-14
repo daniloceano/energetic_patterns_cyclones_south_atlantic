@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/05/08 14:17:01 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/14 15:39:49 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/14 15:47:08 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -93,7 +93,7 @@ def get_cdsapi_era5_data(filename: str,
     area = f"{buffered_max_lat}/{buffered_min_lon}/{buffered_min_lat}/{buffered_max_lon}" # North, West, South, East. Nort/West/Sout/East    
     
     # Use just the date of the lowest Ck value
-    lowest_ck_date_timestamp = pd.to_datetime(lowest_ck_date)[0]
+    lowest_ck_date_timestamp = pd.to_datetime(lowest_ck_date)
     date = lowest_ck_date_timestamp.strftime('%Y%m%d')
 
     # Convert unique dates to string format for the request
@@ -314,10 +314,10 @@ def main():
     tracks_with_periods = pd.read_csv('../tracks_SAt_filtered/tracks_SAt_filtered_with_periods.csv')
 
     # ##### TEST CASE #####
-    # test_system = '19910624'
-    # test_results_dir = glob(f'{LEC_RESULTS_DIR}/{test_system}*')[0]
-    # process_single_case(test_results_dir, tracks_with_periods)
-    # sys.exit()
+    test_system = '19910624'
+    test_results_dir = glob(f'{LEC_RESULTS_DIR}/{test_system}*')[0]
+    process_single_case(test_results_dir, tracks_with_periods)
+    sys.exit()
 
     # Get CPU count 
     max_cores = os.cpu_count()
