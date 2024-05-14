@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/05/08 14:17:01 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/14 15:49:17 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/14 16:14:39 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -55,12 +55,11 @@ def get_lowest_ck_date(results_directory, system_id, tracks_with_periods):
     lowest_ck = df_intensification['Ck'].min()
     lowest_ck_row = df_intensification[df_intensification['Ck'] == lowest_ck]
 
-    # Get the datetime index of the lowest Ck value
+    # Get the exact datetime index of the lowest Ck value
     lowest_ck_date = lowest_ck_row.index[0]
 
     logging.info(f"Lowest Ck value for system {system_id}: {lowest_ck} on {lowest_ck_date}")
     return lowest_ck_date
-
 
 def get_cdsapi_era5_data(filename: str,
                          track: pd.DataFrame,
@@ -127,9 +126,8 @@ def get_cdsapi_era5_data(filename: str,
         return filename
 
 def process_results(system_dir, tracks_with_periods, lowest_ck_date, file_path_study_case):
-        
     # Get track and periods data
-    system_id = os.path.basename(system_dir).split('_')[0] # Get system ID
+    system_id = os.path.basename(system_dir).split('_')[0]
     logging.info(f"Processing {system_id}")
 
     # Get track data
@@ -143,6 +141,9 @@ def process_results(system_dir, tracks_with_periods, lowest_ck_date, file_path_s
 
     # Load the dataset
     ds = xr.open_dataset(tmp_file)
+
+    # Ensure the lowest_ck_date is in the same format as the time dimension
+    lowest_ck_date = np.datetime64(lowest_ck_date)
 
     # Open variables for calculations and assign units
     temperature = ds['t'] * units.kelvin
@@ -170,11 +171,11 @@ def process_results(system_dir, tracks_with_periods, lowest_ck_date, file_path_s
     print("Done.")
 
     # Select variables in their corresponding levels for composites 
-    pv_baroclinic_1000 = pv_baroclinic.sel(time=lowest_ck_date).sel(level=1000)
-    absolute_vorticity_1000 = absolute_vorticity.sel(time=lowest_ck_date).sel(level=1000)
-    eady_growth_rate_1000 = eady_growth_rate.sel(time=lowest_ck_date).isel(level=0)
-    u_250, v_250, hgt_250 = u.sel(level=250, time=lowest_ck_date), v.sel(level=250, time=lowest_ck_date), hgt.sel(level=250, time=lowest_ck_date)
-    u_1000, v_1000, hgt_1000 = u.sel(level=1000, time=lowest_ck_date), v.sel(level=1000, time=lowest_ck_date), hgt.sel(level=1000, time=lowest_ck_date)
+    pv_baroclinic_1000 = pv_baroclinic.sel(time=lowest_ck_date, method='nearest').sel(level=1000)
+    absolute_vorticity_1000 = absolute_vorticity.sel(time=lowest_ck_date, method='nearest').sel(level=1000)
+    eady_growth_rate_1000 = eady_growth_rate.sel(time=lowest_ck_date, method='nearest').isel(level=0)
+    u_250, v_250, hgt_250 = u.sel(level=250, time=lowest_ck_date, method='nearest'), v.sel(level=250, time=lowest_ck_date, method='nearest'), hgt.sel(level=250, time=lowest_ck_date, method='nearest')
+    u_1000, v_1000, hgt_1000 = u.sel(level=1000, time=lowest_ck_date, method='nearest'), v.sel(level=1000, time=lowest_ck_date, method='nearest'), hgt.sel(level=1000, time=lowest_ck_date, method='nearest')
 
     # Create a DataArray using an extra dimension for the type of PV
     print("Creating DataArray...")
@@ -313,11 +314,11 @@ def main():
     # Get track and periods data
     tracks_with_periods = pd.read_csv('../tracks_SAt_filtered/tracks_SAt_filtered_with_periods.csv')
 
-    # # ##### TEST CASE #####
-    # test_system = '19910624'
-    # test_results_dir = glob(f'{LEC_RESULTS_DIR}/{test_system}*')[0]
-    # process_single_case(test_results_dir, tracks_with_periods)
-    # sys.exit()
+    # ##### TEST CASE #####
+    test_system = '19910624'
+    test_results_dir = glob(f'{LEC_RESULTS_DIR}/{test_system}*')[0]
+    process_single_case(test_results_dir, tracks_with_periods)
+    sys.exit()
 
     # Get CPU count 
     max_cores = os.cpu_count()
