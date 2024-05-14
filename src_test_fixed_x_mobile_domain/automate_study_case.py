@@ -6,23 +6,26 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/05/08 14:17:01 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/11 17:39:19 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/14 09:43:11 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
 import os
 import math
+import random
 import cdsapi
+import logging
+import metpy.calc
 import numpy as np
 import pandas as pd
 import xarray as xr
 from glob import glob
-
-import metpy.calc
 from metpy.units import units
+from concurrent.futures import ProcessPoolExecutor
+from automate_composites import calculate_eady_growth_rate, get_cdsapi_keys,copy_cdsapirc
 
-from automate_composites import calculate_eady_growth_rate
-
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s',
+                    handlers=[logging.FileHandler('log.composite.txt', mode='w')])
 
 LEC_RESULTS_DIR = '../../LEC_Results_fixed_framework_test'
 OUTPUT_DIR = '../results_nc_files/composites_test_fixed_x_mobile/'
@@ -97,6 +100,14 @@ def get_cdsapi_era5_data(filename: str,
                          pressure_levels: list,
                          variables: list,
                          lowest_ck_date: pd.Timestamp) -> xr.Dataset:
+    
+    # Pick a random .cdsapirc file for each process
+    if CDSAPIRC_SUFFIXES:
+        chosen_suffix = random.choice(CDSAPIRC_SUFFIXES)
+        copy_cdsapirc(chosen_suffix)
+        logging.info(f"Switched .cdsapirc file to {chosen_suffix}")
+    else:
+        logging.error("No .cdsapirc files found. Please check the configuration.")
 
     track.set_index('date', inplace=True)
     track.index = pd.to_datetime(track.index)
@@ -115,13 +126,13 @@ def get_cdsapi_era5_data(filename: str,
     area = f"{buffered_max_lat}/{buffered_min_lon}/{buffered_min_lat}/{buffered_max_lon}" # North, West, South, East. Nort/West/Sout/East    
     
     # Use just the date of the lowest Ck value
-    date = lowest_ck_date.strftime('%Y%m%d')
-    hour = lowest_ck_date.strftime('%H')
+    lowest_ck_date_timestamp = pd.to_datetime(lowest_ck_date)[0]
+    date = lowest_ck_date_timestamp.strftime('%Y%m%d')
 
     # Convert unique dates to string format for the request
     time_range = f"{date}/{date}"
-    initial_hour = (lowest_ck_date - pd.Timedelta(hours=1)).strftime('%H')
-    final_hour = (lowest_ck_date + pd.Timedelta(hours=1)).strftime('%H')
+    initial_hour = (lowest_ck_date_timestamp - pd.Timedelta(hours=1)).strftime('%H')
+    final_hour = (lowest_ck_date_timestamp + pd.Timedelta(hours=1)).strftime('%H')
 
     # Load ERA5 data
     if not os.path.exists(filename):
@@ -148,192 +159,184 @@ def get_cdsapi_era5_data(filename: str,
         print("CDS API file already exists.")
         return filename
 
-def process_system(system_dir, file_study_case, tracks_with_periods, lowest_ck_date):
-    """
-    Process the selected system.
-    """
+def process_results(system_dir, tracks_with_periods, lowest_ck_date, file_path_study_case):
+        
     # Get track and periods data
     system_id = os.path.basename(system_dir).split('_')[0] # Get system ID
-    print(f"Processing {system_id}")
+    logging.info(f"Processing {system_id}")
 
     # Get track data
-    sliced_track = tracks_with_periods[tracks_with_periods['track_id'] == int(system_id)]
-    if sliced_track.empty:
-        print(f"No track data for {system_dir}")
-        return None
-
-    # Filter for intensification phase only
-    intensification_start = sliced_track[sliced_track['period'] == 'intensification']['date'].min()
-    intensification_end = sliced_track[sliced_track['period'] == 'intensification']['date'].max()
-    track = sliced_track[(sliced_track['date'] >= intensification_start) & (sliced_track['date'] <= intensification_end)]
-    if track.empty:
-        print(f"No intensification phase data for {system_dir}")
-        return None
+    track = tracks_with_periods[tracks_with_periods['track_id'] == int(system_id)]
 
     # Get ERA5 data for computing PV and EGR
     pressure_levels = ['250', '300', '350', '975', '1000']
     variables = ["u_component_of_wind", "v_component_of_wind", "temperature", "geopotential"]
-    infile = f"{system_id}-pv-egr.nc"
-    infile = get_cdsapi_era5_data(infile, track, pressure_levels, variables, lowest_ck_date) 
-    
-    return infile
+    tmp_file = os.path.basename(file_path_study_case)
+    tmp_file = get_cdsapi_era5_data(tmp_file, track, pressure_levels, variables, lowest_ck_date) 
 
-def process_results(nc_file, lowest_ck_date):
-        # Load the dataset
-        ds = xr.open_dataset(nc_file)
+    # Load the dataset
+    ds = xr.open_dataset(tmp_file)
 
-        # Open variables for calculations and assign units
-        temperature = ds['t'] * units.kelvin
-        pressure = ds.level * units.hPa
-        u = ds['u'] * units('m/s')
-        v = ds['v'] * units('m/s')
-        hgt = (ds['z'] / 9.8) * units('gpm')
-        latitude = ds.latitude
-        lat, lon = ds.latitude.values, ds.longitude.values
+    # Open variables for calculations and assign units
+    temperature = ds['t'] * units.kelvin
+    pressure = ds.level * units.hPa
+    u = ds['u'] * units('m/s')
+    v = ds['v'] * units('m/s')
+    hgt = (ds['z'] / 9.8) * units('gpm')
+    latitude = ds.latitude
+    lat, lon = ds.latitude.values, ds.longitude.values
 
-        # Calculate potential temperature, vorticity and Coriolis parameter
-        potential_temperature = metpy.calc.potential_temperature(pressure, temperature)
-        zeta = metpy.calc.vorticity(u, v)
-        f = metpy.calc.coriolis_parameter(latitude)
+    # Calculate potential temperature, vorticity and Coriolis parameter
+    potential_temperature = metpy.calc.potential_temperature(pressure, temperature)
+    zeta = metpy.calc.vorticity(u, v)
+    f = metpy.calc.coriolis_parameter(latitude)
 
-        # Calculate baroclinic and absolute vorticity
-        print("Calculating baroclinic and absolute vorticity...")
-        pv_baroclinic = metpy.calc.potential_vorticity_baroclinic(potential_temperature, pressure, u, v)
-        absolute_vorticity = zeta + f
-        print("Done.")
+    # Calculate baroclinic and absolute vorticity
+    print("Calculating baroclinic and absolute vorticity...")
+    pv_baroclinic = metpy.calc.potential_vorticity_baroclinic(potential_temperature, pressure, u, v)
+    absolute_vorticity = zeta + f
+    print("Done.")
 
-        # Calculate Eady Growth Rate
-        print("Calculating Eady Growth Rate...")
-        eady_growth_rate = calculate_eady_growth_rate(u, potential_temperature, f, hgt)
-        print("Done.")
+    # Calculate Eady Growth Rate
+    print("Calculating Eady Growth Rate...")
+    eady_growth_rate = calculate_eady_growth_rate(u, potential_temperature, f, hgt)
+    print("Done.")
 
-        # Select variables in their corresponding levels for composites 
-        pv_baroclinic_1000 = pv_baroclinic.sel(time=lowest_ck_date).sel(level=1000)
-        absolute_vorticity_1000 = absolute_vorticity.sel(time=lowest_ck_date).sel(level=1000)
-        eady_growth_rate_1000 = eady_growth_rate.sel(time=lowest_ck_date).isel(level=0)
-        u_250, v_250, hgt_250 = u.sel(level=250, time=lowest_ck_date), v.sel(level=250, time=lowest_ck_date), hgt.sel(level=250, time=lowest_ck_date)
-        u_1000, v_1000, hgt_1000 = u.sel(level=1000, time=lowest_ck_date), v.sel(level=1000, time=lowest_ck_date), hgt.sel(level=1000, time=lowest_ck_date)
+    # Select variables in their corresponding levels for composites 
+    pv_baroclinic_1000 = pv_baroclinic.sel(time=lowest_ck_date).sel(level=1000)
+    absolute_vorticity_1000 = absolute_vorticity.sel(time=lowest_ck_date).sel(level=1000)
+    eady_growth_rate_1000 = eady_growth_rate.sel(time=lowest_ck_date).isel(level=0)
+    u_250, v_250, hgt_250 = u.sel(level=250, time=lowest_ck_date), v.sel(level=250, time=lowest_ck_date), hgt.sel(level=250, time=lowest_ck_date)
+    u_1000, v_1000, hgt_1000 = u.sel(level=1000, time=lowest_ck_date), v.sel(level=1000, time=lowest_ck_date), hgt.sel(level=1000, time=lowest_ck_date)
 
-        # Create a DataArray using an extra dimension for the type of PV
-        print("Creating DataArray...")
-        track_id = int(os.path.basename(nc_file).split('.')[0].split('-')[0])
+    # Create a DataArray using an extra dimension for the type of PV
+    print("Creating DataArray...")
+    track_id = int(os.path.basename(system_dir).split('_')[0])
 
-        # Create DataArrays
-        da_baroclinic = xr.DataArray(
-            pv_baroclinic_1000.values,
-            dims=['time', 'latitude', 'longitude'],
-            coords={'time': pv_baroclinic_1000.time, 'latitude': lat, 'longitude': lon},
-            name='pv_baroclinic',
-            attrs={'units': str(pv_baroclinic_1000.metpy.units), 'description': 'PV Baroclinic'}
-        )
+    # Create DataArrays
+    da_baroclinic = xr.DataArray(
+        pv_baroclinic_1000.values,
+        dims=['time', 'latitude', 'longitude'],
+        coords={'time': pv_baroclinic_1000.time, 'latitude': lat, 'longitude': lon},
+        name='pv_baroclinic',
+        attrs={'units': str(pv_baroclinic_1000.metpy.units), 'description': 'PV Baroclinic'}
+    )
 
-        da_absolute_vorticity = xr.DataArray(
-            absolute_vorticity_1000.values,
-            dims=['time', 'latitude', 'longitude'],
-            coords={'time': absolute_vorticity_1000.time, 'latitude': lat, 'longitude': lon},
-            name='absolute_vorticity',
-            attrs={'units': str(absolute_vorticity_1000.metpy.units), 'description': 'Absolute Vorticity'}
-        )
+    da_absolute_vorticity = xr.DataArray(
+        absolute_vorticity_1000.values,
+        dims=['time', 'latitude', 'longitude'],
+        coords={'time': absolute_vorticity_1000.time, 'latitude': lat, 'longitude': lon},
+        name='absolute_vorticity',
+        attrs={'units': str(absolute_vorticity_1000.metpy.units), 'description': 'Absolute Vorticity'}
+    )
 
-        da_edy = xr.DataArray(
-            eady_growth_rate_1000.values,
-            dims=['time', 'latitude', 'longitude'],
-            coords={'time': eady_growth_rate_1000.time, 'latitude': lat, 'longitude': lon},
-            name='EGR',
-            attrs={'units': str(eady_growth_rate_1000.metpy.units), 'description': 'Eady Growth Rate'}
-        )
+    da_edy = xr.DataArray(
+        eady_growth_rate_1000.values,
+        dims=['time', 'latitude', 'longitude'],
+        coords={'time': eady_growth_rate_1000.time, 'latitude': lat, 'longitude': lon},
+        name='EGR',
+        attrs={'units': str(eady_growth_rate_1000.metpy.units), 'description': 'Eady Growth Rate'}
+    )
 
-        da_u_250 = xr.DataArray(
-            u_250.values,
-            dims=['time', 'latitude', 'longitude'],
-            coords={'time': u_250.time, 'latitude': lat, 'longitude': lon},
-            name='u_250',
-            attrs={'units': str(u_250.metpy.units), 'description': '250 hPa Wind Speed'}
-        )
+    da_u_250 = xr.DataArray(
+        u_250.values,
+        dims=['time', 'latitude', 'longitude'],
+        coords={'time': u_250.time, 'latitude': lat, 'longitude': lon},
+        name='u_250',
+        attrs={'units': str(u_250.metpy.units), 'description': '250 hPa Wind Speed'}
+    )
 
-        da_v_250 = xr.DataArray(
-            v_250.values,
-            dims=['time', 'latitude', 'longitude'],
-            coords={'time': v_250.time, 'latitude': lat, 'longitude': lon},
-            name='v_250',
-            attrs={'units': str(v_250.metpy.units), 'description': '250 hPa Wind Speed'}
-        )
+    da_v_250 = xr.DataArray(
+        v_250.values,
+        dims=['time', 'latitude', 'longitude'],
+        coords={'time': v_250.time, 'latitude': lat, 'longitude': lon},
+        name='v_250',
+        attrs={'units': str(v_250.metpy.units), 'description': '250 hPa Wind Speed'}
+    )
 
-        da_u_1000 = xr.DataArray(
-            u_1000.values,
-            dims=['time', 'latitude', 'longitude'],
-            coords={'time': u_1000.time, 'latitude': lat, 'longitude': lon},
-            name='u_1000',
-            attrs={'units': str(u_1000.metpy.units), 'description': '1000 hPa Wind Speed'}
-        )
+    da_u_1000 = xr.DataArray(
+        u_1000.values,
+        dims=['time', 'latitude', 'longitude'],
+        coords={'time': u_1000.time, 'latitude': lat, 'longitude': lon},
+        name='u_1000',
+        attrs={'units': str(u_1000.metpy.units), 'description': '1000 hPa Wind Speed'}
+    )
 
-        da_v_1000 = xr.DataArray(
-            v_1000.values,
-            dims=['time', 'latitude', 'longitude'],
-            coords={'time': v_1000.time, 'latitude': lat, 'longitude': lon},
-            name='v_1000',
-            attrs={'units': str(v_1000.metpy.units), 'description': '1000 hPa Wind Speed'}
-        )
+    da_v_1000 = xr.DataArray(
+        v_1000.values,
+        dims=['time', 'latitude', 'longitude'],
+        coords={'time': v_1000.time, 'latitude': lat, 'longitude': lon},
+        name='v_1000',
+        attrs={'units': str(v_1000.metpy.units), 'description': '1000 hPa Wind Speed'}
+    )
 
-        da_hgt_250 = xr.DataArray(
-            hgt_250.values,
-            dims=['time', 'latitude', 'longitude'],
-            coords={'time': hgt_250.time, 'latitude': lat, 'longitude': lon},
-            name='hgt_250',
-            attrs={'units': str(hgt_250.metpy.units), 'description': '250 hPa Geopotential Height'}
-        )
+    da_hgt_250 = xr.DataArray(
+        hgt_250.values,
+        dims=['time', 'latitude', 'longitude'],
+        coords={'time': hgt_250.time, 'latitude': lat, 'longitude': lon},
+        name='hgt_250',
+        attrs={'units': str(hgt_250.metpy.units), 'description': '250 hPa Geopotential Height'}
+    )
 
-        da_hgt_1000 = xr.DataArray(
-            hgt_1000.values,
-            dims=['time', 'latitude', 'longitude'],
-            coords={'time': hgt_1000.time, 'latitude': lat, 'longitude': lon},
-            name='hgt_1000',
-            attrs={'units': str(hgt_1000.metpy.units), 'description': '1000 hPa Geopotential Height'}
-        )
+    da_hgt_1000 = xr.DataArray(
+        hgt_1000.values,
+        dims=['time', 'latitude', 'longitude'],
+        coords={'time': hgt_1000.time, 'latitude': lat, 'longitude': lon},
+        name='hgt_1000',
+        attrs={'units': str(hgt_1000.metpy.units), 'description': '1000 hPa Geopotential Height'}
+    )
 
-        # Combine into a Dataset and add track_id as a coordinate
-        ds = xr.Dataset({
-            'pv_baroclinic': da_baroclinic,
-            'absolute_vorticity': da_absolute_vorticity,
-            'EGR': da_edy,
-            'u_250': da_u_250,
-            'v_250': da_v_250,
-            'u_1000': da_u_1000,
-            'v_1000': da_v_1000,
-            'hgt_250': da_hgt_250,
-            'hgt_1000': da_hgt_1000
-        })
+    # Combine into a Dataset and add track_id as a coordinate
+    ds = xr.Dataset({
+        'pv_baroclinic': da_baroclinic,
+        'absolute_vorticity': da_absolute_vorticity,
+        'EGR': da_edy,
+        'u_250': da_u_250,
+        'v_250': da_v_250,
+        'u_1000': da_u_1000,
+        'v_1000': da_v_1000,
+        'hgt_250': da_hgt_250,
+        'hgt_1000': da_hgt_1000
+    })
 
-        # Assigning track_id as a coordinate
-        ds = ds.assign_coords(track_id=track_id)  # Assigning track_id as a coordinate
+    # Assigning track_id as a coordinate
+    ds = ds.assign_coords(track_id=track_id)  # Assigning track_id as a coordinate
+    # Assign date
+    ds = ds.assign_coords(time=lowest_ck_date)
+    print(f"Finished creating PV composite for {file_path_study_case}")
+    return ds
 
-        # Assign date
-        ds = ds.assign_coords(time=lowest_ck_date)
-        
-        print(f"Finished creating PV composite for {nc_file}")
+def process_single_case(system_dir, tracks_with_periods):
+    system_id = int(os.path.basename(system_dir).split('_')[0])
+    print(f"Processing {system_dir}")
 
-        return ds
+    # Process study case
+    file_path_study_case = f'{OUTPUT_DIR}/{system_id}_results_study_case.nc'
+    lowest_ck_date = get_lowest_ck_date(system_dir, system_id, tracks_with_periods)
+    ds = process_results(system_dir, tracks_with_periods, lowest_ck_date, file_path_study_case)
+
+    # Save study case
+    ds.to_netcdf(file_path_study_case)
+    print(f"Finished processing {system_dir}")
+    return f"Finished {system_id}"
+
+CDSAPIRC_SUFFIXES = get_cdsapi_keys()
 
 def main():
+    # Get all directories in the LEC_RESULTS_DIR
+    results_directories = sorted(glob(f'{LEC_RESULTS_DIR}/*'))
+
     # Get track and periods data
     tracks_with_periods = pd.read_csv('../tracks_SAt_filtered/tracks_SAt_filtered_with_periods.csv')
 
-    nc_files = glob(f'*-pv-egr.nc')
+    # Using ProcessPoolExecutor to handle parallel processing
+    with ProcessPoolExecutor(max_workers=os.cpu_count() - 1) as executor:
+        futures = [executor.submit(process_single_case, dir_path, tracks_with_periods) for dir_path in results_directories]
 
-    for nc_file in nc_files:
-        # Get system_id
-        system_id = nc_file.split('-')[0]
-        print(f"Processing {system_id}")
+        # Collecting results (if necessary)
+        for future in futures:
+            print(future.result())
 
-        # Process study case
-        results_directory = glob(f'{LEC_RESULTS_DIR}/{system_id}*')[0]
-        file_study_case = f'{OUTPUT_DIR}/{system_id}_results_study_case.nc'
-        lowest_ck_date = get_lowest_ck_date(results_directory, system_id, tracks_with_periods)
-        ds = process_results(nc_file, lowest_ck_date)
-        
-        # Save study case
-        ds.to_netcdf(file_study_case)
-        print(f"Saved {file_study_case}")
  
 if __name__ == '__main__':
     main()

@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/05/08 13:15:01 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/13 13:23:02 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/14 09:44:07 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -383,7 +383,7 @@ def plot_track(track_id, tracks_with_periods, filepath, figures_dir):
 
 def main():
     # Get list of files
-    files = glob('../results_nc_files/composites_test_fixed_x_mobile/*study_case.nc')
+    files = sorted(glob('../results_nc_files/composites_test_fixed_x_mobile/*study_case.nc'))
 
     # Get tracks
     tracks_with_periods = pd.read_csv('../tracks_SAt_filtered/tracks_SAt_filtered_with_periods.csv')
