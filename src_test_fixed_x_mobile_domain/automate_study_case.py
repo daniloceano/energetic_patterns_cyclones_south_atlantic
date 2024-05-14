@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/05/08 14:17:01 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/14 16:18:25 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/14 16:19:23 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -315,15 +315,15 @@ def main():
     tracks_with_periods = pd.read_csv('../tracks_SAt_filtered/tracks_SAt_filtered_with_periods.csv')
 
     # ##### TEST CASE #####
-    test_system = '19910624'
-    test_results_dir = glob(f'{LEC_RESULTS_DIR}/{test_system}*')[0]
-    process_single_case(test_results_dir, tracks_with_periods)
-    sys.exit()
+    # test_system = '19910624'
+    # test_results_dir = glob(f'{LEC_RESULTS_DIR}/{test_system}*')[0]
+    # process_single_case(test_results_dir, tracks_with_periods)
+    # sys.exit()
 
-    # # Get CPU count 
-    # max_cores = os.cpu_count()
-    # num_workers = max(1, max_cores - 4) if max_cores else 1
-    # logging.info(f"Using {num_workers} CPU cores")
+    # Get CPU count 
+    max_cores = os.cpu_count()
+    num_workers = max(1, max_cores - 4) if max_cores else 1
+    logging.info(f"Using {num_workers} CPU cores")
 
     # Using ProcessPoolExecutor to handle parallel processing
     with ProcessPoolExecutor(max_workers=os.cpu_count() - 1) as executor:
