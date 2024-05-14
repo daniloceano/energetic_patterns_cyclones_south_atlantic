@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/05/08 13:15:01 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/14 09:44:07 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/14 16:34:48 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -30,6 +30,7 @@ from shapely.geometry.polygon import Polygon
 import cartopy.feature as cfeature
 from cartopy.feature import NaturalEarthFeature, COASTLINE
 from cartopy.feature import BORDERS
+from concurrent.futures import ProcessPoolExecutor
 
 TITLE_SIZE = 16
 TICK_LABEL_SIZE = 12
@@ -381,6 +382,24 @@ def plot_track(track_id, tracks_with_periods, filepath, figures_dir):
     fig.savefig(os.path.join(figures_dir, f'track_{track_id}.png'))
     print('Track figure saved in directory: {}'.format(figures_dir))
 
+def process_file(filepath, tracks_with_periods):
+    # Get system id
+    print(f'Plotting {filepath}')
+    system_id = os.path.basename(filepath).split('_')[0]
+
+    # Create figures directory
+    figures_dir = os.path.join(FIGURES_DIR, f'{system_id}_study_case')
+    os.makedirs(figures_dir, exist_ok=True)
+    
+    # Plot study case variables
+    plot_study_case(filepath, tracks_with_periods, figures_dir)
+
+    # Plot domain box
+    plot_domain_box(system_id, tracks_with_periods, filepath, figures_dir)
+
+    # Plot track
+    plot_track(system_id, tracks_with_periods, filepath, figures_dir)
+
 def main():
     # Get list of files
     files = sorted(glob('../results_nc_files/composites_test_fixed_x_mobile/*study_case.nc'))
@@ -388,23 +407,11 @@ def main():
     # Get tracks
     tracks_with_periods = pd.read_csv('../tracks_SAt_filtered/tracks_SAt_filtered_with_periods.csv')
 
-    for filepath in files:
-        # Get system id
-        print(f'Plotting {filepath}')
-        system_id = os.path.basename(filepath).split('_')[0]
-
-        # Create figures directory
-        figures_dir = os.path.join(FIGURES_DIR, f'{system_id}_study_case')
-        os.makedirs(figures_dir, exist_ok=True)
-        
-        # Plot study case variables
-        plot_study_case(filepath, tracks_with_periods, figures_dir)
-
-        # Plot domain box
-        plot_domain_box(system_id, tracks_with_periods, filepath, figures_dir)
-
-        # Plot track
-        plot_track(system_id, tracks_with_periods, filepath, figures_dir)
+    # Use ProcessPoolExecutor to parallelize the processing
+    with ProcessPoolExecutor(max_workers=os.cpu_count() - 1) as executor:
+        futures = [executor.submit(process_file, filepath, tracks_with_periods) for filepath in files]
+        for future in futures:
+            future.result()
 
 if __name__ == '__main__':
     main()
