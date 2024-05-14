@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/05/08 14:17:01 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/14 09:43:11 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/14 09:47:29 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -25,7 +25,7 @@ from concurrent.futures import ProcessPoolExecutor
 from automate_composites import calculate_eady_growth_rate, get_cdsapi_keys,copy_cdsapirc
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s',
-                    handlers=[logging.FileHandler('log.composite.txt', mode='w')])
+                    handlers=[logging.FileHandler('log.study-case.txt', mode='w')])
 
 LEC_RESULTS_DIR = '../../LEC_Results_fixed_framework_test'
 OUTPUT_DIR = '../results_nc_files/composites_test_fixed_x_mobile/'
