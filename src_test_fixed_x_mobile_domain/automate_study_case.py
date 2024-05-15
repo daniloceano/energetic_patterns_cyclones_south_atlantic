@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/05/08 14:17:01 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/15 19:14:08 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/15 19:14:30 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -34,8 +34,6 @@ def setup_logging():
                         handlers=[logging.FileHandler('log.study-case.txt', mode='w')])
     logger = logging.getLogger()
     logger.handlers.clear()
-    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s',
-                        handlers=[logging.FileHandler('log.study-case.txt', mode='w')])
 
 def get_lowest_ck_date(results_directory, system_id, tracks_with_periods):
     # Open the results file
