@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/24 14:42:50 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/11 14:48:12 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/15 08:31:14 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -462,6 +462,8 @@ def main():
         max_cores = os.cpu_count()
         num_workers = max(1, max_cores - 4) if max_cores else 1
         logging.info(f"Using {num_workers} CPU cores")
+
+    num_workers = 1
 
     # Log start time and total number of systems
     start_time = time.time()
