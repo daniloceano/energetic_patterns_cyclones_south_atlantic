@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/24 14:42:50 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/15 08:31:14 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/15 12:05:38 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -31,7 +31,9 @@ from datetime import timedelta
 from glob import glob
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from metpy.units import units
-from metpy.interpolate import interpolate_1d
+from metpy.constants import Rd, g, Cp_d
+from metpy.interpolate import interpolate_1d, log_interpolate_1d
+
 
 # Update logging configuration to use the custom handler
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s',
@@ -41,6 +43,9 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 LEC_RESULTS_DIR = os.path.abspath('../../LEC_Results_energetic-patterns')  # Get absolute PATH
 CDSAPIRC_PATH = os.path.expanduser('~/.cdsapirc')
 OUTPUT_DIR = '../results_nc_files/composites_barotropic_baroclinic/'
+
+DEBUG_CODE = False
+DEBUG_CDSAPI = True
 
 def get_cdsapi_keys():
     """
@@ -73,12 +78,13 @@ def copy_cdsapirc(suffix):
 def get_cdsapi_era5_data(filename: str, track: pd.DataFrame, pressure_levels: list, variables: list) -> xr.Dataset:
 
     # Pick a random .cdsapirc file for each process
-    if CDSAPIRC_SUFFIXES:
-        chosen_suffix = random.choice(CDSAPIRC_SUFFIXES)
-        copy_cdsapirc(chosen_suffix)
-        logging.info(f"Switched .cdsapirc file to {chosen_suffix}")
-    else:
-        logging.error("No .cdsapirc files found. Please check the configuration.")
+    if DEBUG_CDSAPI == False:
+        if CDSAPIRC_SUFFIXES:
+            chosen_suffix = random.choice(CDSAPIRC_SUFFIXES)
+            copy_cdsapirc(chosen_suffix)
+            logging.info(f"Switched .cdsapirc file to {chosen_suffix}")
+        else:
+            logging.error("No .cdsapirc files found. Please check the configuration.")
 
     # Extract bounding box (lat/lon limits) from track
     min_lat, max_lat = track['Lat'].min(), track['Lat'].max()
@@ -139,16 +145,47 @@ def get_cdsapi_era5_data(filename: str, track: pd.DataFrame, pressure_levels: li
         logging.info("CDS API file already exists.")
         return infile
     
-def calculate_eady_growth_rate(u, theta, f, hgt):
+def create_pressure_array(pressure_levels, time, latitude, longitude, level):
+    # Create a 4D DataArray for pressure levels
+    pressure_values = np.repeat(pressure_levels.magnitude[:, np.newaxis, np.newaxis, np.newaxis],
+                                len(time), axis=1)
+    pressure_values = np.repeat(pressure_values, len(latitude), axis=2)
+    pressure_values = np.repeat(pressure_values, len(longitude), axis=3)
+
+    pressure_da = xr.DataArray(
+        pressure_values,
+        dims=['level', 'time', 'latitude', 'longitude'],
+        coords={
+            'level': level,
+            'time': time,
+            'latitude': latitude,
+            'longitude': longitude
+        },
+        attrs={'units': pressure_levels.units}
+    )
+
+    return pressure_da
+
+def calculate_eady_growth_rate(u, potential_temperature, f, hgt):
+
+    # Create a 3D array for pressure
+    time = u.coords['time']
+    latitude = u.coords['latitude']
+    longitude = u.coords['longitude']
+    level = u.coords['level']
+    pressure_levels = u.level.values * units.hPa
+    pressure = create_pressure_array(pressure_levels, time, latitude, longitude, level) * units.hPa
+    pressure = pressure.transpose(*u.dims)
 
     # Define new target geopotential heights
-    new_geopotential_heights = np.linspace(float(hgt.min()), float(hgt.max()), 6) * units.meters  # Example range
+    new_geopotential_heights = np.linspace(float(hgt.min()) * 0.8 , float(hgt.max()) * 0.8, len(u.level)) * units.meters  # Example range
 
     # Interpolate u from pressure levels to new geopotential heights
     u_on_geopotential_height_levels = interpolate_1d(new_geopotential_heights, hgt, u, axis=1)
     hgt_on_geopotential_height_levels = interpolate_1d(new_geopotential_heights, hgt, hgt, axis=1)
+    pressure_on_geopotential_height_levels = interpolate_1d(new_geopotential_heights, hgt, pressure, axis=1)
 
-    theta_reordered = theta.transpose('time', 'level', 'latitude', 'longitude')
+    theta_reordered = potential_temperature.transpose('time', 'level', 'latitude', 'longitude')
     theta_on_geopotential_height_levels = interpolate_1d(new_geopotential_heights, hgt, theta_reordered, axis=1)
 
     # Convert u to DataArray
@@ -157,12 +194,9 @@ def calculate_eady_growth_rate(u, theta, f, hgt):
     hgt_height_levels = xr.DataArray(hgt_on_geopotential_height_levels, dims=["time", "level", "latitude", "longitude"],
                     coords={"time": u.time, "level": new_geopotential_heights, "latitude": u.latitude, "longitude": u.longitude})
     theta_height_levels = xr.DataArray(theta_on_geopotential_height_levels, dims=["time", "level", "latitude", "longitude"],
-                    coords={"time": theta.time, "level": new_geopotential_heights, "latitude": theta.latitude, "longitude": theta.longitude})
-    
-    # Drop NaN values
-    u_height_levels = u_height_levels.dropna(dim="level")
-    hgt_height_levels = hgt_height_levels.dropna(dim="level")
-    theta_height_levels = theta_height_levels.dropna(dim="level")
+                    coords={"time": potential_temperature.time, "level": new_geopotential_heights, "latitude": potential_temperature.latitude, "longitude": potential_temperature.longitude})
+    pressure_height_levels = xr.DataArray(pressure_on_geopotential_height_levels, dims=["time", "level", "latitude", "longitude"],
+                    coords={"time": u.time, "level": new_geopotential_heights, "latitude": u.latitude, "longitude": u.longitude})
 
     # Calculate the derivative of U with respect to log-pressure
     dudz = u_height_levels.differentiate("level") / units('m')
@@ -176,7 +210,28 @@ def calculate_eady_growth_rate(u, theta, f, hgt):
     # Convert units for simplicity
     EGR = EGR.metpy.convert_units(' 1 / day')
 
-    return EGR
+    # Make data dimensions match
+    EGR = EGR.transpose(*u.dims)
+    hgt_height_levels = hgt_height_levels.transpose(*u.dims)
+
+    # Prepare data for interpolation
+    pressure_quant = units.Quantity(pressure_height_levels.values, 'hPa')
+    hgt_quant = units.Quantity(hgt_height_levels.values, 'meter')
+    EGR_quant = units.Quantity(EGR.values, '1 / day')
+
+    # Interpolate EGR to the pressure levels
+    height, EGR_on_pressure_levels = log_interpolate_1d(pressure_levels, pressure_quant, hgt_quant, EGR_quant, axis=1)
+    
+    # Convert interpolated EGR to DataArray
+    EGR_pressure_levels = xr.DataArray(EGR_on_pressure_levels, dims=["time", "level", "latitude", "longitude"],
+                    coords={"time": u.time, "level": pressure_levels, "latitude": u.latitude, "longitude": u.longitude},
+                    name="EGR")
+
+    # Interpolate missing values
+    EGR_pressure_levels_interp = EGR_pressure_levels.interpolate_na(dim='longitude', method='linear')
+
+    return EGR_pressure_levels
+
 
 def create_pv_composite(infile, track):
     # Load the dataset
@@ -202,144 +257,102 @@ def create_pv_composite(infile, track):
     # Calculate Eady Growth Rate
     eady_growth_rate = calculate_eady_growth_rate(u, potential_temperature, f, hgt)
 
-    # Select variables in their corresponding levels for composites
-    pv_baroclinic_1000 = pv_baroclinic.sel(level=1000)
-    absolute_vorticity_250 = absolute_vorticity.sel(level=250)
-    eady_growth_rate_1000 = eady_growth_rate.isel(level=0) # 1000 hPa level is the 1st vertical level
-    u_250, v_250, hgt_250 = u.sel(level=250), v.sel(level=250), hgt.sel(level=250)
-    u_1000, v_1000, hgt_1000 = u.sel(level=1000), v.sel(level=1000), hgt.sel(level=1000)
-
     # Empty lists to store the slices
     pv_baroclinic_slices_system, absolute_vorticity_slices_system = [], []
     eady_growth_rate_slices_system = []
-    u_250_slices_system, v_250_slices_system, hgt_250_slices_system = [], [], []
-    u_1000_slices_system, v_1000_slices_system, hgt_1000_slices_system = [], [], []
+    u_slices_system, v_slices_system, hgt_slices_system = [], [], []
 
     for time_step in track.index:
         # Select the time step
-        pv_baroclinic_1000_time = pv_baroclinic_1000.sel(time=time_step)
-        absolute_vorticity_250_time = absolute_vorticity_250.sel(time=time_step)
-        eady_growth_rate_1000_time = eady_growth_rate_1000.sel(time=time_step)
-        u_250_time, v_250_time, hgt_250_time = u_250.sel(time=time_step), v_250.sel(time=time_step), hgt_250.sel(time=time_step)
-        u_1000_time, v_1000_time, hgt_1000_time = u_1000.sel(time=time_step), v_1000.sel(time=time_step), hgt_1000.sel(time=time_step)
+        pv_baroclinic_time = pv_baroclinic.sel(time=time_step)
+        absolute_vorticity_time = absolute_vorticity.sel(time=time_step)
+        eady_growth_rate_time = eady_growth_rate.sel(time=time_step)
+        u_time, v_time, hgt_time = u.sel(time=time_step), v.sel(time=time_step), hgt.sel(time=time_step)
 
         # Select the track limits
         min_lon, max_lon = track.loc[time_step, 'min_lon'], track.loc[time_step, 'max_lon']
         min_lat, max_lat = track.loc[time_step, 'min_lat'], track.loc[time_step, 'max_lat']
 
         # Slice for track limits
-        pv_baroclinic_1000_time_slice = pv_baroclinic_1000_time.sel(longitude=slice(min_lon, max_lon), latitude=slice(max_lat, min_lat))
-        pv_baroclinic_slices_system.append(pv_baroclinic_1000_time_slice)
+        pv_baroclinic_time_slice = pv_baroclinic_time.sel(longitude=slice(min_lon, max_lon), latitude=slice(max_lat, min_lat))
+        pv_baroclinic_slices_system.append(pv_baroclinic_time_slice)
 
-        absolute_vorticity_250_time_slice = absolute_vorticity_250_time.sel(longitude=slice(min_lon, max_lon), latitude=slice(max_lat, min_lat))
-        absolute_vorticity_slices_system.append(absolute_vorticity_250_time_slice)
+        absolute_vorticity_time_slice = absolute_vorticity_time.sel(longitude=slice(min_lon, max_lon), latitude=slice(max_lat, min_lat))
+        absolute_vorticity_slices_system.append(absolute_vorticity_time_slice)
 
-        eady_growth_rate_1000_time_slice = eady_growth_rate_1000_time.sel(longitude=slice(min_lon, max_lon), latitude=slice(max_lat, min_lat))
-        eady_growth_rate_slices_system.append(eady_growth_rate_1000_time_slice)
+        eady_growth_rate_time_slice = eady_growth_rate_time.sel(longitude=slice(min_lon, max_lon), latitude=slice(max_lat, min_lat))
+        eady_growth_rate_slices_system.append(eady_growth_rate_time_slice)
 
-        u_250_time_slice = u_250_time.sel(longitude=slice(min_lon, max_lon), latitude=slice(max_lat, min_lat))
-        v_250_time_slice = v_250_time.sel(longitude=slice(min_lon, max_lon), latitude=slice(max_lat, min_lat))
-        hgt_250_time_slice = hgt_250_time.sel(longitude=slice(min_lon, max_lon), latitude=slice(max_lat, min_lat))
-        u_250_slices_system.append(u_250_time_slice)
-        v_250_slices_system.append(v_250_time_slice)
-        hgt_250_slices_system.append(hgt_250_time_slice)
-
-        u_1000_time_slice = u_1000_time.sel(longitude=slice(min_lon, max_lon), latitude=slice(max_lat, min_lat))
-        v_1000_time_slice = v_1000_time.sel(longitude=slice(min_lon, max_lon), latitude=slice(max_lat, min_lat))
-        hgt_1000_time_slice = hgt_1000_time.sel(longitude=slice(min_lon, max_lon), latitude=slice(max_lat, min_lat))
-        u_1000_slices_system.append(u_1000_time_slice)
-        v_1000_slices_system.append(v_1000_time_slice)
+        u_time_slice = u_time.sel(longitude=slice(min_lon, max_lon), latitude=slice(max_lat, min_lat))
+        v_time_slice = v_time.sel(longitude=slice(min_lon, max_lon), latitude=slice(max_lat, min_lat))
+        hgt_time_slice = hgt_time.sel(longitude=slice(min_lon, max_lon), latitude=slice(max_lat, min_lat))
+        u_slices_system.append(u_time_slice)
+        v_slices_system.append(v_time_slice)
+        hgt_slices_system.append(hgt_time_slice)
     
     # Calculate the composites for this system
     pv_baroclinic_mean = np.mean(pv_baroclinic_slices_system, axis=0)
     absolute_vorticity_mean = np.mean(absolute_vorticity_slices_system, axis=0)
     eady_growth_rate_mean = np.mean(eady_growth_rate_slices_system, axis=0)
 
-    u_250_mean = np.mean(u_250_slices_system, axis=0)
-    v_250_mean = np.mean(v_250_slices_system, axis=0)
-    hgt_250_mean = np.mean(hgt_250_slices_system, axis=0)
-
-    u_1000_mean = np.mean(u_1000_slices_system, axis=0)
-    v_1000_mean = np.mean(v_1000_slices_system, axis=0)
-    hgt_1000_mean = np.mean(hgt_1000_slices_system, axis=0)
+    u_mean = np.mean(u_slices_system, axis=0)
+    v_mean = np.mean(v_slices_system, axis=0)
+    hgt_mean = np.mean(hgt_slices_system, axis=0)
 
     # Create a DataArray using an extra dimension for the type of PV
-    x_size, y_size = pv_baroclinic_mean.shape[1], pv_baroclinic_mean.shape[0]
+    x_size, y_size = pv_baroclinic_mean.shape[2], pv_baroclinic_mean.shape[1]
     x = np.linspace(- x_size / 2, (x_size / 2) - 1 , x_size)
     y = np.linspace(- y_size / 2, (y_size / 2) - 1, y_size)
+    level = u.level
     track_id = int(infile.split('.')[0].split('-')[0])
 
     # Create DataArrays
     da_baroclinic = xr.DataArray(
         pv_baroclinic_mean,
-        dims=['y', 'x'],
-        coords={'y': y, 'x': x},
+        dims=['level', 'y', 'x'],
+        coords={'level': level, 'y': y, 'x': x},
         name='pv_baroclinic',
-        attrs={'units': str(pv_baroclinic_1000_time_slice.metpy.units)}
+        attrs={'units': str(pv_baroclinic_time_slice.metpy.units)}
     )
 
     da_absolute_vorticity = xr.DataArray(
         absolute_vorticity_mean,
-        dims=['y', 'x'],
-        coords={'y': y, 'x': x},
+        dims=['level', 'y', 'x'],
+        coords={'level': level, 'y': y, 'x': x},
         name='absolute_vorticity',
-        attrs={'units': str(absolute_vorticity_250_time_slice.metpy.units)}
+        attrs={'units': str(absolute_vorticity_time_slice.metpy.units)}
     )
 
     da_edy = xr.DataArray(
         eady_growth_rate_mean,
-        dims=['y', 'x'],
-        coords={'y': y, 'x': x},
+        dims=['level', 'y', 'x'],
+        coords={'level': level, 'y': y, 'x': x},
         name='EGR',
-        attrs={'units': str(eady_growth_rate_1000_time_slice.metpy.units)}
+        attrs={'units': str(eady_growth_rate_time_slice.metpy.units)}
     )
 
-    da_u_250 = xr.DataArray(
-        u_250_mean,
-        dims=['y', 'x'],
-        coords={'y': y, 'x': x},
-        name='u_250',
-        attrs={'units': str(u_250_time_slice.metpy.units)}
+    da_u = xr.DataArray(
+        u_mean,
+        dims=['level', 'y', 'x'],
+        coords={'level': level, 'y': y, 'x': x},
+        name='u',
+        attrs={'units': str(u_time_slice.metpy.units)}
     )
 
-    da_v_250 = xr.DataArray(
-        v_250_mean,
-        dims=['y', 'x'],
-        coords={'y': y, 'x': x},
-        name='v_250',
-        attrs={'units': str(v_250_time_slice.metpy.units)}
+    da_v = xr.DataArray(
+        v_mean,
+        dims=['level', 'y', 'x'],
+        coords={'level': level, 'y': y, 'x': x},
+        name='v',
+        attrs={'units': str(v_time_slice.metpy.units)}
     )
 
-    da_hgt_250 = xr.DataArray(
-        hgt_250_mean,
-        dims=['y', 'x'],
-        coords={'y': y, 'x': x},
-        name='hgt_250',
-        attrs={'units': str(hgt_250_time_slice.metpy.units)}
-    )
-
-    da_u_1000 = xr.DataArray(
-        u_1000_mean,
-        dims=['y', 'x'],
-        coords={'y': y, 'x': x},
-        name='u_1000',
-        attrs={'units': str(u_1000_time_slice.metpy.units)}
-    )
-
-    da_v_1000 = xr.DataArray(
-        v_1000_mean,
-        dims=['y', 'x'],
-        coords={'y': y, 'x': x},
-        name='v_1000',
-        attrs={'units': str(v_1000_time_slice.metpy.units)}
-    )
-
-    da_hgt_1000 = xr.DataArray(
-        hgt_1000_mean,
-        dims=['y', 'x'],
-        coords={'y': y, 'x': x},
-        name='hgt_1000',
-        attrs={'units': str(hgt_1000_time_slice.metpy.units)}
+    da_hgt = xr.DataArray(
+        hgt_mean,
+        dims=['level', 'y', 'x'],
+        coords={'level': level, 'y': y, 'x': x},
+        name='hgt',
+        attrs={'units': str(hgt_time_slice.metpy.units)}
     )
 
     # Combine into a Dataset and add track_id as a coordinate
@@ -347,12 +360,9 @@ def create_pv_composite(infile, track):
         'pv_baroclinic': da_baroclinic,
         'absolute_vorticity': da_absolute_vorticity,
         'EGR': da_edy,
-        'u_250': da_u_250,
-        'v_250': da_v_250,
-        'hgt_250': da_hgt_250,
-        'u_1000': da_u_1000,
-        'v_1000': da_v_1000,
-        'hgt_1000': da_hgt_1000
+        'u': da_u,
+        'v': da_v,
+        'hgt': da_hgt,
     })
 
     # Assigning track_id as a coordinate
@@ -423,7 +433,7 @@ def process_system(system_dir):
     system_id = os.path.basename(system_dir).split('_')[0] # Get system ID
 
     # Get ERA5 data for computing PV and EGR
-    pressure_levels = ['250', '300', '350', '975', '1000']
+    pressure_levels = ['250', '300', '350', '550', '500', '450', '700', '750', '800', '950', '975', '1000']
     variables = ["u_component_of_wind", "v_component_of_wind", "temperature", "geopotential"]
     infile_pv_egr = get_cdsapi_era5_data(f'{system_id}-pv-egr', track, pressure_levels, variables) 
 
@@ -452,9 +462,6 @@ def main():
     # Filter directories
     filtered_directories = [directory for directory in results_directories if any(system_id in directory for system_id in selected_systems_str)]
 
-    ##### DEBUG #####
-    # filtered_directories  = results_directories[:1]
-
     # # Determine the number of CPU cores to use
     if len(sys.argv) > 1:
         num_workers = int(sys.argv[1])
@@ -462,8 +469,15 @@ def main():
         max_cores = os.cpu_count()
         num_workers = max(1, max_cores - 4) if max_cores else 1
         logging.info(f"Using {num_workers} CPU cores")
+    
+    if DEBUG_CDSAPI == True:
+        max_cores = 1
 
-    num_workers = 1
+    if DEBUG_CODE == True:
+        logging.info(f"Debug mode!")
+        composites = [process_system(results_directories[0])]
+        print(composites)
+        sys.exit(0)
 
     # Log start time and total number of systems
     start_time = time.time()
