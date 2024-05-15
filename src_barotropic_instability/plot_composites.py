@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/23 19:56:13 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/15 16:43:13 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/15 16:48:36 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -124,7 +124,7 @@ def plot_lon_mean(lon_mean, **map_attrs):
         ax.axhline(0, color='#c1121f', linestyle='--', linewidth=0.5)
         ax.plot(lon_mean, lon_mean.y, color='#003049', linewidth=3)
         plt.xlabel(map_attrs['units'], fontsize=LABEL_SIZE)
-        ax.set_title(r'$\frac{\partial PV}{\partial y}$' + ' @ 1000 hPa', fontsize=TITLE_SIZE)
+        ax.set_title(r'$\frac{\partial PV}{\partial y}$' + f' @ {str(int(lon_mean.level))} hPa', fontsize=TITLE_SIZE)
         plt.tick_params(axis='both', labelsize=TICK_LABEL_SIZE)
         plt.tight_layout()
         filename = map_attrs['filename']
@@ -239,7 +239,7 @@ def main():
         # EGR
         map_attrs = {
             'cmap': 'Spectral_r',
-            'title': 'EGR @ 1000 hPa',
+            'title': f'EGR @ {level_str} hPa',
             'levels': contour_levels['EGR'],
             'units': r'$d^{-1}$',
             'filename': f'composite_semi-lagrangian_EGR_{level_str}hpa.png'
