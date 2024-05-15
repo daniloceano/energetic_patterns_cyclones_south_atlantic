@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/24 14:42:50 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/15 12:05:38 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/15 12:08:13 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -471,7 +471,7 @@ def main():
         logging.info(f"Using {num_workers} CPU cores")
     
     if DEBUG_CDSAPI == True:
-        max_cores = 1
+        num_workers = 1
 
     if DEBUG_CODE == True:
         logging.info(f"Debug mode!")
