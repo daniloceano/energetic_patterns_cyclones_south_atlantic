@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/23 19:56:13 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/13 10:41:37 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/15 16:43:13 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -97,15 +97,54 @@ def determine_norm_bounds(data, factor=1.0):
     max_abs_value = max(abs(data_min), abs(data_max)) * factor
     return -max_abs_value, max_abs_value
 
-def main(filepath='../results_nc_files/composites_barotropic_baroclinic/pv_egr_composite_mean.nc'):
+def plot_variable(pv_baroclinic, u, v, hgt, **map_attrs):
+    fig = plt.figure(figsize=(5, 5))
+    ax = fig.add_subplot(111, projection=CRS)
+    plot_map(ax, pv_baroclinic, u, v, hgt, **map_attrs)
+    plt.tight_layout()
+    filename = map_attrs['filename']
+    file_path = os.path.join(FIGURES_DIR, filename)
+    plt.savefig(file_path)
+    print(f'Saved {filename}')
 
+def plot_derivative(pv_baroclinic_derivative, u, v, hgt, **map_attrs):
+    fig = plt.figure(figsize=(5, 5))
+    ax = fig.add_subplot(111, projection=CRS)
+    plot_map(ax, pv_baroclinic_derivative, u[:-1], v[:-1], hgt[:-1], **map_attrs)
+    plt.tight_layout()
+    filename = map_attrs['filename']
+    file_path = os.path.join(FIGURES_DIR, filename)
+    plt.savefig(file_path)
+    print(f'Saved {filename}')
+
+def plot_lon_mean(lon_mean, **map_attrs):
+        fig = plt.figure(figsize=(4, 5))
+        ax = plt.gca()
+        ax.axvline(0, color='#c1121f', linestyle='--', linewidth=0.5)
+        ax.axhline(0, color='#c1121f', linestyle='--', linewidth=0.5)
+        ax.plot(lon_mean, lon_mean.y, color='#003049', linewidth=3)
+        plt.xlabel(map_attrs['units'], fontsize=LABEL_SIZE)
+        ax.set_title(r'$\frac{\partial PV}{\partial y}$' + ' @ 1000 hPa', fontsize=TITLE_SIZE)
+        plt.tick_params(axis='both', labelsize=TICK_LABEL_SIZE)
+        plt.tight_layout()
+        filename = map_attrs['filename']
+        file_path = os.path.join(FIGURES_DIR, filename)
+        plt.savefig(file_path)
+        print(f'Saved {filename}')
+
+def main():
+    # Composites file
+    filepath = '../results_nc_files/composites_barotropic_baroclinic/pv_egr_composite_mean.nc'
+
+    # Open variables
     ds = xr.open_dataset(filepath)
     ds['pv_baroclinic'] = ds['pv_baroclinic'] * 1e6
     pv_baroclinic = ds['pv_baroclinic']
     absolute_vorticity = ds['absolute_vorticity']
     egr = ds['EGR']
-    u_1000, v_1000, hgt_1000 = ds['u_1000'], ds['v_1000'], ds['hgt_1000']
-    u_250, v_250, hgt_250 = ds['u_250'], ds['v_250'], ds['hgt_250']
+    u = ds['u']
+    v = ds['v']
+    hgt = ds['hgt']
 
     # Calculate derivatives
     pv_baroclinic_derivative = pv_baroclinic.diff('y')
@@ -113,127 +152,100 @@ def main(filepath='../results_nc_files/composites_barotropic_baroclinic/pv_egr_c
     pv_baroclinic_derivative.name = 'pv_baroclinic_derivative'
     absolute_vorticity_derivative.name = 'absolute_vorticity_derivative'
 
-    levels = {}
+    contour_levels = {}
     # Create levels for plot each variable
     for var in ds.data_vars:
         min_val = float(min(ds[var].min(), ds[var].min()))
         max_val = float(max(ds[var].max(), ds[var].max()))
-        levels[var] = np.linspace(min_val, max_val, 11)
-    levels['pv_baroclinic_derivative'] = np.linspace(np.min(pv_baroclinic_derivative), np.max(pv_baroclinic_derivative), 11)
-    levels['absolute_vorticity_derivative'] = np.linspace(np.min(absolute_vorticity_derivative), np.max(absolute_vorticity_derivative), 11)
+        contour_levels[var] = np.linspace(min_val, max_val, 11)
+    contour_levels['pv_baroclinic_derivative'] = np.linspace(np.min(pv_baroclinic_derivative), np.max(pv_baroclinic_derivative), 11)
+    contour_levels['absolute_vorticity_derivative'] = np.linspace(np.min(absolute_vorticity_derivative), np.max(absolute_vorticity_derivative), 11)
     
-    # Baroclinic PV
-    map_attrs = {
-        'cmap': 'Blues_r',
-        'title': r'$PV$' + ' @ 1000 hPa',
-        'levels': levels['pv_baroclinic'],
-        'units': 'PVU',
-    }
-    fig = plt.figure(figsize=(5, 5))
-    ax = fig.add_subplot(111, projection=CRS)
-    plot_map(ax, pv_baroclinic, u_1000, v_1000, hgt_1000, **map_attrs)
-    plt.tight_layout()
-    filename = 'composite_semi-lagrangian_pv_baroclinic.png'
-    file_path = os.path.join(FIGURES_DIR, filename)
-    plt.savefig(file_path)
-    print(f'Saved {filename}')
+    for level in ds.level:
 
-    # Baroclinic PV derivative
-    map_attrs = {
-        'cmap': cmo.curl,
-        'title': r'$\frac{\partial PV}{\partial y}$' + ' @ 1000 hPa',
-        'levels': levels['pv_baroclinic_derivative'],
-        'units': 'PVU',
-    }
-    fig = plt.figure(figsize=(5, 5))
-    ax = fig.add_subplot(111, projection=CRS)
-    plot_map(ax, pv_baroclinic_derivative, u_1000[:-1], v_1000[:-1], hgt_1000[:-1], **map_attrs)
-    plt.tight_layout()
-    filename = 'composite_semi-lagrangian_pv_baroclinic__derivative.png'
-    file_path = os.path.join(FIGURES_DIR, filename)
-    plt.savefig(file_path)
-    print(f'Saved {filename}')
+        u_level = u.sel(level=level)
+        v_level = v.sel(level=level)
+        hgt_level = hgt.sel(level=level)
 
-    # Baroclinic PV derivative lon mean
-    fig = plt.figure(figsize=(4, 5))
-    ax = plt.gca()
-    ax.axvline(0, color='#c1121f', linestyle='--', linewidth=0.5)
-    ax.axhline(0, color='#c1121f', linestyle='--', linewidth=0.5)
-    ax.plot(pv_baroclinic_derivative.mean('x'), pv_baroclinic_derivative.mean('x').y,
-                 color='#003049', linewidth=3)
-    plt.xlabel('PVU', fontsize=LABEL_SIZE)
-    ax.set_title(r'$\frac{\partial PV}{\partial y}$' + ' @ 1000 hPa', fontsize=TITLE_SIZE)
-    plt.tick_params(axis='both', labelsize=TICK_LABEL_SIZE)
-    plt.tight_layout()
-    filename = 'composite_semi-lagrangian_pv_baroclinic_derivative_lon_mean.png'
-    file_path = os.path.join(FIGURES_DIR, filename)
-    plt.savefig(file_path)
-    print(f'Saved {filename}')
+        pv_baroclinic_level = pv_baroclinic.sel(level=level)
+        pv_baroclinic_derivative_level = pv_baroclinic_derivative.sel(level=level)
+        pv_baroclinic_derivative_lon_mean = pv_baroclinic_derivative_level.mean('x')
 
-    # Absolute Vorticity 
-    map_attrs = {
-        'cmap': 'Blues_r',
-        'title': r'$\eta$' + ' @ 250 hPa',
-        'levels': levels['absolute_vorticity'],
-        'units': r'$s^{-1}$',
-    }
-    fig = plt.figure(figsize=(5, 5))
-    ax = fig.add_subplot(111, projection=CRS)
-    plot_map(ax, absolute_vorticity, u_250, v_250, hgt_250, **map_attrs)
-    plt.tight_layout()
-    filename = 'composite_semi-lagrangian_absolute_vorticity.png'
-    file_path = os.path.join(FIGURES_DIR, filename)
-    plt.savefig(file_path)
-    print(f'Saved {filename}')
+        absolute_vorticity_level = absolute_vorticity.sel(level=level)
+        absolute_vorticity_derivative_level = absolute_vorticity_derivative.sel(level=level)
+        absolute_vorticity_derivative_lon_mean = absolute_vorticity_derivative_level.mean('x')
 
-    # Absolute Vorticity derivative
-    map_attrs = {
-        'cmap': cmo.curl,
-        'title': r'$\frac{\partial \eta}{\partial y}$' + ' @ 250 hPa',
-        'levels': levels['absolute_vorticity_derivative'],
-        'units': r'$s^{-1}$',
-    }
-    fig = plt.figure(figsize=(5, 5))
-    ax = fig.add_subplot(111, projection=CRS)
-    plot_map(ax, absolute_vorticity_derivative, u_250[:-1], v_250[:-1], hgt_250[:-1], **map_attrs)
-    plt.tight_layout()
-    filename = 'composite_semi-lagrangian_absolute_vorticity_derivative.png'
-    file_path = os.path.join(FIGURES_DIR, filename)
-    plt.savefig(file_path)
-    print(f'Saved {filename}')
+        egr_level = egr.sel(level=level)
 
-    # Absolute Vorticity derivative lon mean
-    fig = plt.figure(figsize=(4, 5))
-    ax = plt.gca()
-    ax.axvline(0, color='#c1121f', linestyle='--', linewidth=0.5)
-    ax.axhline(0, color='#c1121f', linestyle='--', linewidth=0.5)
-    ax.plot(absolute_vorticity_derivative.mean('x'), absolute_vorticity_derivative.mean('x').y,
-                 color='#003049', linewidth=3)
-    ax.set_title(r'$\frac{\partial \eta}{\partial y}$' + ' @ 250 hPa', fontsize=TITLE_SIZE)
-    plt.xlabel(r's$^{-1}$', fontsize=LABEL_SIZE)
-    plt.tick_params(axis='both', labelsize=TICK_LABEL_SIZE)
-    plt.tight_layout()
-    filename = 'composite_semi-lagrangian_absolute_vorticitye_derivative_lon_mean.png'
-    file_path = os.path.join(FIGURES_DIR, filename)
-    fig.savefig(file_path)
-    print(f'Saved {filename}')
+        level_str = str(int(level))
 
-    # EGR
-    map_attrs = {
-        'cmap': 'Spectral_r',
-        'title': 'EGR @ 1000 hPa',
-        'levels': levels['EGR'],
-        'units': r'$d^{-1}$',
-    }
-    fig = plt.figure(figsize=(5, 5))
-    ax = fig.add_subplot(111, projection=CRS)
-    plot_map(ax, egr, u_1000, v_1000, hgt_1000, **map_attrs)
-    plt.tight_layout()
-    filename = 'composite_semi-lagrangian_EGR.png'
-    file_path = os.path.join(FIGURES_DIR, filename)
-    plt.savefig(file_path)
-    print(f'Saved {filename}')
-    
+        
+        # Plot Baroclinic PV
+        map_attrs = {
+                'cmap': 'Blues_r',
+                'title': r'$PV$' + f' @ {level_str} hPa',
+                'levels': contour_levels['pv_baroclinic'],
+                'units': 'PVU',
+                'filename': f'composite_semi-lagrangian_pv_baroclinic_{level_str}hpa.png'
+            }
+        plot_variable(pv_baroclinic_level, u_level, v_level, hgt_level, **map_attrs)
+
+        # Baroclinic PV derivative
+        map_attrs = {
+                'cmap': cmo.curl,
+                'title': r'$\frac{\partial PV}{\partial y}$' + f' @ {level_str} hPa',
+                'levels': contour_levels['pv_baroclinic_derivative'],
+                'units': 'PVU',
+                'filename': f'composite_semi-lagrangian_pv_baroclinic_derivative_{level_str}hpa.png'
+            }
+        plot_derivative(pv_baroclinic_derivative_level, u_level[:-1], v_level[:-1], hgt_level[:-1], **map_attrs)
+
+        # Baroclinic PV derivative lon mean
+        map_attrs = {
+                'title': r'$\frac{\partial PV}{\partial y}$' + f' @ {level_str} hPa',
+                'units': 'PVU',
+                'filename': f'composite_semi-lagrangian_pv_baroclinic_derivative_lon_mean_{level_str}hpa.png'
+            }
+        plot_lon_mean(pv_baroclinic_derivative_lon_mean, **map_attrs)
+
+        # Absolute Vorticity 
+        map_attrs = {
+            'cmap': 'Blues_r',
+            'title': r'$\eta$' + f' @ {level_str} hPa',
+            'levels': contour_levels['absolute_vorticity'],
+            'units': r'$s^{-1}$',
+            'filename': f'composite_semi-lagrangian_absolute_vorticity_{level_str}hpa.png'
+        }
+        plot_variable(absolute_vorticity_level, u_level, v_level, hgt_level, **map_attrs)
+
+        # Absolute Vorticity derivative
+        map_attrs = {
+            'cmap': cmo.curl,
+            'title': r'$\frac{\partial \eta}{\partial y}$' + f' @ {level_str} hPa',
+            'levels': contour_levels['absolute_vorticity_derivative'],
+            'units': r'$s^{-1}$',
+            'filename': f'composite_semi-lagrangian_absolute_vorticity_derivative_{level_str}hpa.png'
+        }
+        plot_derivative(absolute_vorticity_derivative_level, u_level[:-1], v_level[:-1], hgt_level[:-1], **map_attrs)
+
+        # Absolute Vorticity derivative lon mean
+        map_attrs = {
+                'title': r'$\frac{\partial \eta}{\partial y}$' + f' @ {level_str} hPa',
+                'units': r's$^{-1}$',
+                'filename': f'composite_semi-lagrangian_absolute_vorticitye_derivative_lon_mean_{level_str}hpa.png'
+            }
+        plot_lon_mean(absolute_vorticity_derivative_lon_mean, **map_attrs)
+
+        # EGR
+        map_attrs = {
+            'cmap': 'Spectral_r',
+            'title': 'EGR @ 1000 hPa',
+            'levels': contour_levels['EGR'],
+            'units': r'$d^{-1}$',
+            'filename': f'composite_semi-lagrangian_EGR_{level_str}hpa.png'
+        }
+        plot_variable(egr_level, u_level, v_level, hgt_level, **map_attrs)
+        
 
 if __name__ == '__main__':
     main()
