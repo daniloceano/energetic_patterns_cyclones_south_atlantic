@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/24 14:42:50 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/15 12:08:13 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/15 16:50:30 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -31,7 +31,6 @@ from datetime import timedelta
 from glob import glob
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from metpy.units import units
-from metpy.constants import Rd, g, Cp_d
 from metpy.interpolate import interpolate_1d, log_interpolate_1d
 
 

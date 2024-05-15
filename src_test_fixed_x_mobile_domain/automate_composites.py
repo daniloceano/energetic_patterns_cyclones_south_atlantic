@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/05/06 16:40:35 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/13 10:35:25 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/15 16:57:33 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -31,7 +31,7 @@ from datetime import timedelta
 from glob import glob
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from metpy.units import units
-from metpy.interpolate import interpolate_1d
+from metpy.interpolate import interpolate_1d, log_interpolate_1d
 
 # Update logging configuration to use the custom handler
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s',
@@ -141,17 +141,48 @@ def get_cdsapi_era5_data(filename: str, track: pd.DataFrame, pressure_levels: li
     else:
         logging.info("CDS API file already exists.")
         return infile
+
+def create_pressure_array(pressure_levels, time, latitude, longitude, level):
+    # Create a 4D DataArray for pressure levels
+    pressure_values = np.repeat(pressure_levels.magnitude[:, np.newaxis, np.newaxis, np.newaxis],
+                                len(time), axis=1)
+    pressure_values = np.repeat(pressure_values, len(latitude), axis=2)
+    pressure_values = np.repeat(pressure_values, len(longitude), axis=3)
+
+    pressure_da = xr.DataArray(
+        pressure_values,
+        dims=['level', 'time', 'latitude', 'longitude'],
+        coords={
+            'level': level,
+            'time': time,
+            'latitude': latitude,
+            'longitude': longitude
+        },
+        attrs={'units': pressure_levels.units}
+    )
+
+    return pressure_da
     
-def calculate_eady_growth_rate(u, theta, f, hgt):
+def calculate_eady_growth_rate(u, potential_temperature, f, hgt):
+
+    # Create a 3D array for pressure
+    time = u.coords['time']
+    latitude = u.coords['latitude']
+    longitude = u.coords['longitude']
+    level = u.coords['level']
+    pressure_levels = u.level.values * units.hPa
+    pressure = create_pressure_array(pressure_levels, time, latitude, longitude, level) * units.hPa
+    pressure = pressure.transpose(*u.dims)
 
     # Define new target geopotential heights
-    new_geopotential_heights = np.linspace(float(hgt.min()), float(hgt.max()), 6) * units.meters  # Example range
+    new_geopotential_heights = np.linspace(float(hgt.min()) * 0.8 , float(hgt.max()) * 0.8, len(u.level)) * units.meters  # Example range
 
     # Interpolate u from pressure levels to new geopotential heights
     u_on_geopotential_height_levels = interpolate_1d(new_geopotential_heights, hgt, u, axis=1)
     hgt_on_geopotential_height_levels = interpolate_1d(new_geopotential_heights, hgt, hgt, axis=1)
+    pressure_on_geopotential_height_levels = interpolate_1d(new_geopotential_heights, hgt, pressure, axis=1)
 
-    theta_reordered = theta.transpose('time', 'level', 'latitude', 'longitude')
+    theta_reordered = potential_temperature.transpose('time', 'level', 'latitude', 'longitude')
     theta_on_geopotential_height_levels = interpolate_1d(new_geopotential_heights, hgt, theta_reordered, axis=1)
 
     # Convert u to DataArray
@@ -160,12 +191,9 @@ def calculate_eady_growth_rate(u, theta, f, hgt):
     hgt_height_levels = xr.DataArray(hgt_on_geopotential_height_levels, dims=["time", "level", "latitude", "longitude"],
                     coords={"time": u.time, "level": new_geopotential_heights, "latitude": u.latitude, "longitude": u.longitude})
     theta_height_levels = xr.DataArray(theta_on_geopotential_height_levels, dims=["time", "level", "latitude", "longitude"],
-                    coords={"time": theta.time, "level": new_geopotential_heights, "latitude": theta.latitude, "longitude": theta.longitude})
-    
-    # Drop NaN values
-    u_height_levels = u_height_levels.dropna(dim="level")
-    hgt_height_levels = hgt_height_levels.dropna(dim="level")
-    theta_height_levels = theta_height_levels.dropna(dim="level")
+                    coords={"time": potential_temperature.time, "level": new_geopotential_heights, "latitude": potential_temperature.latitude, "longitude": potential_temperature.longitude})
+    pressure_height_levels = xr.DataArray(pressure_on_geopotential_height_levels, dims=["time", "level", "latitude", "longitude"],
+                    coords={"time": u.time, "level": new_geopotential_heights, "latitude": u.latitude, "longitude": u.longitude})
 
     # Calculate the derivative of U with respect to log-pressure
     dudz = u_height_levels.differentiate("level") / units('m')
@@ -179,7 +207,27 @@ def calculate_eady_growth_rate(u, theta, f, hgt):
     # Convert units for simplicity
     EGR = EGR.metpy.convert_units(' 1 / day')
 
-    return EGR.transpose('level', 'time', 'latitude', 'longitude')
+    # Make data dimensions match
+    EGR = EGR.transpose(*u.dims)
+    hgt_height_levels = hgt_height_levels.transpose(*u.dims)
+
+    # Prepare data for interpolation
+    pressure_quant = units.Quantity(pressure_height_levels.values, 'hPa')
+    hgt_quant = units.Quantity(hgt_height_levels.values, 'meter')
+    EGR_quant = units.Quantity(EGR.values, '1 / day')
+
+    # Interpolate EGR to the pressure levels
+    height, EGR_on_pressure_levels = log_interpolate_1d(pressure_levels, pressure_quant, hgt_quant, EGR_quant, axis=1)
+    
+    # Convert interpolated EGR to DataArray
+    EGR_pressure_levels = xr.DataArray(EGR_on_pressure_levels, dims=["time", "level", "latitude", "longitude"],
+                    coords={"time": u.time, "level": pressure_levels, "latitude": u.latitude, "longitude": u.longitude},
+                    name="EGR")
+
+    # Interpolate missing values
+    EGR_pressure_levels_interp = EGR_pressure_levels.interpolate_na(dim='longitude', method='linear')
+
+    return EGR_pressure_levels
 
 
 def create_pv_composite(infile, track):
@@ -213,102 +261,69 @@ def create_pv_composite(infile, track):
     logging.info("Calculating Eady Growth Rate...")
     eady_growth_rate = calculate_eady_growth_rate(u, potential_temperature, f, hgt)
     logging.info("Done.")
-
-    # Select variables in their corresponding levels for composites
-    pv_baroclinic_1000 = pv_baroclinic.sel(level=1000)
-    absolute_vorticity_1000 = absolute_vorticity.sel(level=250)
-    eady_growth_rate_400 = eady_growth_rate.isel(level=0) # 1000 hPa level is the 1st vertical level
-    u_250, v_250, hgt_250 = u.sel(level=250), v.sel(level=250), hgt.sel(level=250)
-    u_1000, v_1000, hgt_1000 = u.sel(level=1000), v.sel(level=1000), hgt.sel(level=1000)
     
     # Calculate the composites for this system
     logging.info("Calculating means...")
-    pv_baroclinic_mean = pv_baroclinic_1000.mean(dim='time')
-    absolute_vorticity_mean = absolute_vorticity_1000.mean(dim='time')
-    eady_growth_rate_mean = eady_growth_rate_400.mean(dim='time')
-    u_250_mean = u_250.mean(dim='time')
-    v_250_mean = v_250.mean(dim='time')
-    hgt_250_mean = hgt_250.mean(dim='time')
-    u_1000_mean = u_1000.mean(dim='time')
-    v_1000_mean = v_1000.mean(dim='time')
-    hgt_1000_mean = hgt_1000.mean(dim='time')
+    pv_baroclinic_mean = pv_baroclinic.mean(dim='time')
+    absolute_vorticity_mean = absolute_vorticity.mean(dim='time')
+    eady_growth_rate_mean = eady_growth_rate.mean(dim='time')
+    u_mean = u.mean(dim='time')
+    v_mean = v.mean(dim='time')
+    hgt_mean = hgt.mean(dim='time')
     logging.info("Done.")
 
     # Create a DataArray using an extra dimension for the type of PV
     logging.info("Creating DataArray...")
     track_id = int(infile.split('.')[0].split('-')[0])
+    level = u.level
 
     # Create DataArrays
     da_baroclinic = xr.DataArray(
         pv_baroclinic_mean.values,
-        dims=['latitude', 'longitude'],
-        coords={'latitude': lat, 'longitude': lon},
+        dims=['level', 'latitude', 'longitude'],
+        coords={'level': level, 'latitude': lat, 'longitude': lon},
         name='pv_baroclinic',
         attrs={'units': pv_baroclinic_mean.metpy.units},
     )
 
     da_absolute_vorticity = xr.DataArray(
         absolute_vorticity_mean.values,
-        dims=['latitude', 'longitude'],
-        coords={'latitude': lat, 'longitude': lon},
+        dims=['level', 'latitude', 'longitude'],
+        coords={'level': level, 'latitude': lat, 'longitude': lon},
         name='absolute_vorticity',
         attrs={'units': absolute_vorticity_mean.metpy.units},
     )
 
     da_edy = xr.DataArray(
         eady_growth_rate_mean.values,
-        dims=['latitude', 'longitude'],
-        coords={'latitude': lat, 'longitude': lon},
+        dims=['level', 'latitude', 'longitude'],
+        coords={'level': level, 'latitude': lat, 'longitude': lon},
         name='EGR',
         attrs={'units': eady_growth_rate_mean.metpy.units},
     )
 
-    da_u_250 = xr.DataArray(
-        u_250_mean.values,
-        dims=['latitude', 'longitude'],
-        coords={'latitude': lat, 'longitude': lon},
-        name='u_250',
-        attrs={'units': u_250_mean.metpy.units},
+    da_u = xr.DataArray(
+        u_mean.values,
+        dims=['level', 'latitude', 'longitude'],
+        coords={'level': level, 'latitude': lat, 'longitude': lon},
+        name='u',
+        attrs={'units': u_mean.metpy.units},
     )
 
-    da_v_250 = xr.DataArray(
-        v_250_mean.values,
-        dims=['latitude', 'longitude'],
-        coords={'latitude': lat, 'longitude': lon},
-        name='v_250',
-        attrs={'units': v_250_mean.metpy.units},
+    da_v = xr.DataArray(
+        v_mean.values,
+        dims=['level', 'latitude', 'longitude'],
+        coords={'level': level, 'latitude': lat, 'longitude': lon},
+        name='v',
+        attrs={'units': v_mean.metpy.units},
     )
 
-    da_u_1000 = xr.DataArray(
-        u_1000_mean.values,
-        dims=['latitude', 'longitude'],
-        coords={'latitude': lat, 'longitude': lon},
-        name='u_1000',
-        attrs={'units': u_1000_mean.metpy.units},
-    )
-
-    da_v_1000 = xr.DataArray(
-        v_1000_mean.values,
-        dims=['latitude', 'longitude'],
-        coords={'latitude': lat, 'longitude': lon},
-        name='v_1000',
-        attrs={'units': v_1000_mean.metpy.units},
-    )
-
-    da_hgt_250 = xr.DataArray(
-        hgt_250_mean.values,
-        dims=['latitude', 'longitude'],
-        coords={'latitude': lat, 'longitude': lon},
-        name='hgt_250',
-        attrs={'units': hgt_250_mean.metpy.units},
-    )
-
-    da_hgt_1000 = xr.DataArray(
-        hgt_1000_mean.values,
-        dims=['latitude', 'longitude'],
-        coords={'latitude': lat, 'longitude': lon},
-        name='hgt_1000',
-        attrs={'units': hgt_1000_mean.metpy.units},
+    da_hgt = xr.DataArray(
+        hgt_mean.values,
+        dims=['level', 'latitude', 'longitude'],
+        coords={'level': level, 'latitude': lat, 'longitude': lon},
+        name='hgt',
+        attrs={'units': hgt_mean.metpy.units},
     )
 
     logging.info("Done.")
@@ -318,13 +333,10 @@ def create_pv_composite(infile, track):
         'pv_baroclinic': da_baroclinic,
         'absolute_vorticity': da_absolute_vorticity,
         'EGR': da_edy,
-        'u_250': da_u_250,
-        'v_250': da_v_250,
-        'hgt_250': da_hgt_250,
-        'u_1000': da_u_1000,
-        'v_1000': da_v_1000,
-        'hgt_1000': da_hgt_1000}
-    )
+        'u': da_u,
+        'v': da_v,
+        'hgt': da_hgt,
+    })
 
     # Assigning track_id as a coordinate
     ds_composite = ds_composite.assign_coords(track_id=track_id)  # Assigning track_id as a coordinate
@@ -448,7 +460,7 @@ def process_system(system_dir, tracks_with_periods):
         return None
 
     # Get ERA5 data for computing PV and EGR
-    pressure_levels = ['250', '300', '350', '975', '1000']
+    pressure_levels = ['250', '300', '350', '550', '500', '450', '700', '750', '800', '950', '975', '1000']
     variables = ["u_component_of_wind", "v_component_of_wind", "temperature", "geopotential"]
     infile_pv_egr = get_cdsapi_era5_data(f'{system_id}-pv-egr', track, pressure_levels, variables) 
 
@@ -471,6 +483,10 @@ def main():
 
     # Get track and periods data
     tracks_with_periods = pd.read_csv('../tracks_SAt_filtered/tracks_SAt_filtered_with_periods.csv')
+
+    # #### DEBUG ####
+    # process_system(results_directories[0], tracks_with_periods)
+    # sys.exit()
 
     # # Determine the number of CPU cores to use
     if len(sys.argv) > 1:
