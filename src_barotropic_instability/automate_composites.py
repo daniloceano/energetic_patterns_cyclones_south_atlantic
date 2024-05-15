@@ -45,7 +45,7 @@ CDSAPIRC_PATH = os.path.expanduser('~/.cdsapirc')
 OUTPUT_DIR = '../results_nc_files/composites_barotropic_baroclinic/'
 
 DEBUG_CODE = False
-DEBUG_CDSAPI = True
+DEBUG_CDSAPI = False
 
 def get_cdsapi_keys():
     """
