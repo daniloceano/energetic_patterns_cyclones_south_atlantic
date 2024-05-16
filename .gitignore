@@ -38,3 +38,4 @@ src_test_fixed_x_mobile_domain/box_limits.csv
 src_test_fixed_x_mobile_domain/*.nc
 */log.automate_run_LEC.txt
 results_nc_files/composites_barotropic_baroclinic/pv_egr_composite_track_ids.nc
+results_nc_files/composites_test_fixed_x_mobile/*_results_study_case.nc
