@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/05/08 13:15:01 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/14 16:34:48 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/15 22:08:19 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -15,6 +15,7 @@
 This script will plot maps with the derivative of PV in y, as to display if barotropic instability is occuring.
 """
 
+import sys
 import os
 import numpy as np
 import xarray as xr
@@ -56,7 +57,10 @@ def plot_map(ax, data, u, v, hgt, **kwargs):
     cf = ax.contourf(data.longitude, data.latitude, data, cmap=cmap, norm=norm, transform=transform, levels=levels, extend='both')
 
     # Add hgt as a contour
-    ax.contour(data.longitude, data.latitude, hgt, colors='gray', linestyles='dashed', linewidths=2, transform=transform)
+    try:
+        ax.contour(data.longitude, data.latitude, hgt, colors='gray', linestyles='dashed', linewidths=2, transform=transform)
+    except ValueError:
+        pass
 
     # Add quiver
     min_u = np.min(u)
@@ -71,18 +75,23 @@ def plot_map(ax, data, u, v, hgt, **kwargs):
     ax.quiverkey(qu, X=0.9, Y=1.05, U=label, label=f'{label} m/s', labelpos='E', coordinates='axes')
 
     # Add a colorbar
-    colorbar = plt.colorbar(cf, ax=ax, pad=0.1, orientation='horizontal', shrink=0.5, label=units)
-    # Setup the colorbar to use scientific notation conditionally
-    formatter = ticker.ScalarFormatter(useMathText=True)
-    formatter.set_scientific(True)
-    formatter.set_powerlimits((-3, 3))  # Adjust these limits based on your specific needs
-    colorbar.ax.xaxis.set_major_formatter(formatter)
+    try:
+        colorbar = plt.colorbar(cf, ax=ax, pad=0.1, orientation='horizontal', shrink=0.5, label=units)
+        
+        # Setup the colorbar to use scientific notation conditionally
+        formatter = ticker.ScalarFormatter(useMathText=True)
+        formatter.set_scientific(True)
+        formatter.set_powerlimits((-3, 3))  # Adjust these limits based on your specific needs
+        colorbar.ax.xaxis.set_major_formatter(formatter)
 
-    # Calculate ticks: Skip every 2 ticks
-    current_ticks = colorbar.get_ticks()
-    new_ticks = current_ticks[::2]  # Take every second tick
-    colorbar.set_ticks(new_ticks)   # Set the modified ticks
-    colorbar.update_ticks()
+        # Calculate ticks: Skip every 2 ticks
+        current_ticks = colorbar.get_ticks()
+        new_ticks = current_ticks[::2]  # Take every second tick
+        colorbar.set_ticks(new_ticks)   # Set the modified ticks
+        colorbar.update_ticks()
+
+    except:
+        pass
 
     # Add coastlines
     ax.coastlines(linewidth=1, color='k')
@@ -124,12 +133,8 @@ def plot_study_case(filepath, tracks_with_periods, figures_dir):
 
     # Extract central point
     date_study_case = pd.to_datetime(ds_original['time'].values)
-    date_study_case = pd.to_datetime(date_study_case.values[0])
     central_lon = float(track_study_case[track_study_case['date'] == date_study_case]['lon vor'].iloc[0])
     central_lat = float(track_study_case[track_study_case['date'] == date_study_case]['lat vor'].iloc[0])
-
-    # Make data 2D
-    ds_original = ds_original.sel(time=date_study_case)
 
     # Slicing data around central point
     min_lon, max_lon = central_lon - 7.5, central_lon + 7.5
@@ -144,106 +149,105 @@ def plot_study_case(filepath, tracks_with_periods, figures_dir):
         'EGR': 'EGR',
         'pv_baroclinic_derivative': r'$\frac{\partial PV}{\partial y}$',
         'absolute_vorticity_derivative': r'$\frac{\partial \eta}{\partial y}$',
+        'pv_baroclinic_derivative_lon_mean': r'$\frac{\partial PV}{\partial y}$',
+        'absolute_vorticity_derivative_lon_mean': r'$\frac{\partial \eta}{\partial y}$'
     }
-
-    # Calculate derivatives
-    for var in var_names:
-        ds_original[f'{var}_derivative'] = ds_original[var].diff('latitude')
-        ds_original[f'{var}_derivative_lon_mean'] = ds_original[f'{var}_derivative'].mean('longitude')
-        ds_sliced[f'{var}_derivative'] = ds_sliced[var].diff('latitude')
-        ds_sliced[f'{var}_derivative_lon_mean'] = ds_sliced[f'{var}_derivative'].mean('longitude')
 
     # Units dictionary
     units = {
         'pv_baroclinic': 'PVU',
+        'pv_baroclinic_derivative': 'PVU',
+        'pv_baroclinic_derivative_lon_mean': 'PVU',
         'absolute_vorticity': r'$s^{-1}$',
+        'absolute_vorticity_derivative': r'$s^{-1}$',
+        'absolute_vorticity_derivative_lon_mean': r'$s^{-1}$',
         'EGR': r'$d^{-1}$'
         }
-    
-    # Vertical levels to plot
-    vertical_levels = {
-        'pv_baroclinic': '1000 hPa',
-        'absolute_vorticity': '250 hPa',
-        'EGR': '1000 hPa'
-    }
 
-    levels = {}
-    # Create levels for plot each variable
-    for var in ds_original.data_vars:
-        min_val = float(min(ds_original[var].min(), ds_sliced[var].min()))
-        max_val = float(max(ds_original[var].max(), ds_sliced[var].max()))
-        levels[var] = np.linspace(min_val, max_val, 101)
+    # Calculate derivatives
+    for var in var_names:
+        if var != 'EGR':
+            ds_original[f'{var}_derivative'] = ds_original[var].diff('latitude')
+            ds_sliced[f'{var}_derivative'] = ds_sliced[var].diff('latitude')
 
-    # Plotting
+    # Loop through methods
     for ds, method in zip([ds_original, ds_sliced], ['fixed', 'semi-lagrangian']):
+        # Loop through variables
         for var in var_names:
-            # Choose method
-            method_label = 'F' if method == 'fixed' else 'SL'
-        
-            # Create map
-            fig, ax = plt.subplots(subplot_kw={'projection': CRS})
-            if var != 'EGR':
-                title = fr'{var_labels[var]}' + f' @ {vertical_levels[var]} ({method_label})'
-                cmap = cmo.balance
-            else:
-                title = fr'{var_labels[var]}' + f' @ {vertical_levels[var]} ({method_label})\n({ds[var].mean().values:.2f})'
-                cmap = 'Spectral_r'
+            # Loop through vertical levels
+            for level in ds_sliced.level:
 
-            # Create plot
-            plot_attrs = {
-                'cmap': cmap,
-                'levels': levels[var],
-                'title': title,
-                'units': units[var]
-            }
+                # Get level as a string
+                str_level = str(int(level))
 
-            # Choose variable
-            if 'absolute_vorticity' in var:
-                u, v, hgt = ds['u_250'], ds['v_250'], ds['hgt_250']
-            else:
-                u, v, hgt = ds['u_1000'], ds['v_1000'], ds['hgt_1000']
+                # Choose method
+                method_label = 'F' if method == 'fixed' else 'SL'
+            
+                # Create map
+                fig, ax = plt.subplots(subplot_kw={'projection': CRS})
+                if var != 'EGR':
+                    title = fr'{var_labels[var]}' + f' @ {str_level} ({method_label})'
+                    cmap = cmo.balance
+                else:
+                    title = fr'{var_labels[var]}' + f' @ {str_level} ({method_label})\n({ds[var].mean().values:.2f})'
+                    cmap = 'Spectral_r'
 
-            # Plot the data
-            plot_map(ax, ds[var], u, v, hgt, **plot_attrs)
-            plot_box(ax, min_lon, min_lat, max_lon, max_lat)
-            filename = f'{var}_{method}.png'
-            plt.tight_layout()
-            plt.savefig(os.path.join(figures_dir, filename))
-            print(f'Saved {filename}')
+                # Extract data
+                data = ds[var].sel(level=level)
+                hgt = ds['hgt'].sel(level=level)
+                u = ds['u'].sel(level=level)
+                v = ds['v'].sel(level=level)
 
-            # Plot the derivative
-            if var != 'EGR':
-                derivative_var = f'{var}_derivative'
                 plot_attrs = {
-                    'cmap': cmo.curl,
-                    'levels': levels[derivative_var],
-                    'title': fr'{var_labels[derivative_var]} @ {vertical_levels[var]} ({method_label})',
+                    'cmap': cmap,
+                    'levels': np.linspace(data.min(), data.max(), 101),
+                    'title': title,
                     'units': units[var]
                 }
-                fig, ax = plt.subplots(subplot_kw={'projection': CRS})
-                plot_map(ax, ds[derivative_var], u, v, hgt, **plot_attrs)
+
+                # Plot the data
+                plot_map(ax, data, u, v, hgt, **plot_attrs)
                 plot_box(ax, min_lon, min_lat, max_lon, max_lat)
+                filename = f'{var}_{str_level}_{method}.png'
                 plt.tight_layout()
-                filename = f'{derivative_var}_{method}.png'
                 plt.savefig(os.path.join(figures_dir, filename))
                 print(f'Saved {filename}')
 
-            # Plot the derivative lon mean
-            if var != 'EGR':
-                derivative_lon_mean_var = f'{var}_derivative_lon_mean'
-                fig = plt.figure(figsize=(5, 5))
-                ax = plt.gca()
-                ax.plot(ds[derivative_lon_mean_var], ds[derivative_lon_mean_var].latitude, color='#003049', linewidth=3)
-                ax.axvline(0, color='#c1121f', linestyle='--', linewidth=0.5)
-                title = fr'{var_labels[derivative_var]}' + f' @ {vertical_levels[var]} ({method_label})'
-                ax.set_title(title, fontsize=TITLE_SIZE)
-                ax.set_ylabel('Latitude', fontsize=LABEL_SIZE)
-                ax.set_xlabel(r's$^{-1}$', fontsize=LABEL_SIZE)
-                ax.tick_params(axis='both', labelsize=TICK_LABEL_SIZE)
-                plt.tight_layout()
-                filename = f'{derivative_lon_mean_var}_{method}.png'
-                plt.savefig(os.path.join(figures_dir, filename))
-                print(f'Saved {filename}')
+                # Plot the derivative
+                if var != 'EGR':
+                    derivative_var = f'{var}_derivative'
+                    data_derivative = ds[derivative_var].sel(level=level)
+                    plot_attrs = {
+                        'cmap': cmo.curl,
+                        'levels': np.linspace(data_derivative.min(), data_derivative.max(), 101),
+                        'title': fr'{var_labels[derivative_var]} @ {str_level} ({method_label})',
+                        'units': units[var]
+                    }
+                    fig, ax = plt.subplots(subplot_kw={'projection': CRS})
+                    plot_map(ax, data_derivative, u, v, hgt, **plot_attrs)
+                    plot_box(ax, min_lon, min_lat, max_lon, max_lat)
+                    plt.tight_layout()
+                    filename = f'{derivative_var}_{str_level}_{method}.png'
+                    plt.savefig(os.path.join(figures_dir, filename))
+                    print(f'Saved {filename}')
+
+                # Plot the derivative lon mean
+                if var != 'EGR':
+                    derivative_lon_mean_var = f'{var}_derivative_lon_mean'
+                    data_derivative_lon_mean = ds[f'{var}'].sel(level=level)
+                    fig = plt.figure(figsize=(5, 5))
+                    ax = plt.gca()
+                    ax.plot(data_derivative_lon_mean, data_derivative_lon_mean.latitude, color='#003049', linewidth=3)
+                    ax.axvline(0, color='#c1121f', linestyle='--', linewidth=0.5)
+                    title = fr'{var_labels[derivative_var]}' + f' @ {str_level} ({method_label})'
+                    ax.set_title(title, fontsize=TITLE_SIZE)
+                    ax.set_ylabel('Latitude', fontsize=LABEL_SIZE)
+                    ax.set_xlabel(r's$^{-1}$', fontsize=LABEL_SIZE)
+                    ax.tick_params(axis='both', labelsize=TICK_LABEL_SIZE)
+                    plt.tight_layout()
+                    filename = f'{derivative_lon_mean_var}_{str_level}_{method}.png'
+                    plt.savefig(os.path.join(figures_dir, filename))
+                    print(f'Saved {filename}')
 
 def setup_map(ax):
     TEXT_COLOR = '#383838'
@@ -291,7 +295,7 @@ def plot_domain_box(track_id, tracks_with_periods, filepath, figures_dir):
 
     # Get position of system
     ds = xr.open_dataset(filepath)
-    ds_time = pd.to_datetime(ds.time.values).item()
+    ds_time = pd.to_datetime(ds.time.values)
     track_data['date'].loc[:] = pd.to_datetime(track_data['date'].copy())
     track_time = track_data[track_data['date'] == ds_time]
 
@@ -348,7 +352,7 @@ def plot_track(track_id, tracks_with_periods, filepath, figures_dir):
 
     # Get position of system
     ds = xr.open_dataset(filepath)
-    ds_time = pd.to_datetime(ds.time.values).item()
+    ds_time = pd.to_datetime(ds.time.values)
     track_data.loc[:, 'date'] = pd.to_datetime(track_data['date'])
     track_time = track_data[track_data['date'] == ds_time]
 
@@ -406,6 +410,10 @@ def main():
 
     # Get tracks
     tracks_with_periods = pd.read_csv('../tracks_SAt_filtered/tracks_SAt_filtered_with_periods.csv')
+
+    ### DEBUG ###
+    process_file(files[0], tracks_with_periods)
+    sys.exit()
 
     # Use ProcessPoolExecutor to parallelize the processing
     with ProcessPoolExecutor(max_workers=os.cpu_count() - 1) as executor:
