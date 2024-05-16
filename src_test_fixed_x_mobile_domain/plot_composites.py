@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/23 19:56:13 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/13 10:43:35 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/15 21:05:48 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -28,13 +28,16 @@ TITLE_SIZE = 16
 TICK_LABEL_SIZE = 12
 LABEL_SIZE = 12
 GRID_LABEL_SIZE = 12
-FIGURES_DIR = '../figures_test_fixed_framework'
+FIGURES_DIR = '../figures_test_fixed_framework/composites/'
 CRS = ccrs.PlateCarree()
 COMPOSITE_DIR = '../results_nc_files/composites_test_fixed_x_mobile/'
 
 
-def plot_map(ax, data, u, v, hgt, **kwargs):
+def plot_map(data, u, v, hgt, **kwargs):
     """Plot potential vorticity using dynamic normalization based on data values."""
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection=CRS)
+
     transform = ccrs.PlateCarree()
     cmap, levels, title, units = kwargs.get('cmap'), kwargs.get('levels'), kwargs.get('title'), kwargs.get('units')
 
@@ -45,21 +48,7 @@ def plot_map(ax, data, u, v, hgt, **kwargs):
     else:
         norm = colors.Normalize(vmin=np.min(levels), vmax=np.max(levels))
     cf = ax.contourf(data.longitude, data.latitude, data, cmap=cmap, norm=norm, transform=transform, levels=levels, extend='both')
-
-    # # Add hgt 
-    # ax.contour(data.longitude, data.latitude, hgt, colors='gray', linestyles='dashed', linewidths=2, transform=transform)
-
-    # # Add quiver
-    # min_u = np.min(u)
-    # scale_factor = 100 if min_u < 10 else 400  # Adjust these values to tune the arrow
-    # skip = (slice(None, None, 15), slice(None, None, 15))
-    # qu = ax.quiver(data.longitude[skip[0]], data.latitude[skip[0]], u[skip], v[skip], transform=transform, zorder=1,
-    #           width=0.008, headwidth=2, headlength=2, headaxislength=2,  scale=scale_factor)
     
-    # # Quiver key
-    # label = 10 if min_u < 10 else 20
-    # ax.quiverkey(qu, X=0.9, Y=1.05, U=label, label=f'{label} m/s', labelpos='E', coordinates='axes')
-
     # Add a colorbar
     colorbar = plt.colorbar(cf, ax=ax, pad=0.1, orientation='horizontal', shrink=0.5, label=units)
     # Setup the colorbar to use scientific notation conditionally
@@ -90,6 +79,29 @@ def plot_map(ax, data, u, v, hgt, **kwargs):
     gl.ylocator = ticker.MaxNLocator(nbins=5)
 
     ax.set_title(title, fontsize=TITLE_SIZE)  # You can adjust the fontsize as necessary
+
+    # Save the figure
+    filename = kwargs.get('filename')
+    file_path = os.path.join(FIGURES_DIR, filename)
+    plt.savefig(file_path)
+    print(f'Saved {filename}')
+
+def plot_lon_mean(lon_mean, **plot_attrs):
+    fig = plt.figure(figsize=(5, 5))
+    ax = plt.gca()
+    ax.axvline(0, color='#c1121f', linestyle='--', linewidth=0.5)
+    ax.plot(lon_mean, lon_mean.latitude,
+                color='#003049', linewidth=3)
+    ax.set_title(plot_attrs['title'], fontsize=TITLE_SIZE)
+    ax.set_ylabel('Latitude', fontsize=LABEL_SIZE)
+    ax.set_xlabel(plot_attrs['units'], fontsize=LABEL_SIZE)
+    plt.tick_params(axis='both', labelsize=TICK_LABEL_SIZE)
+    plt.tight_layout()
+    filename = plot_attrs['filename']
+    file_path = os.path.join(FIGURES_DIR, filename)
+    plt.savefig(file_path)
+    print(f'Saved {filename}')
+
 def determine_norm_bounds(data, factor=1.0):
     """Determines symmetric normalization bounds for plotting centered around zero."""
     data_min, data_max = data.min().values, data.max().values
@@ -99,134 +111,115 @@ def determine_norm_bounds(data, factor=1.0):
 def main():
 
     filepath = f'{COMPOSITE_DIR}/pv_egr_mean_composite.nc'
+    os.makedirs(FIGURES_DIR, exist_ok=True)
 
     ds = xr.open_dataset(filepath)
     ds['pv_baroclinic'] = ds['pv_baroclinic'] * 1e6
     pv_baroclinic = ds['pv_baroclinic']
     absolute_vorticity = ds['absolute_vorticity']
     egr = ds['EGR']
-    u_1000, v_1000, hgt_1000 = ds['u_1000'], ds['v_1000'], ds['hgt_1000']
-    u_250, v_250, hgt_250 = ds['u_250'], ds['v_250'], ds['hgt_250']
+    u = ds['u']
+    v = ds['v']
+    hgt = ds['hgt']
 
     # Calculate derivatives
     pv_baroclinic_derivative = pv_baroclinic.diff('latitude')
     absolute_vorticity_derivative = absolute_vorticity.diff('latitude')
 
-    levels = {}
+    contour_levels = {}
     # Create levels for plot each variable
     for var in ds.data_vars:
-        min_val = float(min(ds[var].min(), ds[var].min()))
-        max_val = float(max(ds[var].max(), ds[var].max()))
-        levels[var] = np.linspace(min_val, max_val, 11)
-    levels['pv_baroclinic_derivative'] = np.linspace(np.min(pv_baroclinic_derivative), np.max(pv_baroclinic_derivative), 11)
-    levels['absolute_vorticity_derivative'] = np.linspace(np.min(absolute_vorticity_derivative), np.max(absolute_vorticity_derivative), 11)
+        data_var = ds[var].dropna('level')
+        min_val = float(min(data_var.min(), data_var.min()))
+        max_val = float(max(data_var.max(), data_var.max()))
+        contour_levels[var] = np.linspace(min_val, max_val, 11)
+    contour_levels['pv_baroclinic_derivative'] = np.linspace(np.min(pv_baroclinic_derivative), np.max(pv_baroclinic_derivative), 11)
+    contour_levels['absolute_vorticity_derivative'] = np.linspace(np.min(absolute_vorticity_derivative), np.max(absolute_vorticity_derivative), 11)
     
-    # Baroclinic PV
-    map_attrs = {
-        'cmap': 'Blues_r',
-        'title': r'$PV$' + ' @ 1000 hPa',
-        'levels': levels['pv_baroclinic'],
-        'units': 'PVU',
-    }
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection=CRS)
-    plot_map(ax, pv_baroclinic, u_1000, v_1000, hgt_1000, **map_attrs)
-    filename = 'composite_fixed_pv_baroclinic.png'
-    file_path = os.path.join(FIGURES_DIR, filename)
-    plt.savefig(file_path)
-    print(f'Saved {filename}')
+    for level in pv_baroclinic.level.values:
+        # Convert level to string
+        level_str = str(int(level))
 
-    # Baroclinic PV derivative
-    map_attrs = {
-        'cmap': 'RdBu_r',
-        'title': r'$\frac{\partial PV}{\partial y}$' + ' @ 1000 hPa',
-        'levels': levels['pv_baroclinic_derivative'],
-        'units': 'PVU',
-    }
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection=CRS)
-    plot_map(ax, pv_baroclinic_derivative, u_1000[:-1], v_1000[:-1], hgt_1000[:-1], **map_attrs)
-    filename = 'composite_fixed_pv_baroclinic_derivative.png'
-    file_path = os.path.join(FIGURES_DIR, filename)
-    plt.savefig(file_path)
-    print(f'Saved {filename}')
+        # Select data for the current level
+        pv_baroclinic_level = pv_baroclinic.sel(level=level)
+        absolute_vorticity_level = absolute_vorticity.sel(level=level)
+        egr_level = egr.sel(level=level)
 
-    # Baroclinic PV derivative lon mean
-    fig = plt.figure(figsize=(5, 5))
-    ax = plt.gca()
-    ax.axvline(0, color='#c1121f', linestyle='--', linewidth=0.5)
-    ax.plot(pv_baroclinic_derivative.mean('longitude'), pv_baroclinic_derivative.mean('longitude').latitude,
-                 color='#003049', linewidth=3)
-    ax.set_title(r'$\frac{\partial PV}{\partial y}$' + ' @ 1000 hPa', fontsize=TITLE_SIZE)
-    ax.set_ylabel('Latitude', fontsize=LABEL_SIZE)
-    ax.set_xlabel('PVU', fontsize=LABEL_SIZE)
-    plt.tick_params(axis='both', labelsize=TICK_LABEL_SIZE)
-    plt.tight_layout()
-    filename = 'composite_fixed_pv_baroclinic_derivative_lon_mean.png'
-    file_path = os.path.join(FIGURES_DIR, filename)
-    plt.savefig(file_path)
-    print(f'Saved {filename}')
+        pv_baroclinic_derivative_level = pv_baroclinic_derivative.sel(level=level)
+        absolute_vorticity_derivative_level = absolute_vorticity_derivative.sel(level=level)
 
-    # Absolute Vorticity 
-    map_attrs = {
-        'cmap': 'Blues_r',
-        'title': r'$\eta$' + ' @ 250 hPa',
-        'levels': levels['absolute_vorticity'],
-        'units': 's$^{-1}$',
-    }
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection=CRS)
-    plot_map(ax, absolute_vorticity, u_250, v_250, hgt_250, **map_attrs)
-    filename = 'composite_fixed_absolute_vorticity.png'
-    file_path = os.path.join(FIGURES_DIR, filename)
-    plt.savefig(file_path)
-    print(f'Saved {filename}')
+        pv_baroclinic_derivative_lon_mean_level = pv_baroclinic_derivative_level.sel(longitude=slice(-180, 180)).mean('longitude')
+        absolute_vorticity_derivative_lon_mean_level = absolute_vorticity_derivative_level.sel(longitude=slice(-180, 180)).mean('longitude')
 
-    # Absolute Vorticity derivative
-    map_attrs = {
-        'cmap': cmo.curl,
-        'title': r'$\frac{\partial \eta}{\partial y}$' + ' @ 250 hPa',
-        'levels': levels['absolute_vorticity_derivative'],
-        'units': r'$s^{-1}$',
-    }
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection=CRS)
-    plot_map(ax, absolute_vorticity_derivative, u_250[:-1], v_250[:-1], hgt_250[:-1], **map_attrs)
-    filename = 'composite_fixed_absolute_vorticity_derivative.png'
-    file_path = os.path.join(FIGURES_DIR, filename)
-    plt.savefig(file_path)
-    print(f'Saved {filename}')
+        u_level = u.sel(level=level)
+        v_level = v.sel(level=level)
+        hgt_level = hgt.sel(level=level)
+        
+        # Baroclinic PV
+        map_attrs = {
+            'cmap': 'Blues_r',
+            'title': r'$PV$' + f' @ {level_str} hPa',
+            'levels': contour_levels['pv_baroclinic'],
+            'units': 'PVU',
+            'filename': f'composite_fixed_pv_baroclinic_{level_str}.png',
+        }
+        plot_map(pv_baroclinic_level, u_level, v_level, hgt_level, **map_attrs)    
 
-    # Absolute Vorticity derivative lon mean
-    fig = plt.figure(figsize=(5, 5))
-    ax = plt.gca()
-    ax.axvline(0, color='#c1121f', linestyle='--', linewidth=0.5)
-    ax.plot(absolute_vorticity_derivative.mean('longitude'), absolute_vorticity_derivative.mean('longitude').latitude,
-                 color='#003049', linewidth=3)
-    ax.set_title(r'$\frac{\partial \eta}{\partial y}$' + ' @ 250 hPa', fontsize=TITLE_SIZE)
-    ax.set_ylabel('Latitude', fontsize=LABEL_SIZE)
-    ax.set_xlabel(r's$^{-1}$', fontsize=LABEL_SIZE)
-    ax.tick_params(axis='both', labelsize=TICK_LABEL_SIZE)
-    plt.tight_layout()
-    filename = 'composite_fixed_absolute_vorticity_derivative_lon_mean.png'
-    file_path = os.path.join(FIGURES_DIR, filename)
-    fig.savefig(file_path)
-    print(f'Saved {filename}')
+        # Baroclinic PV derivative
+        map_attrs = {
+            'cmap': 'RdBu_r',
+            'title': r'$\frac{\partial PV}{\partial y}$' + f' @ {level_str} hPa',
+            'levels': contour_levels['pv_baroclinic_derivative'],
+            'units': 'PVU',
+            'filename': f'composite_fixed_pv_baroclinic_derivative_{level_str}.png',
+        }
+        plot_map(pv_baroclinic_derivative_level, u_level[:-1], v_level[:-1], hgt_level[:-1], **map_attrs)
 
-    # EGR 
-    map_attrs = {
-        'cmap': 'Spectral_r',
-        'title': 'EGR @ 1000 hPa',
-        'levels': levels['EGR'],
-        'units': 'd$^{-1}$',
-    }
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection=CRS)
-    plot_map(ax, egr, u_1000, v_1000, hgt_1000, **map_attrs)
-    filename = 'composite_fixed_EGR.png'
-    file_path = os.path.join(FIGURES_DIR, filename)
-    plt.savefig(file_path)
-    print(f'Saved {filename}')
+        # Baroclinic PV derivative lon mean
+        plot_attrs = {
+            'title': r'$\frac{\partial PV}{\partial y}$' + f' @ {level_str} hPa',
+            'units': 'PVU',
+            'filename': f'composite_fixed_pv_baroclinic_derivative_lon_mean_{level_str}.png',
+        }
+        plot_lon_mean(pv_baroclinic_derivative_lon_mean_level, **plot_attrs)
+
+        # Absolute Vorticity 
+        map_attrs = {
+            'cmap': 'Blues_r',
+            'title': r'$\eta$' + f' @ {level_str} hPa',
+            'levels': contour_levels['absolute_vorticity'],
+            'units': 's$^{-1}$',
+            'filename': f'composite_fixed_absolute_vorticity_{level_str}.png',
+        }
+        plot_map(absolute_vorticity_level, u_level, v_level, hgt_level, **map_attrs)
+
+        # Absolute Vorticity derivative
+        map_attrs = {
+            'cmap': cmo.curl,
+            'title': r'$\frac{\partial \eta}{\partial y}$' + f' @ {level_str} hPa',
+            'levels': contour_levels['absolute_vorticity_derivative'],
+            'units': r'$s^{-1}$',
+            'filename': f'composite_fixed_absolute_vorticity_derivative_{level_str}.png',
+        }
+        plot_map(absolute_vorticity_derivative_level, u_level[:-1], v_level[:-1], hgt_level[:-1], **map_attrs)
+
+        # Absolute Vorticity derivative lon mean
+        plot_attrs = {
+            'title': r'$\frac{\partial \eta}{\partial y}$' + f' @ {level_str} hPa',
+            'units': r'$s^{-1}$',
+            'filename': f'composite_fixed_absolute_vorticity_derivative_lon_mean_{level_str}.png',
+        }
+        plot_lon_mean(absolute_vorticity_derivative_lon_mean_level, **plot_attrs)
+
+        # EGR
+        map_attrs = {
+            'cmap': 'Spectral_r',
+            'title': 'EGR ' + f' @ {level_str} hPa',
+            'levels': contour_levels['EGR'],
+            'units': 'd$^{-1}$',
+            'filename': f'composite_fixed_egr_{level_str}.png',
+        }
+        plot_map(egr_level, u_level, v_level, hgt_level, **map_attrs)
     
 
 if __name__ == '__main__':
