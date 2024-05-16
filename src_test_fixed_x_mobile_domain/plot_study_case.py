@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/05/08 13:15:01 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/15 22:08:19 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/15 22:55:33 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -62,16 +62,33 @@ def plot_map(ax, data, u, v, hgt, **kwargs):
     except ValueError:
         pass
 
+    level = int(data.level)
+    if level > 800:
+        label = 15
+        scale_factor = 300
+        skip_n = 10
+    elif level <= 800 and level >= 700:
+        label = 20
+        scale_factor = 600
+        skip_n = 10
+    else:
+        label = 30
+        scale_factor = 800
+        skip_n = 15
+
+    if '(SL)' in title:
+        width = 0.01
+        skip_n = 8
+        scale_factor = 300
+    else:
+        width = 0.006
+
     # Add quiver
-    min_u = np.min(u)
-    scale_factor = 300 if '1000' in title else 800  # Adjust these values to tune the arrow
-    skip_n = 10 if '1000' in title else 15
     skip = (slice(None, None, skip_n), slice(None, None, skip_n))
     qu = ax.quiver(data.longitude[skip[0]], data.latitude[skip[0]], u[skip], v[skip], transform=transform, zorder=1,
-              width=0.008, headwidth=2, headlength=2, headaxislength=2,  scale=scale_factor)
+              width=width, headwidth=2, headlength=2, headaxislength=2,  scale=scale_factor)
     
     # Quiver key
-    label = 10 if '1000' in title else 30
     ax.quiverkey(qu, X=0.9, Y=1.05, U=label, label=f'{label} m/s', labelpos='E', coordinates='axes')
 
     # Add a colorbar
@@ -169,6 +186,18 @@ def plot_study_case(filepath, tracks_with_periods, figures_dir):
         if var != 'EGR':
             ds_original[f'{var}_derivative'] = ds_original[var].diff('latitude')
             ds_sliced[f'{var}_derivative'] = ds_sliced[var].diff('latitude')
+    
+    # Compute contour levels for each vertical level
+    contour_levels = {}
+    for var in ds_original.data_vars:
+        contour_levels[var] = {}
+        for level in ds_sliced.level:
+            level_str = str(int(level))
+            contour_levels[var][level_str] = np.linspace(
+                ds_original[var].min(skipna=True).item(),
+                ds_original[var].max(skipna=True).item(),
+                101
+            )
 
     # Loop through methods
     for ds, method in zip([ds_original, ds_sliced], ['fixed', 'semi-lagrangian']):
@@ -200,7 +229,7 @@ def plot_study_case(filepath, tracks_with_periods, figures_dir):
 
                 plot_attrs = {
                     'cmap': cmap,
-                    'levels': np.linspace(data.min(), data.max(), 101),
+                    'levels': contour_levels[var][level_str],
                     'title': title,
                     'units': units[var]
                 }
@@ -208,7 +237,7 @@ def plot_study_case(filepath, tracks_with_periods, figures_dir):
                 # Plot the data
                 plot_map(ax, data, u, v, hgt, **plot_attrs)
                 plot_box(ax, min_lon, min_lat, max_lon, max_lat)
-                filename = f'{var}_{str_level}_{method}.png'
+                filename = f'{var}_{method}_{str_level}.png'
                 plt.tight_layout()
                 plt.savefig(os.path.join(figures_dir, filename))
                 print(f'Saved {filename}')
@@ -219,7 +248,7 @@ def plot_study_case(filepath, tracks_with_periods, figures_dir):
                     data_derivative = ds[derivative_var].sel(level=level)
                     plot_attrs = {
                         'cmap': cmo.curl,
-                        'levels': np.linspace(data_derivative.min(), data_derivative.max(), 101),
+                        'levels': contour_levels[derivative_var][level_str],
                         'title': fr'{var_labels[derivative_var]} @ {str_level} ({method_label})',
                         'units': units[var]
                     }
@@ -227,14 +256,14 @@ def plot_study_case(filepath, tracks_with_periods, figures_dir):
                     plot_map(ax, data_derivative, u, v, hgt, **plot_attrs)
                     plot_box(ax, min_lon, min_lat, max_lon, max_lat)
                     plt.tight_layout()
-                    filename = f'{derivative_var}_{str_level}_{method}.png'
+                    filename = f'{derivative_var}_{method}_{str_level}.png'
                     plt.savefig(os.path.join(figures_dir, filename))
                     print(f'Saved {filename}')
 
                 # Plot the derivative lon mean
                 if var != 'EGR':
                     derivative_lon_mean_var = f'{var}_derivative_lon_mean'
-                    data_derivative_lon_mean = ds[f'{var}'].sel(level=level)
+                    data_derivative_lon_mean = ds[f'{var}'].sel(level=level).mean(dim='longitude')
                     fig = plt.figure(figsize=(5, 5))
                     ax = plt.gca()
                     ax.plot(data_derivative_lon_mean, data_derivative_lon_mean.latitude, color='#003049', linewidth=3)
@@ -245,7 +274,7 @@ def plot_study_case(filepath, tracks_with_periods, figures_dir):
                     ax.set_xlabel(r's$^{-1}$', fontsize=LABEL_SIZE)
                     ax.tick_params(axis='both', labelsize=TICK_LABEL_SIZE)
                     plt.tight_layout()
-                    filename = f'{derivative_lon_mean_var}_{str_level}_{method}.png'
+                    filename = f'{derivative_lon_mean_var}_{method}_{str_level}.png'
                     plt.savefig(os.path.join(figures_dir, filename))
                     print(f'Saved {filename}')
 
