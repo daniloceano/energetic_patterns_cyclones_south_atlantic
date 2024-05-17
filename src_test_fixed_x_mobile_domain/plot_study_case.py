@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/05/08 13:15:01 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/17 08:30:43 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/17 17:03:55 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -57,10 +57,7 @@ def plot_map(ax, data, u, v, hgt, **kwargs):
     cf = ax.contourf(data.longitude, data.latitude, data, cmap=cmap, norm=norm, transform=transform, levels=levels, extend='both')
 
     # Add hgt as a contour
-    try:
-        ax.contour(data.longitude, data.latitude, hgt, colors='gray', linestyles='dashed', linewidths=2, transform=transform)
-    except ValueError:
-        pass
+    ax.contour(data.longitude, data.latitude, hgt, colors='gray', linestyles='dashed', linewidths=2, transform=transform)
 
     wsp = np.sqrt(u**2 + v**2)
     wsp_mean, wsp_max = int(np.mean(wsp)), round(int(np.max(wsp)), -1)
@@ -191,11 +188,11 @@ def plot_study_case(filepath, tracks_with_periods, figures_dir):
     for var in ds_original.data_vars:
         contour_levels[var] = {}
         for level in ds_sliced.level:
-            level_str = str(int(level))
-            contour_levels[var][level_str] = np.linspace(
-                ds_original[var].min(skipna=True).item(),
-                ds_original[var].max(skipna=True).item(),
-                101
+            str_level = str(int(level))
+            contour_levels[var][str_level] = np.linspace(
+                ds_original[var].sel(level=level).min(skipna=True).item(),
+                ds_original[var].sel(level=level).max(skipna=True).item(),
+                21
             )
 
     # Loop through methods
@@ -228,7 +225,7 @@ def plot_study_case(filepath, tracks_with_periods, figures_dir):
 
                 plot_attrs = {
                     'cmap': cmap,
-                    'levels': contour_levels[var][level_str],
+                    'levels': contour_levels[var][str_level],
                     'title': title,
                     'units': units[var]
                 }
@@ -247,7 +244,7 @@ def plot_study_case(filepath, tracks_with_periods, figures_dir):
                     data_derivative = ds[derivative_var].sel(level=level)
                     plot_attrs = {
                         'cmap': cmo.curl,
-                        'levels': contour_levels[derivative_var][level_str],
+                        'levels': contour_levels[derivative_var][str_level],
                         'title': fr'{var_labels[derivative_var]} @ {str_level} ({method_label})',
                         'units': units[var]
                     }
@@ -440,8 +437,8 @@ def main():
     tracks_with_periods = pd.read_csv('../tracks_SAt_filtered/tracks_SAt_filtered_with_periods.csv')
 
     ### DEBUG ###
-    # process_file(files[0], tracks_with_periods)
-    # sys.exit()
+    process_file(files[0], tracks_with_periods)
+    sys.exit()
 
     # Use ProcessPoolExecutor to parallelize the processing
     with ProcessPoolExecutor(max_workers=os.cpu_count() - 1) as executor:
