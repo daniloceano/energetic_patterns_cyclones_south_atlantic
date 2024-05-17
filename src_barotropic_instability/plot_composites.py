@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/23 19:56:13 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/16 20:10:51 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/17 14:59:07 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -31,7 +31,7 @@ GRID_LABEL_SIZE = 10
 FIGURES_DIR = '../figures_barotropic_baroclinic_instability'
 CRS = ccrs.PlateCarree()
 
-def plot_map(ax, data, u, v, hgt, **kwargs):
+def plot_map(ax, data, **kwargs):
     """Plot potential vorticity using dynamic normalization based on data values."""
     transform = ccrs.PlateCarree()
     cmap, levels, title, units = kwargs.get('cmap'), kwargs.get('levels'), kwargs.get('title'), kwargs.get('units')
@@ -44,17 +44,22 @@ def plot_map(ax, data, u, v, hgt, **kwargs):
         norm = colors.Normalize(vmin=np.min(levels), vmax=np.max(levels))
     cf = ax.contourf(data.x, data.y, data, cmap=cmap, norm=norm, transform=transform, levels=levels, extend='both')
     
-    colorbar = plt.colorbar(cf, ax=ax, pad=0.1, orientation='horizontal', shrink=0.5, label=units)
-    # Setup the colorbar to use scientific notation conditionally
-    formatter = ticker.ScalarFormatter(useMathText=True)
-    formatter.set_scientific(True)
-    formatter.set_powerlimits((-3, 3))  # Adjust these limits based on your specific needs
-    colorbar.ax.xaxis.set_major_formatter(formatter)
+    try:
+        colorbar = plt.colorbar(cf, ax=ax, pad=0.1, orientation='horizontal', shrink=0.5, label=units)
+        # Setup the colorbar to use scientific notation conditionally
+        formatter = ticker.ScalarFormatter(useMathText=True)
+        formatter.set_scientific(True)
+        formatter.set_powerlimits((-3, 3))  # Adjust these limits based on your specific needs
+        colorbar.ax.xaxis.set_major_formatter(formatter)
 
-    # Calculate ticks: Skip every 2 ticks
-    current_ticks = colorbar.get_ticks()
-    new_ticks = current_ticks[::2]  # Take every second tick
-    colorbar.set_ticks(new_ticks)   # Set the modified ticks
+        # Calculate ticks: Skip every 2 ticks
+        current_ticks = colorbar.get_ticks()
+        new_ticks = current_ticks[::2]  # Take every second tick
+        colorbar.set_ticks(new_ticks)   # Set the modified ticks
+        colorbar.update_ticks()
+
+    except:
+        pass
 
     # Set up grid lines
     ax.grid(True, linestyle='--', alpha=0.5, linewidth=0.5, color='k')
@@ -74,7 +79,6 @@ def plot_map(ax, data, u, v, hgt, **kwargs):
     # Adjusting font size for axis tick labels
     ax.tick_params(axis='both', which='major', labelsize=GRID_LABEL_SIZE)
 
-    colorbar.update_ticks()
     ax.set_title(title, fontsize=TITLE_SIZE)  # You can adjust the fontsize as necessary
 
 def determine_norm_bounds(data, factor=1.0):
@@ -83,20 +87,20 @@ def determine_norm_bounds(data, factor=1.0):
     max_abs_value = max(abs(data_min), abs(data_max)) * factor
     return -max_abs_value, max_abs_value
 
-def plot_variable(pv_baroclinic, u, v, hgt, **map_attrs):
+def plot_variable(pv_baroclinic, **map_attrs):
     fig = plt.figure(figsize=(5, 5))
     ax = fig.add_subplot(111, projection=CRS)
-    plot_map(ax, pv_baroclinic, u, v, hgt, **map_attrs)
+    plot_map(ax, pv_baroclinic, **map_attrs)
     plt.tight_layout()
     filename = map_attrs['filename']
     file_path = os.path.join(FIGURES_DIR, filename)
     plt.savefig(file_path)
     print(f'Saved {filename}')
 
-def plot_derivative(pv_baroclinic_derivative, u, v, hgt, **map_attrs):
+def plot_derivative(pv_baroclinic_derivative, **map_attrs):
     fig = plt.figure(figsize=(5, 5))
     ax = fig.add_subplot(111, projection=CRS)
-    plot_map(ax, pv_baroclinic_derivative, u[:-1], v[:-1], hgt[:-1], **map_attrs)
+    plot_map(ax, pv_baroclinic_derivative, **map_attrs)
     plt.tight_layout()
     filename = map_attrs['filename']
     file_path = os.path.join(FIGURES_DIR, filename)
@@ -141,17 +145,29 @@ def main():
     contour_levels = {}
     # Create levels for plot each variable
     for var in ds.data_vars:
-        min_val = float(min(ds[var].min(), ds[var].min()))
-        max_val = float(max(ds[var].max(), ds[var].max()))
-        contour_levels[var] = np.linspace(min_val, max_val, 11)
-    contour_levels['pv_baroclinic_derivative'] = np.linspace(np.min(pv_baroclinic_derivative), np.max(pv_baroclinic_derivative), 11)
-    contour_levels['absolute_vorticity_derivative'] = np.linspace(np.min(absolute_vorticity_derivative), np.max(absolute_vorticity_derivative), 11)
+        contour_levels[var] = {}
+        for level in ds.level:
+            level_str = str(int(level))
+            min_val = float(min(
+                ds[var].sel(level=level).min(skipna=True),
+                ds[var].sel(level=level).min(skipna=True)))
+            max_val = float(max(
+                ds[var].sel(level=level).max(skipna=True),
+                ds[var].sel(level=level).max(skipna=True)))
+            contour_levels[var][str(level_str)] = np.linspace(min_val, max_val, 11)
+        
+    contour_levels['pv_baroclinic_derivative'] = {}
+    contour_levels['absolute_vorticity_derivative'] = {}
+    for level in ds.level:
+        level_str = str(int(level))
+        pvd_level = pv_baroclinic_derivative.sel(level=level)
+        avd_level = absolute_vorticity_derivative.sel(level=level)
+        contour_levels['pv_baroclinic_derivative'][level_str] = np.linspace(
+            pvd_level.min(skipna=True), pvd_level.max(skipna=True), 11)
+        contour_levels['absolute_vorticity_derivative'][level_str] = np.linspace(
+            avd_level.min(skipna=True), avd_level.max(skipna=True), 11)
     
     for level in ds.level:
-
-        u_level = u.sel(level=level)
-        v_level = v.sel(level=level)
-        hgt_level = hgt.sel(level=level)
 
         pv_baroclinic_level = pv_baroclinic.sel(level=level)
         pv_baroclinic_derivative_level = pv_baroclinic_derivative.sel(level=level)
@@ -170,21 +186,21 @@ def main():
         map_attrs = {
                 'cmap': 'Blues_r',
                 'title': r'$PV$' + f' @ {level_str} hPa',
-                'levels': contour_levels['pv_baroclinic'],
+                'levels': contour_levels['pv_baroclinic'][level_str],
                 'units': 'PVU',
                 'filename': f'composite_semi-lagrangian_pv_baroclinic_{level_str}hpa.png'
             }
-        plot_variable(pv_baroclinic_level, u_level, v_level, hgt_level, **map_attrs)
+        plot_variable(pv_baroclinic_level, **map_attrs)
 
         # Baroclinic PV derivative
         map_attrs = {
                 'cmap': cmo.curl,
                 'title': r'$\frac{\partial PV}{\partial y}$' + f' @ {level_str} hPa',
-                'levels': contour_levels['pv_baroclinic_derivative'],
+                'levels': contour_levels['pv_baroclinic_derivative'][level_str],
                 'units': 'PVU',
                 'filename': f'composite_semi-lagrangian_pv_baroclinic_derivative_{level_str}hpa.png'
             }
-        plot_derivative(pv_baroclinic_derivative_level, u_level[:-1], v_level[:-1], hgt_level[:-1], **map_attrs)
+        plot_derivative(pv_baroclinic_derivative_level, **map_attrs)
 
         # Baroclinic PV derivative lon mean
         map_attrs = {
@@ -198,21 +214,21 @@ def main():
         map_attrs = {
             'cmap': 'Blues_r',
             'title': r'$\eta$' + f' @ {level_str} hPa',
-            'levels': contour_levels['absolute_vorticity'],
+            'levels': contour_levels['absolute_vorticity'][level_str],
             'units': r'$s^{-1}$',
             'filename': f'composite_semi-lagrangian_absolute_vorticity_{level_str}hpa.png'
         }
-        plot_variable(absolute_vorticity_level, u_level, v_level, hgt_level, **map_attrs)
+        plot_variable(absolute_vorticity_level, **map_attrs)
 
         # Absolute Vorticity derivative
         map_attrs = {
             'cmap': cmo.curl,
             'title': r'$\frac{\partial \eta}{\partial y}$' + f' @ {level_str} hPa',
-            'levels': contour_levels['absolute_vorticity_derivative'],
+            'levels': contour_levels['absolute_vorticity_derivative'][level_str],
             'units': r'$s^{-1}$',
             'filename': f'composite_semi-lagrangian_absolute_vorticity_derivative_{level_str}hpa.png'
         }
-        plot_derivative(absolute_vorticity_derivative_level, u_level[:-1], v_level[:-1], hgt_level[:-1], **map_attrs)
+        plot_derivative(absolute_vorticity_derivative_level, **map_attrs)
 
         # Absolute Vorticity derivative lon mean
         map_attrs = {
@@ -226,11 +242,11 @@ def main():
         map_attrs = {
             'cmap': 'Spectral_r',
             'title': f'EGR @ {level_str} hPa',
-            'levels': contour_levels['EGR'],
+            'levels': contour_levels['EGR'][level_str],
             'units': r'$d^{-1}$',
             'filename': f'composite_semi-lagrangian_EGR_{level_str}hpa.png'
         }
-        plot_variable(egr_level, u_level, v_level, hgt_level, **map_attrs)
+        plot_variable(egr_level, **map_attrs)
         
 
 if __name__ == '__main__':
