@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/23 17:10:09 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/10 13:52:10 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/17 18:27:25 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -26,6 +26,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 def process_event_directory(event_dir, track_with_periods):
     ck_levels_path = glob(f'{event_dir}/Ck_level*.csv')
     ca_levels_path = glob(f'{event_dir}/Ca_level*.csv')
+    ge_levels_path = glob(f'{event_dir}/Ge_level*.csv')
 
     if not ck_levels_path or not ca_levels_path:
         print(f"No files found for {event_dir}")
@@ -33,6 +34,7 @@ def process_event_directory(event_dir, track_with_periods):
 
     ck_levels_df = pd.read_csv(ck_levels_path[0], index_col='time', parse_dates=True)
     ca_levels_df = - pd.read_csv(ca_levels_path[0], index_col='time', parse_dates=True)
+    ge_levels_df = pd.read_csv(ge_levels_path[0], index_col='time', parse_dates=True)
 
     # Get periods data
     system_id = int(os.path.basename(event_dir).split('_')[0])
@@ -45,45 +47,57 @@ def process_event_directory(event_dir, track_with_periods):
         phase_end = phase_data['date'].max()
         ck_levels_df.loc[phase_start:phase_end, 'period'] = phase
         ca_levels_df.loc[phase_start:phase_end, 'period'] = phase
+        ge_levels_df.loc[phase_start:phase_end, 'period'] = phase
 
     # Removing nan and NaN values
     ck_levels_df = ck_levels_df[~ck_levels_df['period'].isin(['nan', 'NaN', ''])].dropna()
     ca_levels_df = ca_levels_df[~ca_levels_df['period'].isin(['nan', 'NaN', ''])].dropna()
+    ge_levels_df = ge_levels_df[~ge_levels_df['period'].isin(['nan', 'NaN', ''])].dropna()
 
     melted_df_ck = ck_levels_df.melt(id_vars='period', var_name='level', value_name='value')
     melted_df_ca = ca_levels_df.melt(id_vars='period', var_name='level', value_name='value')
+    melted_df_ge = ge_levels_df.melt(id_vars='period', var_name='level', value_name='value')
     
-    return melted_df_ck, melted_df_ca
+    return melted_df_ck, melted_df_ca, melted_df_ge
 
 
 def plot_boxplots_all_phases(data, term, phases_order):
     plt.figure(figsize=(14, 8))
-    sns.boxplot(x='period', y='value', data=data, order=phases_order, showfliers=False, hue='period', palette='deep')
-    plt.axhline(y=0, color='r', linestyle='-', linewidth=1.25)
+    sns.boxplot(x='period', y='value', data=data, order=phases_order, showfliers=False,
+                hue='period', palette='deep', width=1.25)
+    plt.axhline(y=0, color='r', linestyle='-', linewidth=1.5)
     plt.ylabel(f'{term.capitalize()} (W/m²)')
     plt.xlabel('Phase')
     plt.xticks(rotation=45)
+    plt.legend([],[], frameon=False)
     plt.tight_layout()
     plt.savefig(f'{figures_dir}/boxplot_{term}_all_phases_all_systems.png')
     plt.close()
 
 def plot_boxplots_each_phase(data, term, phases_order):
-    fig, axes = plt.subplots(nrows=len(phases_order), figsize=(12, 2 * len(phases_order)), sharex=True)
+    n_phases = len(phases_order)
+    fig, axes = plt.subplots(nrows=n_phases, figsize=(12, 3 * n_phases), sharex=True)
+
+    if n_phases == 1:
+        axes = [axes]  # Ensure axes is iterable if there's only one phase
 
     for i, phase in enumerate(phases_order):
-        if data[data['period'] == phase].empty:
+        phase_data = data[data['period'] == phase]
+        if phase_data.empty:
             continue
-        sns.boxplot(x='level', y='value', data=data[data['period'] == phase], ax=axes[i], showfliers=False, hue='level', palette='deep')
-        axes[i].axhline(y=0, color='r', linestyle='-', linewidth=1.25)
+        sns.boxplot(x='level', y='value', data=phase_data, ax=axes[i], showfliers=False,
+                    palette='deep', width=0.5)
+        axes[i].axhline(y=0, color='r', linestyle='-', linewidth=1.3)
         axes[i].set_title(f'{phase}')
         axes[i].set_ylabel(f'{term.capitalize()} (W/m²)')
         axes[i].set_xlabel('Vertical Level (hPa)')
 
     plt.xticks(rotation=90)
+    plt.legend([],[], frameon=False)
     plt.tight_layout()
     plt.savefig(f'{figures_dir}/boxplot_{term}_each_phase.png')
     plt.close()
-
+    
 # Setup directories for figures
 figures_dir = '../figures_barotropic_baroclinic_instability'
 os.makedirs(figures_dir, exist_ok=True)
@@ -105,6 +119,7 @@ filtered_directories = [directory for directory in directories_paths if any(syst
 # Prepare an empty DataFrame to collect all Ck data
 all_ck_data = pd.DataFrame()
 all_ca_data = pd.DataFrame()
+all_ge_data = pd.DataFrame()
 
 # Use ThreadPoolExecutor to process directories in parallel
 with ThreadPoolExecutor(max_workers=4) as executor:
@@ -112,15 +127,21 @@ with ThreadPoolExecutor(max_workers=4) as executor:
     futures = [executor.submit(process_event_directory, dir_path, track_with_periods) for dir_path in filtered_directories]
     # Wrap futures with tqdm for a progress bar
     for future in tqdm(as_completed(futures), total=len(futures), desc="Processing Events"):
-        ck_data, ca_data = future.result()
+        ck_data, ca_data, ge_data = future.result()
         all_ck_data = pd.concat([all_ck_data, ck_data], ignore_index=True)
         all_ca_data = pd.concat([all_ca_data, ca_data], ignore_index=True)
+        all_ge_data = pd.concat([all_ge_data, ge_data], ignore_index=True)
 
 # Now proceed with data cleaning and plotting as before
 all_ck_data = all_ck_data.dropna(subset=['value'])
 all_ca_data = all_ca_data.dropna(subset=['value'])
+all_ge_data = all_ge_data.dropna(subset=['value'])
 
+# Create violin plots
 plot_boxplots_all_phases(all_ck_data, 'ck', phases_order)
 plot_boxplots_all_phases(all_ca_data, 'ca', phases_order)
+plot_boxplots_all_phases(all_ge_data, 'ge', phases_order)
+
 plot_boxplots_each_phase(all_ck_data, 'ck', phases_order)
 plot_boxplots_each_phase(all_ca_data, 'ca', phases_order)
+plot_boxplots_each_phase(all_ge_data, 'ge', phases_order)
