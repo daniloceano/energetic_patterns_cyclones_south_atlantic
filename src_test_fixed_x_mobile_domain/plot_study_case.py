@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/05/08 13:15:01 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/16 21:42:54 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/17 08:30:43 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -62,30 +62,21 @@ def plot_map(ax, data, u, v, hgt, **kwargs):
     except ValueError:
         pass
 
-    level = int(data.level)
-    if level > 800:
-        scale_factor = 300
-        skip_n = 10
-    elif level <= 800 and level >= 700:
-        scale_factor = 600
-        skip_n = 10
-    else:
-        scale_factor = 800
-        skip_n = 15
-
-    if '(SL)' in title:
-        width = 0.01
-        skip_n = 8
-        scale_factor = 300
-    else:
-        width = 0.006
-
     wsp = np.sqrt(u**2 + v**2)
     wsp_mean, wsp_max = int(np.mean(wsp)), round(int(np.max(wsp)), -1)
-    label = wsp_max
-    scale_factor = wsp_mean * 30
-    skip_n = 15
 
+    # Adjust quiver parameters
+    if '(SL)' in title:
+        skip_n = 8
+        scale_factor = wsp_mean * 15
+        label = wsp_max if wsp_max <= 30 else wsp_max + 10
+        width = 0.01
+    else:
+        skip_n = 15
+        scale_factor = wsp_mean * 40 if wsp_max <= 30 else wsp_mean * 35
+        label = wsp_max
+        width = 0.005
+    
     # Add quiver
     skip = (slice(None, None, skip_n), slice(None, None, skip_n))
     qu = ax.quiver(data.longitude[skip[0]], data.latitude[skip[0]], u[skip], v[skip], transform=transform, zorder=1,
