@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/23 19:56:13 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/15 21:05:48 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/17 16:29:41 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -50,19 +50,23 @@ def plot_map(data, u, v, hgt, **kwargs):
     cf = ax.contourf(data.longitude, data.latitude, data, cmap=cmap, norm=norm, transform=transform, levels=levels, extend='both')
     
     # Add a colorbar
-    colorbar = plt.colorbar(cf, ax=ax, pad=0.1, orientation='horizontal', shrink=0.5, label=units)
-    # Setup the colorbar to use scientific notation conditionally
-    formatter = ticker.ScalarFormatter(useMathText=True)
-    formatter.set_scientific(True)
-    formatter.set_powerlimits((-3, 3))  # Adjust these limits based on your specific needs
-    colorbar.ax.xaxis.set_major_formatter(formatter)
+    try:
+        colorbar = plt.colorbar(cf, ax=ax, pad=0.1, orientation='horizontal', shrink=0.5, label=units)
+        # Setup the colorbar to use scientific notation conditionally
+        formatter = ticker.ScalarFormatter(useMathText=True)
+        formatter.set_scientific(True)
+        formatter.set_powerlimits((-3, 3))  # Adjust these limits based on your specific needs
+        colorbar.ax.xaxis.set_major_formatter(formatter)
 
-    # Calculate ticks: Skip every 2 ticks
-    current_ticks = colorbar.get_ticks()
-    new_ticks = current_ticks[::2]  # Take every second tick
-    colorbar.set_ticks(new_ticks)   # Set the modified ticks
-    colorbar.update_ticks()
+        # Calculate ticks: Skip every 2 ticks
+        current_ticks = colorbar.get_ticks()
+        new_ticks = current_ticks[::2]  # Take every second tick
+        colorbar.set_ticks(new_ticks)   # Set the modified ticks
+        colorbar.update_ticks()
 
+    except ValueError:
+        pass
+    
     # Set up grid lines
     ax.grid(True, linestyle='--', alpha=0.5, linewidth=0.5, color='k')
 
@@ -129,13 +133,27 @@ def main():
     contour_levels = {}
     # Create levels for plot each variable
     for var in ds.data_vars:
-        data_var = ds[var].dropna('level')
-        min_val = float(min(data_var.min(), data_var.min()))
-        max_val = float(max(data_var.max(), data_var.max()))
-        contour_levels[var] = np.linspace(min_val, max_val, 11)
-    contour_levels['pv_baroclinic_derivative'] = np.linspace(np.min(pv_baroclinic_derivative), np.max(pv_baroclinic_derivative), 11)
-    contour_levels['absolute_vorticity_derivative'] = np.linspace(np.min(absolute_vorticity_derivative), np.max(absolute_vorticity_derivative), 11)
-    
+        contour_levels[var] = {}
+        for level in ds.level:
+            level_str = str(int(level))
+            min_val = float(min(
+                ds[var].sel(level=level).min(skipna=True),
+                ds[var].sel(level=level).min(skipna=True)))
+            max_val = float(max(
+                ds[var].sel(level=level).max(skipna=True),
+                ds[var].sel(level=level).max(skipna=True)))
+            contour_levels[var][str(level_str)] = np.linspace(min_val, max_val, 11)
+        
+    contour_levels['pv_baroclinic_derivative'] = {}
+    contour_levels['absolute_vorticity_derivative'] = {}
+    for level in ds.level:
+        level_str = str(int(level))
+        pvd_level = pv_baroclinic_derivative.sel(level=level)
+        avd_level = absolute_vorticity_derivative.sel(level=level)
+        contour_levels['pv_baroclinic_derivative'][level_str] = np.linspace(
+            pvd_level.min(skipna=True), pvd_level.max(skipna=True), 11)
+        contour_levels['absolute_vorticity_derivative'][level_str] = np.linspace(
+            avd_level.min(skipna=True), avd_level.max(skipna=True), 11)
     for level in pv_baroclinic.level.values:
         # Convert level to string
         level_str = str(int(level))
@@ -159,7 +177,7 @@ def main():
         map_attrs = {
             'cmap': 'Blues_r',
             'title': r'$PV$' + f' @ {level_str} hPa',
-            'levels': contour_levels['pv_baroclinic'],
+            'levels': contour_levels['pv_baroclinic'][level_str],
             'units': 'PVU',
             'filename': f'composite_fixed_pv_baroclinic_{level_str}.png',
         }
@@ -169,7 +187,7 @@ def main():
         map_attrs = {
             'cmap': 'RdBu_r',
             'title': r'$\frac{\partial PV}{\partial y}$' + f' @ {level_str} hPa',
-            'levels': contour_levels['pv_baroclinic_derivative'],
+            'levels': contour_levels['pv_baroclinic_derivative'][level_str],
             'units': 'PVU',
             'filename': f'composite_fixed_pv_baroclinic_derivative_{level_str}.png',
         }
@@ -187,7 +205,7 @@ def main():
         map_attrs = {
             'cmap': 'Blues_r',
             'title': r'$\eta$' + f' @ {level_str} hPa',
-            'levels': contour_levels['absolute_vorticity'],
+            'levels': contour_levels['absolute_vorticity'][level_str],
             'units': 's$^{-1}$',
             'filename': f'composite_fixed_absolute_vorticity_{level_str}.png',
         }
@@ -197,7 +215,7 @@ def main():
         map_attrs = {
             'cmap': cmo.curl,
             'title': r'$\frac{\partial \eta}{\partial y}$' + f' @ {level_str} hPa',
-            'levels': contour_levels['absolute_vorticity_derivative'],
+            'levels': contour_levels['absolute_vorticity_derivative'][level_str],
             'units': r'$s^{-1}$',
             'filename': f'composite_fixed_absolute_vorticity_derivative_{level_str}.png',
         }
@@ -215,7 +233,7 @@ def main():
         map_attrs = {
             'cmap': 'Spectral_r',
             'title': 'EGR ' + f' @ {level_str} hPa',
-            'levels': contour_levels['EGR'],
+            'levels': contour_levels['EGR'][level_str],
             'units': 'd$^{-1}$',
             'filename': f'composite_fixed_egr_{level_str}.png',
         }

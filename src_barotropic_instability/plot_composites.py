@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/23 19:56:13 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/17 14:59:07 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/17 16:29:40 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -58,7 +58,7 @@ def plot_map(ax, data, **kwargs):
         colorbar.set_ticks(new_ticks)   # Set the modified ticks
         colorbar.update_ticks()
 
-    except:
+    except ValueError:
         pass
 
     # Set up grid lines
