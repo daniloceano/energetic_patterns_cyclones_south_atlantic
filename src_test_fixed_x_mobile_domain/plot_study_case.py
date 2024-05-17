@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/05/08 13:15:01 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/15 22:55:33 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/16 21:42:54 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -64,15 +64,12 @@ def plot_map(ax, data, u, v, hgt, **kwargs):
 
     level = int(data.level)
     if level > 800:
-        label = 15
         scale_factor = 300
         skip_n = 10
     elif level <= 800 and level >= 700:
-        label = 20
         scale_factor = 600
         skip_n = 10
     else:
-        label = 30
         scale_factor = 800
         skip_n = 15
 
@@ -82,6 +79,12 @@ def plot_map(ax, data, u, v, hgt, **kwargs):
         scale_factor = 300
     else:
         width = 0.006
+
+    wsp = np.sqrt(u**2 + v**2)
+    wsp_mean, wsp_max = int(np.mean(wsp)), round(int(np.max(wsp)), -1)
+    label = wsp_max
+    scale_factor = wsp_mean * 30
+    skip_n = 15
 
     # Add quiver
     skip = (slice(None, None, skip_n), slice(None, None, skip_n))
@@ -101,11 +104,16 @@ def plot_map(ax, data, u, v, hgt, **kwargs):
         formatter.set_powerlimits((-3, 3))  # Adjust these limits based on your specific needs
         colorbar.ax.xaxis.set_major_formatter(formatter)
 
-        # Calculate ticks: Skip every 2 ticks
-        current_ticks = colorbar.get_ticks()
-        new_ticks = current_ticks[::2]  # Take every second tick
-        colorbar.set_ticks(new_ticks)   # Set the modified ticks
-        colorbar.update_ticks()
+        if '\partial' in title:
+            # Use min, 0 and max only as ticks
+            colorbar.set_ticks([np.min(levels), 0, np.max(levels)])
+        
+        else:
+            # Calculate ticks: Skip every 2 ticks
+            current_ticks = colorbar.get_ticks()
+            new_ticks = current_ticks[::2]  # Take every second tick
+            colorbar.set_ticks(new_ticks)   # Set the modified ticks
+            colorbar.update_ticks()
 
     except:
         pass
@@ -441,8 +449,8 @@ def main():
     tracks_with_periods = pd.read_csv('../tracks_SAt_filtered/tracks_SAt_filtered_with_periods.csv')
 
     ### DEBUG ###
-    process_file(files[0], tracks_with_periods)
-    sys.exit()
+    # process_file(files[0], tracks_with_periods)
+    # sys.exit()
 
     # Use ProcessPoolExecutor to parallelize the processing
     with ProcessPoolExecutor(max_workers=os.cpu_count() - 1) as executor:

@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/23 19:56:13 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/15 16:48:36 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/16 20:10:51 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -43,20 +43,6 @@ def plot_map(ax, data, u, v, hgt, **kwargs):
     else:
         norm = colors.Normalize(vmin=np.min(levels), vmax=np.max(levels))
     cf = ax.contourf(data.x, data.y, data, cmap=cmap, norm=norm, transform=transform, levels=levels, extend='both')
-
-    # # Add hgt 
-    # ax.contour(data.x, data.y, hgt, colors='gray', linestyles='dashed', linewidths=2, transform=transform)
-
-    # # Add quiver
-    # min_u = np.min(u)
-    # scale_factor = 100 if min_u < 10 else 400  # Adjust these values to tune the arrow
-    # skip = (slice(None, None, 5), slice(None, None, 5))
-    # qu = ax.quiver(data.x[skip[0]], data.y[skip[0]], u[skip], v[skip], transform=transform, zorder=1,
-    #           width=0.008, headwidth=2, headlength=2, headaxislength=2,  scale=scale_factor)
-    
-    # # Quiver key
-    # label = 10 if min_u < 10 else 20
-    # ax.quiverkey(qu, X=0.9, Y=1.05, U=label, label=f'{label} m/s', labelpos='E', coordinates='axes')
     
     colorbar = plt.colorbar(cf, ax=ax, pad=0.1, orientation='horizontal', shrink=0.5, label=units)
     # Setup the colorbar to use scientific notation conditionally
