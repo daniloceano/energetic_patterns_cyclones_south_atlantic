@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/05/08 13:15:01 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/17 17:03:55 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/17 17:07:00 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -437,8 +437,8 @@ def main():
     tracks_with_periods = pd.read_csv('../tracks_SAt_filtered/tracks_SAt_filtered_with_periods.csv')
 
     ### DEBUG ###
-    process_file(files[0], tracks_with_periods)
-    sys.exit()
+    # process_file(files[0], tracks_with_periods)
+    # sys.exit()
 
     # Use ProcessPoolExecutor to parallelize the processing
     with ProcessPoolExecutor(max_workers=os.cpu_count() - 1) as executor:
