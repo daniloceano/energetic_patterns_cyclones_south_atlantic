@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/03/05 09:22:16 by daniloceano       #+#    #+#              #
-#    Updated: 2024/06/20 10:58:51 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/06/20 18:29:31 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -183,16 +183,29 @@ def plot_term_arrows_and_text(ax, size, term, data, positions, plot_example=Fals
         end = (positions['∂Ke/∂t'][0] - size/2, positions['∂Ae/∂t'][1])
         plot_term_text_and_value(ax, start, end, term, term_value, offset=(0, -0.1), plot_example=plot_example)
 
-    # Plot text for residuals
-    elif term == 'RGz':
+    # Plot text for generation terms
+    elif term == 'Gz':
         start = (positions['∂Az/∂t'][0], 1)
         end = (positions['∂Az/∂t'][0], positions['∂Az/∂t'][1] + size/2)
         plot_term_text_and_value(ax, start, end, term, term_value, offset=(0, 0.2), plot_example=plot_example)
 
-    elif term == 'RGe':
+    elif term == 'Ge':
         start = (positions['∂Ae/∂t'][0], -1)
         end = (positions['∂Ae/∂t'][0], positions['∂Ae/∂t'][1] - size/2)
         plot_term_text_and_value(ax, start, end, term, term_value, offset=(0, -0.2), plot_example=plot_example)
+
+    # Plot text for residuals
+    elif term == 'RGz':
+        return None, None
+    #     start = (positions['∂Az/∂t'][0], 1)
+    #     end = (positions['∂Az/∂t'][0], positions['∂Az/∂t'][1] + size/2)
+    #     plot_term_text_and_value(ax, start, end, term, term_value, offset=(0, 0.2), plot_example=plot_example)
+
+    elif term == 'RGe':
+        return None, None
+    #     start = (positions['∂Ae/∂t'][0], -1)
+    #     end = (positions['∂Ae/∂t'][0], positions['∂Ae/∂t'][1] - size/2)
+    #     plot_term_text_and_value(ax, start, end, term, term_value, offset=(0, -0.2), plot_example=plot_example)
 
     elif term == 'RKz':
         start = (positions['∂Kz/∂t'][0], 1)
@@ -230,8 +243,9 @@ def plot_term_arrows_and_text(ax, size, term, data, positions, plot_example=Fals
 def _call_plot(data, normalized_data, plot_example=False):
     # Prepare data
     conversions = TERM_DETAILS['conversion']['terms']
-    residuals = TERM_DETAILS['residuals']['terms']
+    residuals = TERM_DETAILS['residuals']['terms'][1::2]
     boundaries = TERM_DETAILS['boundary']['terms']
+    geneneration = TERM_DETAILS['generation_dissipation']['terms'][:2]
 
     fig, ax = plt.subplots(figsize=(8, 8))
     ax.set_xlim(-1, 1)
@@ -255,7 +269,7 @@ def _call_plot(data, normalized_data, plot_example=False):
     #         data.name = data.name.strftime('%Y-%m-%d')
         ax.text(0, 0, data.name, fontsize=16, ha='center', va='center', fontweight='bold', color='black')
 
-    for term in conversions + residuals + boundaries:
+    for term in conversions + geneneration + boundaries + residuals:
         start, end = plot_term_arrows_and_text(ax, size, term, data, positions, plot_example=plot_example)
 
     plt.tight_layout()
@@ -303,8 +317,9 @@ def main():
             explained_variance = pd.read_csv(os.path.join(phase_directory, 'variance_fraction.csv'), header=None)
 
             # plot example figure
-            _call_plot(df.iloc[0], normalized_data_not_energy.iloc[0], plot_example=True)
-            plt.savefig(os.path.join(output_directory, 'example.png'))
+            if mode != '_with_mean':
+                _call_plot(df.iloc[0], normalized_data_not_energy.iloc[0], plot_example=True)
+                plt.savefig(os.path.join(output_directory, 'example.png'))
 
             # plot each deaily mean
             for eof in range(len(df)):
