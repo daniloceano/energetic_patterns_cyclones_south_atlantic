@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/05/20 11:33:00 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/20 18:05:18 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/05/21 16:29:03 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -219,7 +219,7 @@ def run_lorenz_cycle(track_file):
             logging.info(f"Successfully ran Lorenz Cycle script for ID {track_id} with fixed domain")
 
             # 3) Run the Lorenz Cycle script with track
-            arguments = [f'{infile}', '-t', '-r', '-g', '-v', '-p', '-z', '--cdsapi', '--trackfile', input_track_path]
+            arguments = [f'{infile}', '-t', '-r', '-g', '-v', '-p', '-z', '--trackfile', input_track_path]
             command = f"python {LEC_PATH} " + " ".join(arguments)
             subprocess.run(command, shell=True, executable='/bin/bash')
             logging.info(f"Successfully ran Lorenz Cycle script for ID {track_id} with track")
