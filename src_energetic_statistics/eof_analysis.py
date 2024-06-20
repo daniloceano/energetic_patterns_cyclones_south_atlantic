@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/03/03 16:49:11 by daniloceano       #+#    #+#              #
-#    Updated: 2024/03/05 09:15:49 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/06/20 10:12:17 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -14,7 +14,6 @@ import os
 import pandas as pd
 import numpy as np
 from tqdm import tqdm
-from eofs.standard import Eof
 from pyEOF import *
 
 def read_and_prepare_data(base_path):
@@ -66,14 +65,6 @@ def compute_eofs(df, output_directory):
         # Step 4: Normalize by dividing by standard deviation
         normalized_anomalies = anomalies / std_deviation
 
-        # Compute EOFs
-        # solver = Eof(normalized_anomalies.values)
-
-        # # Compute EOFs for each term
-        # eofs = solver.eofsAsCovariance(neofs=3)
-        # pcs = solver.pcs(npcs=3, pcscaling=1)
-        # variance_fraction = solver.varianceFraction(neigs=3)
-
         # Compute EOFs with PyEOF
         n = 4
         pca = df_eof(normalized_anomalies, n_components=n)
@@ -81,14 +72,28 @@ def compute_eofs(df, output_directory):
         pcs = pca.pcs(s=2, n=n) # get pcs
         variance_fraction = pca.evf(n=n) # get variance fraction
 
+        # Initialize the reconstructed anomalies
+        reconstructed_anomalies = np.zeros((pcs.shape[0], eofs.shape[1]))
 
+        # Loop through each PC and its corresponding EOF
+        for i in range(pcs.shape[1]):  # pcs.shape[1] is the number of PCs
+            PC_data = pcs[f'PC{i+1}']  # Shape (4587,)
+            EOF_data = eofs.loc[i+1]  # Shape (24,)
+            
+            # Multiply each PC by its corresponding EOF and add to the reconstructed anomalies
+            reconstructed_anomalies += np.outer(PC_data, EOF_data)
 
-        # Save EOFs, PCs, and variance fraction to files
+        # Add the mean to get the actual values
+        mean = sample_mean.values
+        reconstructed_data = reconstructed_anomalies * std_deviation.values + mean
+
+        # Save EOFs, PCs, variance fraction, and reconstructed data to files
         phase_output_directory = os.path.join(output_directory, phase)
         os.makedirs(phase_output_directory, exist_ok=True)
         np.savetxt(os.path.join(phase_output_directory, 'eofs.csv'), eofs, delimiter=',')
         np.savetxt(os.path.join(phase_output_directory, 'pcs.csv'), pcs, delimiter=',')
         np.savetxt(os.path.join(phase_output_directory, 'variance_fraction.csv'), variance_fraction, delimiter=',')
+        np.savetxt(os.path.join(phase_output_directory, 'reconstructed_data.csv'), reconstructed_data, delimiter=',')
 
         print(f"EOF analysis for phase {phase} complete and saved to files.")
 
