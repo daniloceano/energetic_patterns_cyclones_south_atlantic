@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/03/05 09:22:16 by daniloceano       #+#    #+#              #
-#    Updated: 2024/03/05 09:39:37 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/06/20 10:58:51 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -283,45 +283,47 @@ def main():
 
         # Load the DataFrame with EOF values
         phase_directory = os.path.join(eofs_path, phase)
-        eof_file_phase = os.path.join(phase_directory, 'eofs.csv')
-        df = pd.read_csv(eof_file_phase, header=None)
 
-        # Set the columns of df to be equal to the columns variable
-        df.columns = columns
+        for mode in ['', '_with_mean']:
+            eof_file_phase = os.path.join(phase_directory, f'eofs{mode}.csv')
+            df = pd.read_csv(eof_file_phase, header=None)
 
-        # Fix column names
-        df.columns = [col if '∂' not in col else '∂' + col.split('∂')[1].split('/')[0] + '/∂t' for col in df.columns]
+            # Set the columns of df to be equal to the columns variable
+            df.columns = columns
 
-        # Normalize data
-        df_not_energy = np.abs(df.drop(columns=['Az', 'Ae', 'Kz', 'Ke']))
-        normalized_data_not_energy = ((df_not_energy - df_not_energy.min().mean()) / (df_not_energy.max().max() - df_not_energy.min().min()))
-        normalized_data_not_energy = df_not_energy.clip(lower=1.5, upper=15)
+            # Fix column names
+            df.columns = [col if '∂' not in col else '∂' + col.split('∂')[1].split('/')[0] + '/∂t' for col in df.columns]
 
-        # Load explained variance
-        explained_variance = pd.read_csv(os.path.join(phase_directory, 'variance_fraction.csv'), header=None)
+            # Normalize data
+            df_not_energy = np.abs(df.drop(columns=['Az', 'Ae', 'Kz', 'Ke']))
+            normalized_data_not_energy = ((df_not_energy - df_not_energy.min().mean()) / (df_not_energy.max().max() - df_not_energy.min().min()))
+            normalized_data_not_energy = df_not_energy.clip(lower=1.5, upper=15)
 
-        # plot example figure
-        _call_plot(df.iloc[0], normalized_data_not_energy.iloc[0], plot_example=True)
-        plt.savefig(os.path.join(output_directory, 'example.png'))
+            # Load explained variance
+            explained_variance = pd.read_csv(os.path.join(phase_directory, 'variance_fraction.csv'), header=None)
 
-        # plot each deaily mean
-        for eof in range(len(df)):
-            # Create directory for each EOF
-            eof_output_directory = os.path.join(output_directory, f'eof_{eof+1}')
-            os.makedirs(eof_output_directory, exist_ok=True)
+            # plot example figure
+            _call_plot(df.iloc[0], normalized_data_not_energy.iloc[0], plot_example=True)
+            plt.savefig(os.path.join(output_directory, 'example.png'))
 
-            # Get data for the current EOF
-            idata = df.iloc[eof]
-            normalized_idata_not_energy = normalize_idata_not_energy(idata)
+            # plot each deaily mean
+            for eof in range(len(df)):
+                # Create directory for each EOF
+                eof_output_directory = os.path.join(output_directory, f'eof_{eof+1}')
+                os.makedirs(eof_output_directory, exist_ok=True)
 
-            # Title for each EOF
-            explained_variance_eof_percentage = round(float(explained_variance.iloc[eof].values[0] * 100), 2)
-            idata.name = f'\nEOF {eof+1}\n{phase.capitalize()}\nExp. Var.: {explained_variance_eof_percentage}%'
+                # Get data for the current EOF
+                idata = df.iloc[eof]
+                normalized_idata_not_energy = normalize_idata_not_energy(idata)
 
-            # plot
-            _call_plot(idata, normalized_idata_not_energy)
-            plt.savefig(os.path.join(eof_output_directory, f'{phase}_eof{eof+1}.png'))
-            print(f"EOF {eof+1} for {phase} complete and saved to file.")
+                # Title for each EOF
+                explained_variance_eof_percentage = round(float(explained_variance.iloc[eof].values[0] * 100), 2)
+                idata.name = f'\nEOF {eof+1}\n{phase.capitalize()}\nExp. Var.: {explained_variance_eof_percentage}%'
+
+                # plot
+                _call_plot(idata, normalized_idata_not_energy)
+                plt.savefig(os.path.join(eof_output_directory, f'{phase}_eof{eof+1}{mode}.png'))
+                print(f"EOF {eof+1} for {phase} complete and saved to file.")
 
 if __name__ == "__main__":
     

@@ -1,20 +1,8 @@
-# **************************************************************************** #
-#                                                                              #
-#                                                         :::      ::::::::    #
-#    eof_analysis.py                                    :+:      :+:    :+:    #
-#                                                     +:+ +:+         +:+      #
-#    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
-#                                                 +#+#+#+#+#+   +#+            #
-#    Created: 2024/03/03 16:49:11 by daniloceano       #+#    #+#              #
-#    Updated: 2024/06/20 10:12:17 by daniloceano      ###   ########.fr        #
-#                                                                              #
-# **************************************************************************** #
-
 import os
 import pandas as pd
 import numpy as np
 from tqdm import tqdm
-from pyEOF import *
+from pyEOF import df_eof
 
 def read_and_prepare_data(base_path):
     all_dfs = []
@@ -45,8 +33,8 @@ def read_and_prepare_data(base_path):
     combined_df = pd.concat(all_dfs, ignore_index=True)
     return combined_df
 
-def compute_eofs(df, output_directory):
-    """Compute EOFs for each term across all periods and for each period individually."""
+def compute_eofs_with_mean(df, output_directory):
+    """Compute EOFs on anomalies and add the mean values for each term across all periods and for each period individually."""
     phases = ['incipient', 'intensification', 'mature', 'decay', 'intensification 2', 'mature 2', 'decay 2', 'Total']
 
     for phase in phases:
@@ -68,9 +56,12 @@ def compute_eofs(df, output_directory):
         # Compute EOFs with PyEOF
         n = 4
         pca = df_eof(normalized_anomalies, n_components=n)
-        eofs = pca.eofs(s=2, n=n) # get eofs
-        pcs = pca.pcs(s=2, n=n) # get pcs
-        variance_fraction = pca.evf(n=n) # get variance fraction
+        eofs = pca.eofs(s=2, n=n)  # get eofs
+        pcs = pca.pcs(s=2, n=n)  # get pcs
+        variance_fraction = pca.evf(n=n)  # get variance fraction
+
+        # Add mean values to EOFs to visualize the amplitude signal
+        eofs_with_mean = eofs + sample_mean.values
 
         # Initialize the reconstructed anomalies
         reconstructed_anomalies = np.zeros((pcs.shape[0], eofs.shape[1]))
@@ -87,12 +78,13 @@ def compute_eofs(df, output_directory):
         mean = sample_mean.values
         reconstructed_data = reconstructed_anomalies * std_deviation.values + mean
 
-        # Save EOFs, PCs, variance fraction, and reconstructed data to files
-        phase_output_directory = os.path.join(output_directory, phase)
+        # Save EOFs, PCs, variance fraction, EOFs with mean, and reconstructed data to files
+        phase_output_directory = os.path.join(output_directory, f'{phase}')
         os.makedirs(phase_output_directory, exist_ok=True)
         np.savetxt(os.path.join(phase_output_directory, 'eofs.csv'), eofs, delimiter=',')
         np.savetxt(os.path.join(phase_output_directory, 'pcs.csv'), pcs, delimiter=',')
         np.savetxt(os.path.join(phase_output_directory, 'variance_fraction.csv'), variance_fraction, delimiter=',')
+        np.savetxt(os.path.join(phase_output_directory, 'eofs_with_mean.csv'), eofs_with_mean, delimiter=',')
         np.savetxt(os.path.join(phase_output_directory, 'reconstructed_data.csv'), reconstructed_data, delimiter=',')
 
         print(f"EOF analysis for phase {phase} complete and saved to files.")
@@ -103,7 +95,7 @@ def main():
     os.makedirs(output_directory, exist_ok=True)
 
     df = read_and_prepare_data(base_path)
-    compute_eofs(df, output_directory)
+    compute_eofs_with_mean(df, output_directory)
 
 if __name__ == "__main__":
     main()
