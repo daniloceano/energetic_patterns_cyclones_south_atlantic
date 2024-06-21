@@ -54,7 +54,7 @@ def compute_eofs_with_mean(df, output_directory):
         normalized_anomalies = anomalies / std_deviation
 
         # Compute EOFs with PyEOF
-        n = 4
+        n = 8
         pca = df_eof(normalized_anomalies, n_components=n)
         eofs = pca.eofs(s=2, n=n)  # get eofs
         pcs = pca.pcs(s=2, n=n)  # get pcs
@@ -78,6 +78,9 @@ def compute_eofs_with_mean(df, output_directory):
         mean = sample_mean.values
         reconstructed_data = reconstructed_anomalies * std_deviation.values + mean
 
+        # Turn mean into DataFrame
+        sample_mean = pd.DataFrame(sample_mean).T
+
         # Save EOFs, PCs, variance fraction, EOFs with mean, and reconstructed data to files
         phase_output_directory = os.path.join(output_directory, f'{phase}')
         os.makedirs(phase_output_directory, exist_ok=True)
@@ -85,6 +88,7 @@ def compute_eofs_with_mean(df, output_directory):
         np.savetxt(os.path.join(phase_output_directory, 'pcs.csv'), pcs, delimiter=',')
         np.savetxt(os.path.join(phase_output_directory, 'variance_fraction.csv'), variance_fraction, delimiter=',')
         np.savetxt(os.path.join(phase_output_directory, 'eofs_with_mean.csv'), eofs_with_mean, delimiter=',')
+        np.savetxt(os.path.join(phase_output_directory, 'mean_values.csv'), sample_mean, delimiter=',')
         np.savetxt(os.path.join(phase_output_directory, 'reconstructed_data.csv'), reconstructed_data, delimiter=',')
 
         print(f"EOF analysis for phase {phase} complete and saved to files.")

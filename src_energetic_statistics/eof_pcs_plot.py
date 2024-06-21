@@ -5,6 +5,7 @@ import os
 
 # Load the data
 eofs_path = '../csv_eofs_energetics/Total/'
+output_directory = '../figures_statistics_energetics/eofs/'
 eofs = pd.read_csv(os.path.join(eofs_path, 'eofs.csv'), header=None)
 pcs = pd.read_csv(os.path.join(eofs_path, 'pcs.csv'), header=None)
 variance_fraction = pd.read_csv(os.path.join(eofs_path, 'variance_fraction.csv'), header=None)
@@ -23,7 +24,7 @@ plt.show()
 plt.figure(figsize=(10, 6))
 for i in range(min(3, eofs.shape[1])):  # Plot first 3 EOFs or less if fewer exist
     plt.plot(eofs.loc[i], label=f'EOF {i+1}')
-plt.xlabel('Spatial Index')
+plt.xlabel('LEC Term')
 plt.ylabel('Amplitude')
 plt.title('First Few EOFs')
 plt.legend()
@@ -33,7 +34,7 @@ plt.show()
 plt.figure(figsize=(10, 6))
 for i in range(min(3, pcs.shape[1])):  # Plot first 3 PCs or less if fewer exist
     plt.plot(pcs.loc[:, i], label=f'PC {i+1}')
-plt.xlabel('Time Index')
+plt.xlabel('Cyclone ID')
 plt.ylabel('Amplitude')
 plt.title('First Few PCs')
 plt.legend()

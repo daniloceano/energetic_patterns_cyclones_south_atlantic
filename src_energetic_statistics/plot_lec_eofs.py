@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/03/05 09:22:16 by daniloceano       #+#    #+#              #
-#    Updated: 2024/06/20 18:29:31 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/06/21 14:35:27 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -263,10 +263,8 @@ def _call_plot(data, normalized_data, plot_example=False):
     
     plot_boxes(ax, data, normalized_data, positions, size, plot_example)
 
-    # # Add title
+    # Add title
     if not plot_example:
-    #     if type(data.name) == pd.Timestamp:
-    #         data.name = data.name.strftime('%Y-%m-%d')
         ax.text(0, 0, data.name, fontsize=16, ha='center', va='center', fontweight='bold', color='black')
 
     for term in conversions + geneneration + boundaries + residuals:
@@ -339,6 +337,19 @@ def main():
                 _call_plot(idata, normalized_idata_not_energy)
                 plt.savefig(os.path.join(eof_output_directory, f'{phase}_eof{eof+1}{mode}.png'))
                 print(f"EOF {eof+1} for {phase} complete and saved to file.")
+
+        # Add the plot for mean values in each phase directory
+        mean_file = os.path.join(phase_directory, 'mean_values.csv')
+        if os.path.exists(mean_file):
+            df_mean = pd.read_csv(mean_file, header=None)
+            df_mean.index = [f"mean\n{phase}"]
+            # Set the columns of df to be equal to the columns variable
+            df_mean.columns = [col if '∂' not in col else '∂' + col.split('∂')[1].split('/')[0] + '/∂t' for col in df.columns]
+            # Assuming df_mean has the same structure as df
+            normalized_mean_not_energy = normalize_idata_not_energy(df_mean.iloc[0])
+            _call_plot(df_mean.iloc[0], normalized_mean_not_energy, plot_example=False)
+            plt.savefig(os.path.join(output_directory, f'{phase}_mean_values.png'))
+            print(f"Mean values plot for {phase} complete and saved to file.")
 
 if __name__ == "__main__":
     
