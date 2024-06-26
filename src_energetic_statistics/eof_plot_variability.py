@@ -53,7 +53,7 @@ variance_dict = {}
 for phase in phases:
     phase_path = os.path.join(base_path, phase)
     variance_fraction = pd.read_csv(os.path.join(phase_path, 'variance_fraction.csv'), header=None)
-    variance_list = [var * 100 for var in variance_fraction[0]]
+    variance_list = [var * 100 for var in variance_fraction[0]][:4]
     variance_dict[phase] = variance_list
 
 # Plot the variance explained by each EOF for all phases
