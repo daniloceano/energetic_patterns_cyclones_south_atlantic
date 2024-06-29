@@ -60,8 +60,8 @@ def compute_eofs_with_mean(df, output_directory):
         pcs = pca.pcs(s=2, n=n)  # get pcs
         variance_fraction = pca.evf(n=n)  # get variance fraction
 
-        # Add mean values to EOFs to visualize the amplitude signal
-        eofs_with_mean = eofs + sample_mean.values
+        # Multiply the EOFs by the standard deviation and add the mean
+        eofs_with_mean = eofs * std_deviation.values + sample_mean.values
 
         # Initialize the reconstructed anomalies
         reconstructed_anomalies = np.zeros((pcs.shape[0], eofs.shape[1]))
