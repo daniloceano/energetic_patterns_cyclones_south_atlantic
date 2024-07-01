@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/27 10:57:02 by daniloceano       #+#    #+#              #
-#    Updated: 2024/04/30 08:40:33 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/07/01 17:03:15 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -56,7 +56,7 @@ def get_energetics_all_systems(path):
     # Reading all files and saving in a list of dataframes with a progress bar
     for case in tqdm(all_files, desc="Reading files"):
         system_id = int((os.path.basename(case)).split('_')[0])
-        columns_to_read = ['Ck', 'Ca', 'Ke', 'Ge']
+        columns_to_read = ['Ck', 'Ca', 'Ke', 'Ge', 'BKe', 'BAe']
         df_system = pd.read_csv(case, header=0, index_col=0)
         df_system = df_system[columns_to_read]
         df_system.index.name = system_id

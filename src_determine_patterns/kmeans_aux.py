@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/27 10:39:53 by daniloceano       #+#    #+#              #
-#    Updated: 2024/04/29 23:47:52 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/07/01 17:05:46 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -40,8 +40,10 @@ def prepare_to_kmeans(results_energetics):
     Ca1 = combined_df['Ca'].values.T
     Ke1	= combined_df['Ke'].values.T
     Ge1 = combined_df['Ge'].values.T
+    BKe1 = combined_df['BKe'].values.T
+    BAe1 = combined_df['BAe'].values.T
 
-    dsk_means = np.concatenate((Ck1,Ca1,Ke1,Ge1),axis=1)
+    dsk_means = np.concatenate((Ck1,Ca1,Ke1,Ge1,BKe1,BAe1),axis=1)
     
     return dsk_means
 
@@ -58,15 +60,19 @@ def slice_mk(mk, LIFECYCLE):
     - centers_Ca (ndarray): An array of shape (n_clusters,) containing the cluster centers for the 'Ca' feature.
     - centers_Ke (ndarray): An array of shape (n_clusters,) containing the cluster centers for the 'Ke' feature.
     - centers_Ge (ndarray): An array of shape (n_clusters,) containing the cluster centers for the 'Ge' feature.
+    - centers_BKe (ndarray): An array of shape (n_clusters,) containing the cluster centers for the 'BKe' feature.
+    - centers_BAe (ndarray): An array of shape (n_clusters,) containing the cluster centers for the 'BAe' feature.
     """
     slcenter = len(LIFECYCLE)
     centers_Ck = mk.cluster_centers_[:,0:slcenter]
     centers_Ca = mk.cluster_centers_[:,slcenter:slcenter*2]
     centers_Ke = mk.cluster_centers_[:,slcenter*2:slcenter*3]
     centers_Ge = mk.cluster_centers_[:,slcenter*3:slcenter*4]
-    return centers_Ck, centers_Ca, centers_Ke, centers_Ge
+    centers_BKe = mk.cluster_centers_[:,slcenter*4:slcenter*5]
+    centers_BAe = mk.cluster_centers_[:,slcenter*5:slcenter*6]
+    return centers_Ck, centers_Ca, centers_Ke, centers_Ge, centers_BKe, centers_BAe
 
-def sel_clusters_to_df(centers_Ck, centers_Ca, centers_Ke, centers_Ge, results_energetics_lifecycle):
+def sel_clusters_to_df(centers_Ck, centers_Ca, centers_Ke, centers_Ge, centers_BKe, centers_BAe, results_energetics_lifecycle):
     """
     Generate a DataFrame for each cluster by selecting the cluster centers for each feature and assigning them to the corresponding DataFrame.
 
@@ -75,6 +81,8 @@ def sel_clusters_to_df(centers_Ck, centers_Ca, centers_Ke, centers_Ge, results_e
     - centers_Ca (ndarray): An array of shape (n_clusters,) containing the cluster centers for the 'Ca' feature.
     - centers_Ke (ndarray): An array of shape (n_clusters,) containing the cluster centers for the 'Ke' feature.
     - centers_Ge (ndarray): An array of shape (n_clusters,) containing the cluster centers for the 'Ge' feature.
+    - centers_BKe (ndarray): An array of shape (n_clusters,) containing the cluster centers for the 'BKe' feature.
+    - centers_BAe (ndarray): An array of shape (n_clusters,) containing the cluster centers for the 'BAe' feature.
     - results_energetics_lifecycle (list): A list of DataFrames containing the results of the energetics for a particular lifecycle.
 
     Returns:
@@ -82,6 +90,8 @@ def sel_clusters_to_df(centers_Ck, centers_Ca, centers_Ke, centers_Ge, results_e
     - df_cl2 (DataFrame): A DataFrame containing the cluster centers for the second cluster.
     - df_cl3 (DataFrame): A DataFrame containing the cluster centers for the third cluster.
     - df_cl4 (DataFrame): A DataFrame containing the cluster centers for the fourth cluster.
+    - df_cl5 (DataFrame): A DataFrame containing the cluster centers for the fifth cluster.
+    - df_cl6 (DataFrame): A DataFrame containing the cluster centers for the sixth cluster.
     """
 
     cl1Ck = centers_Ck[0,:]
@@ -104,6 +114,16 @@ def sel_clusters_to_df(centers_Ck, centers_Ca, centers_Ke, centers_Ge, results_e
     cl3Ge = centers_Ge[2,:]
     cl4Ge = centers_Ge[3,:]
 
+    cl1BKe = centers_BKe[0,:]
+    cl2BKe = centers_BKe[1,:]
+    cl3BKe = centers_BKe[2,:]
+    cl4BKe = centers_BKe[3,:]
+
+    cl1BAe = centers_BAe[0,:]
+    cl2BAe = centers_BAe[1,:]
+    cl3BAe = centers_BAe[2,:]
+    cl4BAe = centers_BAe[3,:]
+
     df_cl1 = results_energetics_lifecycle[0].copy()
     df_cl1[:] = np.nan
     df_cl2 = df_cl1.copy()
@@ -114,21 +134,29 @@ def sel_clusters_to_df(centers_Ck, centers_Ca, centers_Ke, centers_Ge, results_e
     df_cl1['Ca'] = cl1Ca
     df_cl1['Ke'] = cl1Ke
     df_cl1['Ge'] = cl1Ge
+    df_cl1['BKe'] = cl1BKe
+    df_cl1['BAe'] = cl1BAe
 
     df_cl2['Ck'] = cl2Ck
     df_cl2['Ca'] = cl2Ca
     df_cl2['Ke'] = cl2Ke
     df_cl2['Ge'] = cl2Ge
+    df_cl2['BKe'] = cl2BKe
+    df_cl2['BAe'] = cl2BAe
 
     df_cl3['Ck'] = cl3Ck
     df_cl3['Ca'] = cl3Ca
     df_cl3['Ke'] = cl3Ke
     df_cl3['Ge'] = cl3Ge
+    df_cl3['BKe'] = cl3BKe
+    df_cl3['BAe'] = cl3BAe
 
     df_cl4['Ck'] = cl4Ck
     df_cl4['Ca'] = cl4Ca
     df_cl4['Ke'] = cl4Ke
     df_cl4['Ge'] = cl4Ge
+    df_cl4['BKe'] = cl4BKe
+    df_cl4['BAe'] = cl4BAe
 
     return df_cl1, df_cl2, df_cl3, df_cl4
 
@@ -149,8 +177,10 @@ def preprocess_energy_data(dataframes):
     ca = combined_df['Ca'].values.T
     ke = combined_df['Ke'].values.T
     ge = combined_df['Ge'].values.T
+    bae = combined_df['BAe'].values.T
+    bke = combined_df['BKe'].values.T
 
-    features = np.concatenate((ck, ca, ke, ge), axis=1)
+    features = np.concatenate((ck, ca, ke, ge, bae, bke), axis=1)
 
     return features
 

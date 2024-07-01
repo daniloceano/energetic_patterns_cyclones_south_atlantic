@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/02/27 17:45:49 by daniloceano       #+#    #+#              #
-#    Updated: 2024/04/30 08:54:27 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/07/01 17:26:56 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -80,29 +80,43 @@ def read_patterns(results_path, PHASES, TERMS):
         patterns_energetics.append(df)
     return patterns_energetics, clusters_center, results
 
-def plot_system(lps, df):
+def plot_system(lps, df, lps_type):
     """
     Plots the Lorenz Phase Space diagram for a single system
     """
+    if lps_type == 'mixed':
+        x_axis = df['Ck']
+        y_axis = df['Ca']
+    elif lps_type == 'imports':
+        x_axis = df['BAe']
+        y_axis = df['BKe']
+        
     # Generate the phase diagram
     lps.plot_data(
-        x_axis=df['Ck'],
-        y_axis=df['Ca'],
+        x_axis=x_axis,
+        y_axis=y_axis,
         marker_color=df['Ge'],
         marker_size=df['Ke']
     )
 
-def determine_global_limits(systems_energetics):
+def determine_global_limits(systems_energetics, lps_type):
     x_min, x_max = float('inf'), float('-inf')
     y_min, y_max = float('inf'), float('-inf')
     color_min, color_max = float('inf'), float('-inf')
     size_min, size_max = float('inf'), float('-inf')
 
-    for df in systems_energetics:
-        x_min = min(x_min, df['Ck'].min())
-        x_max = max(x_max, df['Ck'].max())
-        y_min = min(y_min, df['Ca'].min())
-        y_max = max(y_max, df['Ca'].max())
+    if lps_type == 'mixed':
+        x_term = 'Ck'
+        y_term = 'Ca'
+    elif lps_type == 'imports':
+        x_term = 'BAe'
+        y_term = 'BKe'
+
+    for _, df in systems_energetics.items():
+        x_min = min(x_min, df[x_term].min())
+        x_max = max(x_max, df[x_term].max())
+        y_min = min(y_min, df[y_term].min())
+        y_max = max(y_max, df[y_term].max())
         color_min = min(color_min, df['Ge'].min())
         color_max = max(color_max, df['Ge'].max())
         size_min = min(size_min, df['Ke'].min())
