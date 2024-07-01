@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/27 10:56:55 by daniloceano       #+#    #+#              #
-#    Updated: 2024/04/30 08:40:45 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/07/01 18:16:58 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -57,7 +57,7 @@ def get_energetics_region_season(energetics_path, id_list_directory, region, sea
     for case in tqdm(all_files, desc="Reading files"):
         track_id = int(os.path.basename(case).split("_")[0])
         if track_id in track_ids["track_id"].values:
-            columns_to_read = ['Ck', 'Ca', 'Ke', 'Ge']
+            columns_to_read = ['Ck', 'Ca', 'Ke', 'Ge', 'BKe', 'BAe']
             df_system = pd.read_csv(case, header=0, index_col=0)
             df_system = df_system[columns_to_read]
             df_system.index.name = track_id
@@ -137,8 +137,8 @@ def main():
             This JSON file  contains the K-means clustering results for the {region} region and {season} season.
             It includes the cluster centers for each cluster, along with the cluster fraction and the IDs of the cyclones in each cluster.
             Each cluster center array consists of 16 values.
-            These values represent the average scaled measurements of the energy terms (Ck, Ca, Ke, Ge) across the lifecycle phases (incipient, intensification, mature, decay).
-            The first 4 values correspond to Ck for each phase, followed by 4 values for Ca, Ke, and Ge respectively.
+            These values represent the average scaled measurements of the energy terms (Ck, Ca, Ke, Ge, BAe, BKe) across the lifecycle phases (incipient, intensification, mature, decay).
+            The first 4 values correspond to Ck for each phase, followed by 4 values for Ca, Ke, Ge, BAe, and BKe respectively.
             """
             readme_path = os.path.join(pattern_folder, 'README.txt')
             with open(readme_path, 'w') as readme_file:

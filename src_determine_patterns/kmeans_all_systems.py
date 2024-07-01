@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/27 10:57:02 by daniloceano       #+#    #+#              #
-#    Updated: 2024/07/01 17:03:15 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/07/01 18:17:16 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -131,8 +131,8 @@ def main():
             This JSON file contains the K-means clustering results for the all systems in SE-BR, LA-PLATA and ARG regions.
             It includes the cluster centers for each cluster, along with the cluster fraction and the IDs of the cyclones in each cluster.
             Each cluster center array consists of 16 values.
-            These values represent the average scaled measurements of the energy terms (Ck, Ca, Ke, Ge) across the lifecycle phases (incipient, intensification, mature, decay).
-            The first 4 values correspond to Ck for each phase, followed by 4 values for Ca, Ke, and Ge respectively.    """
+            These values represent the average scaled measurements of the energy terms (Ck, Ca, Ke, Ge, BAe, BKe) across the lifecycle phases (incipient, intensification, mature, decay).
+            The first 4 values correspond to Ck for each phase, followed by 4 values for Ca, Ke, Ge, BAe, and BKe respectively.    """
     readme_path = os.path.join(pattern_folder, 'README.txt')
     with open(readme_path, 'w') as readme_file:
         readme_file.write(readme_text)

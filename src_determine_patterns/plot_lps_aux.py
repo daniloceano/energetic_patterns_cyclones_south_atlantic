@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/02/27 17:45:49 by daniloceano       #+#    #+#              #
-#    Updated: 2024/07/01 17:26:56 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/07/01 18:13:06 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -74,7 +74,7 @@ def read_patterns(results_path, PHASES, TERMS):
     patterns_energetics = []
     for i in range(len(clusters_center)):
         cluster_center = np.array(clusters_center.iloc[i])
-        cluster_array = np.array(cluster_center).reshape(len(PHASES), len(TERMS))
+        cluster_array = np.array(cluster_center).reshape(len(TERMS), len(PHASES))
 
         df = pd.DataFrame(cluster_array, columns=PHASES, index=TERMS).T
         patterns_energetics.append(df)
@@ -112,14 +112,27 @@ def determine_global_limits(systems_energetics, lps_type):
         x_term = 'BAe'
         y_term = 'BKe'
 
-    for _, df in systems_energetics.items():
-        x_min = min(x_min, df[x_term].min())
-        x_max = max(x_max, df[x_term].max())
-        y_min = min(y_min, df[y_term].min())
-        y_max = max(y_max, df[y_term].max())
-        color_min = min(color_min, df['Ge'].min())
-        color_max = max(color_max, df['Ge'].max())
-        size_min = min(size_min, df['Ke'].min())
-        size_max = max(size_max, df['Ke'].max())
+    # Determine global limits
+    if type(systems_energetics) == list:
+        for df in systems_energetics:
+            x_min = min(x_min, df[x_term].min())
+            x_max = max(x_max, df[x_term].max())
+            y_min = min(y_min, df[y_term].min())
+            y_max = max(y_max, df[y_term].max())
+            color_min = min(color_min, df['Ge'].min())
+            color_max = max(color_max, df['Ge'].max())
+            size_min = min(size_min, df['Ke'].min())
+            size_max = max(size_max, df['Ke'].max())
+    
+    elif type(systems_energetics) == dict:
+        for _, df in systems_energetics.items():
+            x_min = min(x_min, df[x_term].min())
+            x_max = max(x_max, df[x_term].max())
+            y_min = min(y_min, df[y_term].min())
+            y_max = max(y_max, df[y_term].max())
+            color_min = min(color_min, df['Ge'].min())
+            color_max = max(color_max, df['Ge'].max())
+            size_min = min(size_min, df['Ke'].min())
+            size_max = max(size_max, df['Ke'].max())
 
     return [x_min - 5, x_max + 5], [y_min - 5, y_max + 5], [color_min, color_max], [size_min, size_max]
