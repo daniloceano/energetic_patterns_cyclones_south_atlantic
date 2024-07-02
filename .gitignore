@@ -42,3 +42,4 @@ results_nc_files/composites_barotropic_baroclinic/pv_egr_composite_track_ids.nc
 results_nc_files/composites_test_fixed_x_mobile/*_results_study_case.nc
 results_nc_files/composites_fluxes_downstream/bae_composite_track_ids.nc
 figures_test_fixed_framework/*_study_case/
+figures_bae_fluxes/study_cases/

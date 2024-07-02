@@ -1,12 +1,12 @@
 # **************************************************************************** #
 #                                                                              #
 #                                                         :::      ::::::::    #
-#    plot_composites.py                                 :+:      :+:    :+:    #
+#    plot_study_cases.py                                :+:      :+:    :+:    #
 #                                                     +:+ +:+         +:+      #
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/23 19:56:13 by daniloceano       #+#    #+#              #
-#    Updated: 2024/07/02 12:23:58 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/07/02 12:33:37 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -27,10 +27,10 @@ TITLE_SIZE = 16
 LABEL_SIZE = 14
 TICK_LABEL_SIZE = 12
 GRID_LABEL_SIZE = 10
-FIGURES_DIR = '../figures_bae_fluxes'
+FIGURES_DIR = '../figures_bae_fluxes/study_cases'
 CRS = ccrs.PlateCarree()
 
-filepath = '../results_nc_files/composites_fluxes_downstream/bae_composite_mean.nc'
+filepath = '../results_nc_files/composites_fluxes_downstream/bae_composite_track_ids.nc'
 
 def plot_map(ax, temp_advection, u, v, hgt, **kwargs):
     """Plot temperature advection with Geopotential height contours and wind vectors."""
@@ -113,67 +113,77 @@ def determine_norm_bounds(data, factor=1.0):
     max_abs_value = max(abs(data_min), abs(data_max)) * factor
     return -max_abs_value, max_abs_value
 
-def plot_variable(temp_advection, u, v, hgt, **map_attrs):
+def plot_variable(temp_advection, u, v, hgt, track_id, **map_attrs):
     fig = plt.figure(figsize=(8, 8))
     ax = fig.add_subplot(111, projection=CRS)
     plot_map(ax, temp_advection, u, v, hgt, **map_attrs)
     plt.tight_layout()
+    # Create subdirectory for each track_id
+    track_dir = os.path.join(FIGURES_DIR, str(track_id))
+    os.makedirs(track_dir, exist_ok=True)
     filename = map_attrs['filename']
-    file_path = os.path.join(FIGURES_DIR, filename)
+    file_path = os.path.join(track_dir, filename)
     plt.savefig(file_path)
-    print(f'Saved {filename}')
-    
+    plt.close(fig)  # Close the figure after saving to avoid memory issues
+    print(f'Saved {filename} in {track_dir}')
+
 def main():
     # create output directory if it doesn't exist
     os.makedirs(FIGURES_DIR, exist_ok=True)
 
     # Open variables
     ds = xr.open_dataset(filepath)
-    temp_advection = ds['temp_advection']
-    temp_advection = (temp_advection * units('K/s')).metpy.convert_units('K/day')
-    u = ds['u']
-    v = ds['v']
-    hgt = ds['hgt']
+    
+    for track_id in ds.track_id:
 
-    contour_levels = {}
-    # Create levels for plot each variable
-    for var in ds.data_vars:
-        contour_levels[var] = {}
+        id_data = ds.sel(track_id=track_id)
+        temp_advection = id_data['temp_advection']
+        temp_advection = (temp_advection * units('K/s')).metpy.convert_units('K/day')
+        u = id_data['u']
+        v = id_data['v']
+        hgt = id_data['hgt']
+
+        contour_levels = {}
+        # Create levels for plot each variable
+        for var in ds.data_vars:
+            contour_levels[var] = {}
+            for level in ds.level:
+                level_str = str(int(level))
+                min_val = float(min(
+                    id_data[var].sel(level=level).min(skipna=True),
+                    id_data[var].sel(level=level).min(skipna=True)))
+                max_val = float(max(
+                    id_data[var].sel(level=level).max(skipna=True),
+                    id_data[var].sel(level=level).max(skipna=True)))
+                contour_levels[var][str(level_str)] = np.linspace(min_val, max_val, 11)
+            
+        contour_levels['temp_advection'] = {}
         for level in ds.level:
             level_str = str(int(level))
-            min_val = float(min(
-                ds[var].sel(level=level).min(skipna=True),
-                ds[var].sel(level=level).min(skipna=True)))
-            max_val = float(max(
-                ds[var].sel(level=level).max(skipna=True),
-                ds[var].sel(level=level).max(skipna=True)))
-            contour_levels[var][str(level_str)] = np.linspace(min_val, max_val, 11)
-        
-    contour_levels['temp_advection'] = {}
-    for level in ds.level:
-        level_str = str(int(level))
-        temp_adv_level = temp_advection.sel(level=level)
-        contour_levels['temp_advection'][level_str] = np.linspace(
-            temp_adv_level.min(skipna=True), temp_adv_level.max(skipna=True), 11)
-    
-    for level in ds.level:
+            temp_adv_level = temp_advection.sel(level=level)
+            contour_levels['temp_advection'][level_str] = np.linspace(
+                temp_adv_level.min(skipna=True), temp_adv_level.max(skipna=True), 11)
 
-        temp_advection_level = temp_advection.sel(level=level)
-        u_level = u.sel(level=level)
-        v_level = v.sel(level=level)
-        hgt_level = hgt.sel(level=level)
 
-        level_str = str(int(level))
+        track_id = track_id.values
+        for level in ds.level:
 
-        # Plot Temperature Advection
-        map_attrs = {
-                'cmap': 'RdBu_r',
-                'title': r'Temperature Advection @ ' + f'{level_str} hPa',
-                'levels': contour_levels['temp_advection'][level_str],
-                'units': 'K/day',
-                'filename': f'composite_temp_advection_{level_str}hpa.png'
-            }
-        plot_variable(temp_advection_level, u_level, v_level, hgt_level, **map_attrs)
+            temp_advection_level = temp_advection.sel(level=level)
+            u_level = u.sel(level=level)
+            v_level = v.sel(level=level)
+            hgt_level = hgt.sel(level=level)
+
+            level_str = str(int(level))
+
+            # Plot Temperature Advection
+            map_attrs = {
+                    'cmap': 'RdBu_r',
+                    'title': r'Temperature Advection @ ' + f'{level_str} hPa',
+                    'levels': contour_levels['temp_advection'][level_str],
+                    'units': 'K/day',
+                    'filename': f'composite_temp_advection_{level_str}hpa.png'
+                }
+            plot_variable(temp_advection_level, u_level, v_level, hgt_level, track_id, **map_attrs)
 
 if __name__ == '__main__':
     main()
