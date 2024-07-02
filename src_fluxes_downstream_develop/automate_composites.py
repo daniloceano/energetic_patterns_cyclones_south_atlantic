@@ -75,13 +75,13 @@ def copy_cdsapirc(suffix):
 def get_cdsapi_era5_data(filename: str, track: pd.DataFrame, pressure_levels: list, variables: list) -> xr.Dataset:
 
     # Pick a random .cdsapirc file for each process
-    # if DEBUG_CDSAPI == False:
-    #     if CDSAPIRC_SUFFIXES:
-    #         chosen_suffix = random.choice(CDSAPIRC_SUFFIXES)
-    #         copy_cdsapirc(chosen_suffix)
-    #         logging.info(f"Switched .cdsapirc file to {chosen_suffix}")
-    #     else:
-    #         logging.error("No .cdsapirc files found. Please check the configuration.")
+    #if DEBUG_CDSAPI == False:
+    #    if CDSAPIRC_SUFFIXES:
+    #        chosen_suffix = random.choice(CDSAPIRC_SUFFIXES)
+    #        copy_cdsapirc(chosen_suffix)
+    #        logging.info(f"Switched .cdsapirc file to {chosen_suffix}")
+    #    else:
+    #        logging.error("No .cdsapirc files found. Please check the configuration.")
 
     # Extract bounding box (lat/lon limits) from track
     min_lat, max_lat = track['Lat'].min(), track['Lat'].max()
