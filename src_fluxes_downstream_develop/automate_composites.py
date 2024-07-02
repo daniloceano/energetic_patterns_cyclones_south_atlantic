@@ -113,8 +113,12 @@ def get_cdsapi_era5_data(filename: str, track: pd.DataFrame, pressure_levels: li
 
     # Convert unique dates to string format for the request
     time_range = f"{dates[0]}/{dates[-1]}"
-    time_step = str(int((track.index[1] - track.index[0]).total_seconds() / 3600))
-    time_step = '3' if time_step < '3' else time_step
+     
+    if len(track.index) > 1:
+        time_step = str(int((track.index[1] - track.index[0]).total_seconds() / 3600))
+        time_step = '3' if int(time_step) < 3 else time_step
+    else:
+        time_step = '3'  # Default value when only one time step
 
     # Load ERA5 data
     infile = f"{filename}.nc"
