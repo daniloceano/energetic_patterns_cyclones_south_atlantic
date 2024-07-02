@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/23 19:56:13 by daniloceano       #+#    #+#              #
-#    Updated: 2024/07/02 09:14:00 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/07/02 10:20:19 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -66,6 +66,13 @@ def plot_map(ax, data, **kwargs):
     # Set up grid lines
     ax.grid(True, linestyle='--', alpha=0.5, linewidth=0.5, color='k')
 
+    # Draw the 15x15 square centered on the domain
+    lon_center, lat_center = 0, 0
+    square_half_size = 7.5
+    square_lon = [lon_center - square_half_size, lon_center + square_half_size, lon_center + square_half_size, lon_center - square_half_size, lon_center - square_half_size]
+    square_lat = [lat_center - square_half_size, lat_center - square_half_size, lat_center + square_half_size, lat_center + square_half_size, lat_center - square_half_size]
+    ax.plot(square_lon, square_lat, transform=transform, color='black', linewidth=2)
+
     # Customize the ticks on x and y axes
     ax.xaxis.set_major_locator(ticker.AutoLocator())  # Automatically determine the location of ticks
     ax.yaxis.set_major_locator(ticker.AutoLocator())
@@ -100,16 +107,16 @@ def plot_variable(temp_advection, **map_attrs):
     print(f'Saved {filename}')
     
 def main():
-    # Composites file
+    # create output directory if it doesn't exist
+    os.makedirs(FIGURES_DIR, exist_ok=True)
 
     # Open variables
     ds = xr.open_dataset(filepath)
     temperature = ds['t'] * units.kelvin
     u = ds['u'] * units('m/s')
     v = ds['v'] * units('m/s')
-
-    temp_advection = mpcalc.advection(temperature, u, v)
-    temp_advection.name = 'temp_advection'
+    temp_advection = ds['temp_advection']
+    temp_advection = (temp_advection * units('K/s')).metpy.convert_units('K/day')
 
     contour_levels = {}
     # Create levels for plot each variable
