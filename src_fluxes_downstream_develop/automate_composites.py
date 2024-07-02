@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/24 14:42:50 by daniloceano       #+#    #+#              #
-#    Updated: 2024/07/02 09:17:41 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/07/02 09:24:21 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -180,7 +180,7 @@ def create_bae_composite(infile, track):
     hgt = (ds['z'] / 9.8) * units('gpm')
     latitude = ds.latitude
 
-    temp_advection = mpcalc.advection(temperature, u, v, dx=(latitude[1] - latitude[0]))
+    temp_advection = mpcalc.advection(ds['t'], ds['u'], ds['v'])
     temp_advection.name = 'temp_advection'
 
     # Empty lists to store the slices
