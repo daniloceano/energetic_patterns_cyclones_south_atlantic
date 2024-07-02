@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/24 14:42:50 by daniloceano       #+#    #+#              #
-#    Updated: 2024/07/02 09:24:21 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/07/02 10:36:27 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -42,7 +42,7 @@ LEC_RESULTS_DIR = os.path.abspath('../../LEC_Results_energetic-patterns')  # Get
 CDSAPIRC_PATH = os.path.expanduser('~/.cdsapirc')
 OUTPUT_DIR = '../results_nc_files/composites_fluxes_downstream/'
 
-DEBUG_CODE = False
+DEBUG_CODE = True
 DEBUG_CDSAPI = False
 
 def get_cdsapi_keys():
@@ -146,27 +146,6 @@ def get_cdsapi_era5_data(filename: str, track: pd.DataFrame, pressure_levels: li
     else:
         logging.info("CDS API file already exists.")
         return infile
-    
-def create_pressure_array(pressure_levels, time, latitude, longitude, level):
-    # Create a 4D DataArray for pressure levels
-    pressure_values = np.repeat(pressure_levels.magnitude[:, np.newaxis, np.newaxis, np.newaxis],
-                                len(time), axis=1)
-    pressure_values = np.repeat(pressure_values, len(latitude), axis=2)
-    pressure_values = np.repeat(pressure_values, len(longitude), axis=3)
-
-    pressure_da = xr.DataArray(
-        pressure_values,
-        dims=['level', 'time', 'latitude', 'longitude'],
-        coords={
-            'level': level,
-            'time': time,
-            'latitude': latitude,
-            'longitude': longitude
-        },
-        attrs={'units': pressure_levels.units}
-    )
-
-    return pressure_da
 
 def create_bae_composite(infile, track):
     # Load the dataset
@@ -199,8 +178,8 @@ def create_bae_composite(infile, track):
         temp_advection_time = temp_advection.sel(time=time_step)
 
         # Select the track limits
-        min_lon, max_lon = track.loc[time_step, 'min_lon'], track.loc[time_step, 'max_lon']
-        min_lat, max_lat = track.loc[time_step, 'min_lat'], track.loc[time_step, 'max_lat']
+        min_lon, max_lon = track.loc[time_step, 'min_lon'] - 5, track.loc[time_step, 'max_lon'] + 5
+        min_lat, max_lat = track.loc[time_step, 'min_lat'] -5 , track.loc[time_step, 'max_lat'] + 5 
 
         # Slice for track limits
         u_time_slice = u_time.sel(longitude=slice(min_lon, max_lon), latitude=slice(max_lat, min_lat))
