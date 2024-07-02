@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/24 14:42:50 by daniloceano       #+#    #+#              #
-#    Updated: 2024/07/02 12:54:22 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/07/02 16:15:50 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -39,7 +39,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 # REGION = sys.argv[1] # Region to process
 LEC_RESULTS_DIR = os.path.abspath('../../LEC_Results_energetic-patterns')  # Get absolute PATH
 CDSAPIRC_PATH = os.path.expanduser('~/.cdsapirc')
-OUTPUT_DIR = '../results_nc_files/composites_fluxes_downstream/'
+OUTPUT_DIR = '../results_nc_files/composites_bae/'
 
 DEBUG_CODE = False
 DEBUG_CDSAPI = False
