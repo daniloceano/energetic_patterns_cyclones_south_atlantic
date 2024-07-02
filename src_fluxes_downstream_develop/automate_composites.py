@@ -6,10 +6,9 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/24 14:42:50 by daniloceano       #+#    #+#              #
-#    Updated: 2024/07/02 10:36:27 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/07/02 12:54:22 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
-
 
 """
 This script will automate the process of creating composites for each system selected.
@@ -264,11 +263,11 @@ def create_bae_composite(infile, track):
 
     return ds_composite
 
-def save_composite(composites, output_dir, total_systems_count):
+def save_composite(composites, output_dir, total_systems_count, phase):
     os.makedirs(output_dir, exist_ok=True)
 
     # Create a composite across all systems
-    logging.info("Finished processing all systems. Creating composite...")
+    logging.info(f"Finished processing all systems for {phase} phase. Creating composite...")
     composites = [composite for composite in composites if composite is not None]
 
     # Concatenate the composites and calculate the mean
@@ -276,23 +275,22 @@ def save_composite(composites, output_dir, total_systems_count):
     ds_composite_mean = da_composite.mean(dim='track_id')
 
     # Save the composites
-    da_composite.to_netcdf(f'{output_dir}/bae_composite_track_ids.nc')
-    ds_composite_mean.to_netcdf(f'{output_dir}/bae_composite_mean.nc')
-    logging.info("Saved bae_composite_track_ids.nc and bae_composite_mean.nc")
+    da_composite.to_netcdf(f'{output_dir}/bae_composite_{phase}_track_ids.nc')
+    ds_composite_mean.to_netcdf(f'{output_dir}/bae_composite_{phase}_mean.nc')
+    logging.info(f"Saved bae_composite_{phase}_track_ids.nc and bae_composite_{phase}_mean.nc")
 
     # Log end time
     end_time = time.time()
     formatted_end_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(end_time))
-    logging.info(f"Finished {total_systems_count} cases at {formatted_end_time}")
+    logging.info(f"Finished {total_systems_count} cases for {phase} phase at {formatted_end_time}")
 
-
-def process_system(system_dir):
+def process_system(system_dir, phase):
     """
-    Process the selected system.
+    Process the selected system for a given phase.
     """
     # Get track and periods data
     try:
-        logging.info(f"Processing started for {system_dir}")
+        logging.info(f"Processing started for {system_dir} ({phase} phase)")
         track_file = glob(f'{system_dir}/*trackfile')[0]  # Assuming filename pattern
         periods_file = glob(f'{system_dir}/*periods.csv')[0]
     except Exception as e:
@@ -310,18 +308,18 @@ def process_system(system_dir):
     
     # Check if both track and periods data are available
     if track.empty or periods.empty:
-        logging.info(f"No track or periods data for {system_dir}")
+        logging.info(f"No track or periods data for {system_dir} ({phase} phase)")
         return None
-    if 'incipient' not in periods.index:
-        logging.info(f"No incipient phase data for {system_dir}")
+    if phase not in periods.index:
+        logging.info(f"No {phase} phase data for {system_dir}")
         return None
 
-    # Filter for incipient phase only
-    incipient_start = periods.loc['incipient', 'start']
-    incipient_end = periods.loc['incipient', 'end']
-    track = track[(track.index >= incipient_start) & (track.index <= incipient_end)]
+    # Filter for the specific phase
+    phase_start = periods.loc[phase, 'start']
+    phase_end = periods.loc[phase, 'end']
+    track = track[(track.index >= phase_start) & (track.index <= phase_end)]
     if track.empty:
-        logging.info(f"No incipient phase data for {system_dir}")
+        logging.info(f"No {phase} phase data for {system_dir}")
         return None
 
     system_id = os.path.basename(system_dir).split('_')[0] # Get system ID
@@ -329,11 +327,11 @@ def process_system(system_dir):
     # Get ERA5 data for interest variables
     pressure_levels = ['250', '300', '350', '550', '500', '450', '700', '750', '800', '950', '975', '1000']
     variables = ["u_component_of_wind", "v_component_of_wind", "temperature", "geopotential"]
-    infile_bae = get_cdsapi_era5_data(f'{system_id}-bae', track, pressure_levels, variables) 
+    infile_bae = get_cdsapi_era5_data(f'{system_id}-bae-{phase}', track, pressure_levels, variables) 
 
     # Make composite
     ds_composite = create_bae_composite(infile_bae, track) 
-    logging.info(f"Processing completed for {system_dir}")
+    logging.info(f"Processing completed for {system_dir} ({phase} phase)")
 
     # # Delete infile
     # if os.path.exists(infile_bae):
@@ -356,7 +354,7 @@ def main():
     # Filter directories
     filtered_directories = [directory for directory in results_directories if any(system_id in directory for system_id in selected_systems_str)]
 
-    # # Determine the number of CPU cores to use
+    # Determine the number of CPU cores to use
     if len(sys.argv) > 1:
         num_workers = int(sys.argv[1])
     else:
@@ -369,31 +367,34 @@ def main():
 
     if DEBUG_CODE == True:
         logging.info(f"Debug mode!")
-        composites = [process_system(results_directories[0])]
+        composites = [process_system(results_directories[0], 'incipient')]
         print(composites)
         sys.exit(0)
 
-    # Log start time and total number of systems
-    start_time = time.time()
-    formatted_start_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(start_time))
-    total_systems_count = len(filtered_directories)
-    logging.info(f"Starting {total_systems_count} cases at {formatted_start_time}")
+    phases = ['incipient', 'mature']
 
-    logging.info(f"Using {num_workers} CPU cores for processing")
+    for phase in phases:
+        # Log start time and total number of systems
+        start_time = time.time()
+        formatted_start_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(start_time))
+        total_systems_count = len(filtered_directories)
+        logging.info(f"Starting {total_systems_count} cases for {phase} phase at {formatted_start_time}")
 
-    composites = []
+        logging.info(f"Using {num_workers} CPU cores for processing {phase} phase")
 
-    with ProcessPoolExecutor(max_workers=num_workers) as executor:
-        futures = [executor.submit(process_system, dir_path) for dir_path in filtered_directories]
-        for future in as_completed(futures):
-            result = future.result()
-            if result is not None and np.any(result):
-                composites.append(result)
+        composites = []
 
-    # Assuming a function to aggregate and save the results
-    if composites:
-        logging.info("Aggregating and saving BAe composites...")
-        save_composite(composites, OUTPUT_DIR, total_systems_count)
+        with ProcessPoolExecutor(max_workers=num_workers) as executor:
+            futures = [executor.submit(process_system, dir_path, phase) for dir_path in filtered_directories]
+            for future in as_completed(futures):
+                result = future.result()
+                if result is not None and np.any(result):
+                    composites.append(result)
+
+        # Assuming a function to aggregate and save the results
+        if composites:
+            logging.info(f"Aggregating and saving BAe composites for {phase} phase...")
+            save_composite(composites, OUTPUT_DIR, total_systems_count, phase)
 
 if __name__ == "__main__":
     main()
