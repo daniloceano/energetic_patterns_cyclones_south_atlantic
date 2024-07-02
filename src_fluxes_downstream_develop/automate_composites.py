@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/24 14:42:50 by daniloceano       #+#    #+#              #
-#    Updated: 2024/07/01 19:31:38 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/07/02 09:15:31 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -30,8 +30,8 @@ from datetime import timedelta
 from glob import glob
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from metpy.units import units
-from metpy.interpolate import interpolate_1d, log_interpolate_1d
-
+import metpy.calc as mpcalc
+from metpy.units import units
 
 # Update logging configuration to use the custom handler
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s',
@@ -180,11 +180,15 @@ def create_bae_composite(infile, track):
     hgt = (ds['z'] / 9.8) * units('gpm')
     latitude = ds.latitude
 
+    temp_advection = mpcalc.advection(temperature, u, v, dx=(latitude[1] - latitude[0]).to('degree'))
+    temp_advection.name = 'temp_advection'
+
     # Empty lists to store the slices
     u_slices_system = []
     v_slices_system = []
     hgt_slices_system = []
     temperature_slices_system = []
+    temperature_adv_slices_system = []
 
     for time_step in track.index:
         # Select the time step
@@ -192,6 +196,7 @@ def create_bae_composite(infile, track):
         v_time = v.sel(time=time_step)
         hgt_time = hgt.sel(time=time_step)
         temperature_time = temperature.sel(time=time_step)
+        temp_advection_time = temp_advection.sel(time=time_step)
 
         # Select the track limits
         min_lon, max_lon = track.loc[time_step, 'min_lon'], track.loc[time_step, 'max_lon']
@@ -202,18 +207,21 @@ def create_bae_composite(infile, track):
         v_time_slice = v_time.sel(longitude=slice(min_lon, max_lon), latitude=slice(max_lat, min_lat))
         hgt_time_slice = hgt_time.sel(longitude=slice(min_lon, max_lon), latitude=slice(max_lat, min_lat))
         temperature_time_slice = temperature_time.sel(longitude=slice(min_lon, max_lon), latitude=slice(max_lat, min_lat))
+        temp_advection_time_slice = temp_advection_time.sel(longitude=slice(min_lon, max_lon), latitude=slice(max_lat, min_lat))
 
         # Append to the lists
         u_slices_system.append(u_time_slice)
         v_slices_system.append(v_time_slice)
         hgt_slices_system.append(hgt_time_slice)
         temperature_slices_system.append(temperature_time_slice)
+        temperature_adv_slices_system.append(temp_advection_time_slice)
     
     # Calculate the composites for this system
     u_mean = np.mean(u_slices_system, axis=0)
     v_mean = np.mean(v_slices_system, axis=0)
     hgt_mean = np.mean(hgt_slices_system, axis=0)
     temperature_mean = np.mean(temperature_slices_system, axis=0)
+    temperature_adv_mean = np.mean(temperature_adv_slices_system, axis=0)
 
     # Create a DataArray using an extra dimension
     x_size, y_size = u_mean.shape[2], u_mean.shape[1]
@@ -255,12 +263,21 @@ def create_bae_composite(infile, track):
         attrs={'units': str(temperature_time_slice.metpy.units)}
     )
 
+    da_temperature_adv = xr.DataArray(
+        temperature_adv_mean,
+        dims=['level', 'y', 'x'],
+        coords={'level': level, 'y': y, 'x': x},
+        name='temp_advection',
+        attrs={'units': str(temp_advection_time_slice.metpy.units)}
+    )
+
     # Combine into a Dataset and add track_id as a coordinate
     ds_composite = xr.Dataset({
         'u': da_u,
         'v': da_v,
         'hgt': da_hgt,
-        't': da_temperature
+        't': da_temperature,
+        'temp_advection': da_temperature_adv
     })
 
     # Assigning track_id as a coordinate
