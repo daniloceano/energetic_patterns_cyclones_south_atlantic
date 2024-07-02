@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/23 19:56:13 by daniloceano       #+#    #+#              #
-#    Updated: 2024/07/02 12:33:37 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/07/02 17:17:14 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -30,7 +30,7 @@ GRID_LABEL_SIZE = 10
 FIGURES_DIR = '../figures_bae_fluxes/study_cases'
 CRS = ccrs.PlateCarree()
 
-filepath = '../results_nc_files/composites_fluxes_downstream/bae_composite_track_ids.nc'
+filepath = '../results_nc_files/composites_bae/bae_composite_incipient_track_ids.nc'
 
 def plot_map(ax, temp_advection, u, v, hgt, **kwargs):
     """Plot temperature advection with Geopotential height contours and wind vectors."""

@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/23 19:56:13 by daniloceano       #+#    #+#              #
-#    Updated: 2024/07/02 12:23:58 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/07/02 16:22:21 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -30,7 +30,7 @@ GRID_LABEL_SIZE = 10
 FIGURES_DIR = '../figures_bae_fluxes'
 CRS = ccrs.PlateCarree()
 
-filepath = '../results_nc_files/composites_fluxes_downstream/bae_composite_mean.nc'
+NC_PATH = '../results_nc_files/composites_bae/'
 
 def plot_map(ax, temp_advection, u, v, hgt, **kwargs):
     """Plot temperature advection with Geopotential height contours and wind vectors."""
@@ -113,22 +113,27 @@ def determine_norm_bounds(data, factor=1.0):
     max_abs_value = max(abs(data_min), abs(data_max)) * factor
     return -max_abs_value, max_abs_value
 
-def plot_variable(temp_advection, u, v, hgt, **map_attrs):
+def plot_variable(temp_advection, u, v, hgt, output_dir, **map_attrs):
     fig = plt.figure(figsize=(8, 8))
     ax = fig.add_subplot(111, projection=CRS)
     plot_map(ax, temp_advection, u, v, hgt, **map_attrs)
     plt.tight_layout()
     filename = map_attrs['filename']
-    file_path = os.path.join(FIGURES_DIR, filename)
+    file_path = os.path.join(output_dir, filename)
     plt.savefig(file_path)
     print(f'Saved {filename}')
-    
-def main():
-    # create output directory if it doesn't exist
-    os.makedirs(FIGURES_DIR, exist_ok=True)
+
+def plot_composites(netcdf_dir, phase):
+
+    # Open the netCDF file
+    filepath = os.path.join(netcdf_dir, f'bae_composite_{phase}_mean.nc')
+    ds = xr.open_dataset(filepath)
+
+    # Set up output directory
+    output_dir = os.path.join(FIGURES_DIR, phase)
+    os.makedirs(output_dir, exist_ok=True)
 
     # Open variables
-    ds = xr.open_dataset(filepath)
     temp_advection = ds['temp_advection']
     temp_advection = (temp_advection * units('K/s')).metpy.convert_units('K/day')
     u = ds['u']
@@ -173,7 +178,15 @@ def main():
                 'units': 'K/day',
                 'filename': f'composite_temp_advection_{level_str}hpa.png'
             }
-        plot_variable(temp_advection_level, u_level, v_level, hgt_level, **map_attrs)
+        plot_variable(temp_advection_level, u_level, v_level, hgt_level, output_dir, **map_attrs)
+    
+def main():
+    # create output directory if it doesn't exist
+    os.makedirs(FIGURES_DIR, exist_ok=True)
+
+    for phase in ['incipient', 'mature']:
+        plot_composites(NC_PATH, phase)
+
 
 if __name__ == '__main__':
     main()
