@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/24 14:42:50 by daniloceano       #+#    #+#              #
-#    Updated: 2024/07/02 16:15:50 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/07/02 18:48:12 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -31,6 +31,7 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 from metpy.units import units
 import metpy.calc as mpcalc
 from metpy.units import units
+import json
 
 # Update logging configuration to use the custom handler
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s',
@@ -42,22 +43,6 @@ CDSAPIRC_PATH = os.path.expanduser('~/.cdsapirc')
 OUTPUT_DIR = '../results_nc_files/composites_bae/'
 
 DEBUG_CODE = False
-DEBUG_CDSAPI = False
-
-def get_cdsapi_keys():
-    """
-    Lists all files in the home directory that match the pattern 'cdsapirc-*'.
-
-    Returns:
-    list: A list of filenames matching the pattern.
-    """
-    home_dir = os.path.expanduser('~')
-    pattern = os.path.join(home_dir, '.cdsapirc-*')
-    files = glob(pattern)
-    logging.info(f"CDSAPIRC files available at '{home_dir}': {files}")
-    # Extract file suffixes from the full paths
-    suffixes = [os.path.basename(file) for file in files]
-    return suffixes
 
 def copy_cdsapirc(suffix):
     """
@@ -73,15 +58,6 @@ def copy_cdsapirc(suffix):
         logging.error(f"Error copying {source_path} to {CDSAPIRC_PATH}: {e}")
 
 def get_cdsapi_era5_data(filename: str, track: pd.DataFrame, pressure_levels: list, variables: list) -> xr.Dataset:
-
-    # Pick a random .cdsapirc file for each process
-    #if DEBUG_CDSAPI == False:
-    #    if CDSAPIRC_SUFFIXES:
-    #        chosen_suffix = random.choice(CDSAPIRC_SUFFIXES)
-    #        copy_cdsapirc(chosen_suffix)
-    #        logging.info(f"Switched .cdsapirc file to {chosen_suffix}")
-    #    else:
-    #        logging.error("No .cdsapirc files found. Please check the configuration.")
 
     # Extract bounding box (lat/lon limits) from track
     min_lat, max_lat = track['Lat'].min(), track['Lat'].max()
@@ -146,7 +122,7 @@ def get_cdsapi_era5_data(filename: str, track: pd.DataFrame, pressure_levels: li
         logging.info("CDS API file already exists.")
         return infile
 
-def create_bae_composite(infile, track):
+def create_bae_composite(infile, track, output_dir, phase):
     # Load the dataset
     ds = xr.open_dataset(infile)
 
@@ -156,61 +132,42 @@ def create_bae_composite(infile, track):
     u = ds['u'] * units('m/s')
     v = ds['v'] * units('m/s')
     hgt = (ds['z'] / 9.8) * units('gpm')
-    latitude = ds.latitude
+    latitude, longitude = ds.latitude, ds.longitude
 
     temp_advection = mpcalc.advection(ds['t'], ds['u'], ds['v'])
     temp_advection.name = 'temp_advection'
 
-    # Empty lists to store the slices
-    u_slices_system = []
-    v_slices_system = []
-    hgt_slices_system = []
-    temperature_slices_system = []
-    temperature_adv_slices_system = []
+    middle_idx = len(track.index) // 2
+    middle_time = track.index[middle_idx]
 
-    for time_step in track.index:
-        # Select the time step
-        u_time = u.sel(time=time_step)
-        v_time = v.sel(time=time_step)
-        hgt_time = hgt.sel(time=time_step)
-        temperature_time = temperature.sel(time=time_step)
-        temp_advection_time = temp_advection.sel(time=time_step)
+    # Select the time step
+    u_time = u.sel(time=middle_time)
+    v_time = v.sel(time=middle_time)
+    hgt_time = hgt.sel(time=middle_time)
+    temperature_time = temperature.sel(time=middle_time)
+    temp_advection_time = temp_advection.sel(time=middle_time)
 
-        # Select the track limits
-        min_lon, max_lon = track.loc[time_step, 'min_lon'] - 5, track.loc[time_step, 'max_lon'] + 5
-        min_lat, max_lat = track.loc[time_step, 'min_lat'] -5 , track.loc[time_step, 'max_lat'] + 5 
+    # Select the track limits
+    min_lon, max_lon = track.loc[middle_time, 'min_lon'] - 5, track.loc[middle_time, 'max_lon'] + 5
+    min_lat, max_lat = track.loc[middle_time, 'min_lat'] - 5, track.loc[middle_time, 'max_lat'] + 5 
 
-        # Slice for track limits
-        u_time_slice = u_time.sel(longitude=slice(min_lon, max_lon), latitude=slice(max_lat, min_lat))
-        v_time_slice = v_time.sel(longitude=slice(min_lon, max_lon), latitude=slice(max_lat, min_lat))
-        hgt_time_slice = hgt_time.sel(longitude=slice(min_lon, max_lon), latitude=slice(max_lat, min_lat))
-        temperature_time_slice = temperature_time.sel(longitude=slice(min_lon, max_lon), latitude=slice(max_lat, min_lat))
-        temp_advection_time_slice = temp_advection_time.sel(longitude=slice(min_lon, max_lon), latitude=slice(max_lat, min_lat))
-
-        # Append to the lists
-        u_slices_system.append(u_time_slice)
-        v_slices_system.append(v_time_slice)
-        hgt_slices_system.append(hgt_time_slice)
-        temperature_slices_system.append(temperature_time_slice)
-        temperature_adv_slices_system.append(temp_advection_time_slice)
-    
-    # Calculate the composites for this system
-    u_mean = np.mean(u_slices_system, axis=0)
-    v_mean = np.mean(v_slices_system, axis=0)
-    hgt_mean = np.mean(hgt_slices_system, axis=0)
-    temperature_mean = np.mean(temperature_slices_system, axis=0)
-    temperature_adv_mean = np.mean(temperature_adv_slices_system, axis=0)
+    # Slice for track limits
+    u_time_slice = u_time.sel(longitude=slice(min_lon, max_lon), latitude=slice(max_lat, min_lat))
+    v_time_slice = v_time.sel(longitude=slice(min_lon, max_lon), latitude=slice(max_lat, min_lat))
+    hgt_time_slice = hgt_time.sel(longitude=slice(min_lon, max_lon), latitude=slice(max_lat, min_lat))
+    temperature_time_slice = temperature_time.sel(longitude=slice(min_lon, max_lon), latitude=slice(max_lat, min_lat))
+    temp_advection_time_slice = temp_advection_time.sel(longitude=slice(min_lon, max_lon), latitude=slice(max_lat, min_lat))
 
     # Create a DataArray using an extra dimension
-    x_size, y_size = u_mean.shape[2], u_mean.shape[1]
-    x = np.linspace(- x_size / 2, (x_size / 2) - 1 , x_size)
+    x_size, y_size = u_time_slice.shape[2], u_time_slice.shape[1]
+    x = np.linspace(- x_size / 2, (x_size / 2) - 1, x_size)
     y = np.linspace(- y_size / 2, (y_size / 2) - 1, y_size)
     level = u.level
     track_id = int(infile.split('.')[0].split('-')[0])
 
     # Create DataArrays
     da_u = xr.DataArray(
-        u_mean,
+        u_time_slice,
         dims=['level', 'y', 'x'],
         coords={'level': level, 'y': y, 'x': x},
         name='u',
@@ -218,7 +175,7 @@ def create_bae_composite(infile, track):
     )
 
     da_v = xr.DataArray(
-        v_mean,
+        v_time_slice,
         dims=['level', 'y', 'x'],
         coords={'level': level, 'y': y, 'x': x},
         name='v',
@@ -226,7 +183,7 @@ def create_bae_composite(infile, track):
     )
 
     da_hgt = xr.DataArray(
-        hgt_mean,
+        hgt_time_slice,
         dims=['level', 'y', 'x'],
         coords={'level': level, 'y': y, 'x': x},
         name='hgt',
@@ -234,7 +191,7 @@ def create_bae_composite(infile, track):
     )
 
     da_temperature = xr.DataArray(
-        temperature_mean,
+        temperature_time_slice,
         dims=['level', 'y', 'x'],
         coords={'level': level, 'y': y, 'x': x},
         name='temperature',
@@ -242,7 +199,7 @@ def create_bae_composite(infile, track):
     )
 
     da_temperature_adv = xr.DataArray(
-        temperature_adv_mean,
+        temp_advection_time_slice,
         dims=['level', 'y', 'x'],
         coords={'level': level, 'y': y, 'x': x},
         name='temp_advection',
@@ -259,9 +216,20 @@ def create_bae_composite(infile, track):
     })
 
     # Assigning track_id as a coordinate
-    ds_composite = ds_composite.assign_coords(track_id=track_id)  # Assigning track_id as a coordinate
+    ds_composite = ds_composite.assign_coords(track_id=track_id)
+
+    # Save latitudes and longitudes to a JSON file
+    lats_lons = {
+        'latitude': latitude.values.tolist(),
+        'longitude': longitude.values.tolist()
+    }
+    json_filename = os.path.join(output_dir, f'{track_id}_latlon_{phase}.json')
+    with open(json_filename, 'w') as json_file:
+        json.dump(lats_lons, json_file)
+    logging.info(f"Saved latitude and longitude for {track_id} ({phase} phase) to {json_filename}")
 
     return ds_composite
+
 
 def save_composite(composites, output_dir, total_systems_count, phase):
     os.makedirs(output_dir, exist_ok=True)
@@ -330,16 +298,10 @@ def process_system(system_dir, phase):
     infile_bae = get_cdsapi_era5_data(f'{system_id}-bae-{phase}', track, pressure_levels, variables) 
 
     # Make composite
-    ds_composite = create_bae_composite(infile_bae, track) 
+    ds_composite = create_bae_composite(infile_bae, track, OUTPUT_DIR, phase) 
     logging.info(f"Processing completed for {system_dir} ({phase} phase)")
 
-    # # Delete infile
-    # if os.path.exists(infile_bae):
-    #     os.remove(infile_bae)
-
     return ds_composite 
-
-CDSAPIRC_SUFFIXES = get_cdsapi_keys()
 
 def main():
     # Get all directories in the LEC_RESULTS_DIR
@@ -361,9 +323,7 @@ def main():
         max_cores = os.cpu_count()
         num_workers = max(1, max_cores - 4) if max_cores else 1
         logging.info(f"Using {num_workers} CPU cores")
-    
-    if DEBUG_CDSAPI == True:
-        num_workers = 1
+
 
     if DEBUG_CODE == True:
         logging.info(f"Debug mode!")
