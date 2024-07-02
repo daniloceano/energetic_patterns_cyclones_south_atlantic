@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/24 14:42:50 by daniloceano       #+#    #+#              #
-#    Updated: 2024/07/02 18:48:12 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/07/02 20:47:49 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -42,7 +42,7 @@ LEC_RESULTS_DIR = os.path.abspath('../../LEC_Results_energetic-patterns')  # Get
 CDSAPIRC_PATH = os.path.expanduser('~/.cdsapirc')
 OUTPUT_DIR = '../results_nc_files/composites_bae/'
 
-DEBUG_CODE = False
+DEBUG_CODE = True
 
 def copy_cdsapirc(suffix):
     """
@@ -122,7 +122,7 @@ def get_cdsapi_era5_data(filename: str, track: pd.DataFrame, pressure_levels: li
         logging.info("CDS API file already exists.")
         return infile
 
-def create_bae_composite(infile, track, output_dir, phase):
+def process_data_phase(infile, track, output_dir, phase):
     # Load the dataset
     ds = xr.open_dataset(infile)
 
@@ -164,6 +164,7 @@ def create_bae_composite(infile, track, output_dir, phase):
     y = np.linspace(- y_size / 2, (y_size / 2) - 1, y_size)
     level = u.level
     track_id = int(infile.split('.')[0].split('-')[0])
+    time = middle_time
 
     # Create DataArrays
     da_u = xr.DataArray(
@@ -207,7 +208,7 @@ def create_bae_composite(infile, track, output_dir, phase):
     )
 
     # Combine into a Dataset and add track_id as a coordinate
-    ds_composite = xr.Dataset({
+    ds_track_phase = xr.Dataset({
         'u': da_u,
         'v': da_v,
         'hgt': da_hgt,
@@ -215,11 +216,13 @@ def create_bae_composite(infile, track, output_dir, phase):
         'temp_advection': da_temperature_adv
     })
 
-    # Assigning track_id as a coordinate
-    ds_composite = ds_composite.assign_coords(track_id=track_id)
+    # Assigning track_id and time as coordinates
+    ds_track_phase = ds_track_phase.assign_coords(track_id=track_id)
+    ds_track_phase = ds_track_phase.assign_coords(time=time)
 
     # Save latitudes and longitudes to a JSON file
     lats_lons = {
+        'time': time.values.tolist(),
         'latitude': latitude.values.tolist(),
         'longitude': longitude.values.tolist()
     }
@@ -228,18 +231,18 @@ def create_bae_composite(infile, track, output_dir, phase):
         json.dump(lats_lons, json_file)
     logging.info(f"Saved latitude and longitude for {track_id} ({phase} phase) to {json_filename}")
 
-    return ds_composite
+    return ds_track_phase
 
 
-def save_composite(composites, output_dir, total_systems_count, phase):
+def save_composite(data_tracks_phase, output_dir, total_systems_count, phase):
     os.makedirs(output_dir, exist_ok=True)
 
     # Create a composite across all systems
     logging.info(f"Finished processing all systems for {phase} phase. Creating composite...")
-    composites = [composite for composite in composites if composite is not None]
+    data_phase_list = [data_phase for data_phase in data_tracks_phase if data_phase is not None]
 
     # Concatenate the composites and calculate the mean
-    da_composite = xr.concat(composites, dim='track_id')
+    da_composite = xr.concat(data_phase_list, dim='track_id')
     ds_composite_mean = da_composite.mean(dim='track_id')
 
     # Save the composites
@@ -298,10 +301,10 @@ def process_system(system_dir, phase):
     infile_bae = get_cdsapi_era5_data(f'{system_id}-bae-{phase}', track, pressure_levels, variables) 
 
     # Make composite
-    ds_composite = create_bae_composite(infile_bae, track, OUTPUT_DIR, phase) 
+    ds_track_phase = process_data_phase(infile_bae, track, OUTPUT_DIR, phase) 
     logging.info(f"Processing completed for {system_dir} ({phase} phase)")
 
-    return ds_composite 
+    return ds_track_phase 
 
 def main():
     # Get all directories in the LEC_RESULTS_DIR
@@ -327,8 +330,8 @@ def main():
 
     if DEBUG_CODE == True:
         logging.info(f"Debug mode!")
-        composites = [process_system(results_directories[0], 'incipient')]
-        print(composites)
+        data_tracks_phase = [process_system(results_directories[0], 'incipient')]
+        print(data_tracks_phase)
         sys.exit(0)
 
     phases = ['incipient', 'mature']
@@ -342,19 +345,19 @@ def main():
 
         logging.info(f"Using {num_workers} CPU cores for processing {phase} phase")
 
-        composites = []
+        data_tracks_phase = []
 
         with ProcessPoolExecutor(max_workers=num_workers) as executor:
             futures = [executor.submit(process_system, dir_path, phase) for dir_path in filtered_directories]
             for future in as_completed(futures):
                 result = future.result()
                 if result is not None and np.any(result):
-                    composites.append(result)
+                    data_tracks_phase.append(result)
 
         # Assuming a function to aggregate and save the results
-        if composites:
-            logging.info(f"Aggregating and saving BAe composites for {phase} phase...")
-            save_composite(composites, OUTPUT_DIR, total_systems_count, phase)
+        if data_tracks_phase:
+            logging.info(f"Aggregating and saving BAe data for {phase} phase...")
+            save_composite(data_tracks_phase, OUTPUT_DIR, total_systems_count, phase)
 
 if __name__ == "__main__":
     main()
