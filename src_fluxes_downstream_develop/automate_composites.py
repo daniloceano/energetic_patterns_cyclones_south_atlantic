@@ -42,7 +42,7 @@ LEC_RESULTS_DIR = os.path.abspath('../../LEC_Results_energetic-patterns')  # Get
 CDSAPIRC_PATH = os.path.expanduser('~/.cdsapirc')
 OUTPUT_DIR = '../results_nc_files/composites_fluxes_downstream/'
 
-DEBUG_CODE = True
+DEBUG_CODE = False
 DEBUG_CDSAPI = False
 
 def get_cdsapi_keys():
