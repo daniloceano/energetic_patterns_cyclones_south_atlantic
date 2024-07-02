@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/23 19:56:13 by daniloceano       #+#    #+#              #
-#    Updated: 2024/07/02 16:22:21 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/07/02 19:46:06 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -27,7 +27,7 @@ TITLE_SIZE = 16
 LABEL_SIZE = 14
 TICK_LABEL_SIZE = 12
 GRID_LABEL_SIZE = 10
-FIGURES_DIR = '../figures_bae_fluxes'
+FIGURES_DIR = '../figures_bae_fluxes/composites'
 CRS = ccrs.PlateCarree()
 
 NC_PATH = '../results_nc_files/composites_bae/'

@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/23 19:56:13 by daniloceano       #+#    #+#              #
-#    Updated: 2024/07/02 17:17:14 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/07/02 19:33:04 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -30,7 +30,7 @@ GRID_LABEL_SIZE = 10
 FIGURES_DIR = '../figures_bae_fluxes/study_cases'
 CRS = ccrs.PlateCarree()
 
-filepath = '../results_nc_files/composites_bae/bae_composite_incipient_track_ids.nc'
+NC_PATH = '../results_nc_files/composites_bae/'
 
 def plot_map(ax, temp_advection, u, v, hgt, **kwargs):
     """Plot temperature advection with Geopotential height contours and wind vectors."""
@@ -113,13 +113,13 @@ def determine_norm_bounds(data, factor=1.0):
     max_abs_value = max(abs(data_min), abs(data_max)) * factor
     return -max_abs_value, max_abs_value
 
-def plot_variable(temp_advection, u, v, hgt, track_id, **map_attrs):
+def plot_variable(temp_advection, u, v, hgt, track_id, output_dir, **map_attrs):
     fig = plt.figure(figsize=(8, 8))
     ax = fig.add_subplot(111, projection=CRS)
     plot_map(ax, temp_advection, u, v, hgt, **map_attrs)
     plt.tight_layout()
     # Create subdirectory for each track_id
-    track_dir = os.path.join(FIGURES_DIR, str(track_id))
+    track_dir = os.path.join(output_dir, str(track_id))
     os.makedirs(track_dir, exist_ok=True)
     filename = map_attrs['filename']
     file_path = os.path.join(track_dir, filename)
@@ -127,15 +127,19 @@ def plot_variable(temp_advection, u, v, hgt, track_id, **map_attrs):
     plt.close(fig)  # Close the figure after saving to avoid memory issues
     print(f'Saved {filename} in {track_dir}')
 
-def main():
-    # create output directory if it doesn't exist
-    os.makedirs(FIGURES_DIR, exist_ok=True)
+def plot_study_cases(phase):
 
-    # Open variables
+    # Load data
+    filepath = os.path.join(NC_PATH, f'bae_composite_{phase}_track_ids.nc')
     ds = xr.open_dataset(filepath)
+
+    # Set up output directory
+    output_dir = os.path.join(FIGURES_DIR, phase)
+    os.makedirs(output_dir, exist_ok=True)
     
     for track_id in ds.track_id:
 
+        # Open variables
         id_data = ds.sel(track_id=track_id)
         temp_advection = id_data['temp_advection']
         temp_advection = (temp_advection * units('K/s')).metpy.convert_units('K/day')
@@ -183,7 +187,14 @@ def main():
                     'units': 'K/day',
                     'filename': f'composite_temp_advection_{level_str}hpa.png'
                 }
-            plot_variable(temp_advection_level, u_level, v_level, hgt_level, track_id, **map_attrs)
+            plot_variable(temp_advection_level, u_level, v_level, hgt_level, track_id, output_dir, **map_attrs)
+
+def main():
+    # create output directory if it doesn't exist
+    os.makedirs(FIGURES_DIR, exist_ok=True)
+
+    for phase in ['incipient', 'mature']:
+        plot_study_cases(phase)
 
 if __name__ == '__main__':
     main()
