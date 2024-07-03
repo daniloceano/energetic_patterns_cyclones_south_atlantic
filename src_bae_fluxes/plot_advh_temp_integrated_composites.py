@@ -1,17 +1,17 @@
 # **************************************************************************** #
 #                                                                              #
 #                                                         :::      ::::::::    #
-#    plot_composites.py                                 :+:      :+:    :+:    #
+#    plot_advh_temp_integrated_composites.py            :+:      :+:    :+:    #
 #                                                     +:+ +:+         +:+      #
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/23 19:56:13 by daniloceano       #+#    #+#              #
-#    Updated: 2024/07/03 13:19:58 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/07/03 13:28:41 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
 """
-This script will plot maps with the advection of temperature, Geopotential height contours, and wind vectors.
+This script will plot maps with the integrated advection of temperature, Geopotential height contours, and wind vectors.
 """
 
 import os
@@ -32,8 +32,8 @@ CRS = ccrs.PlateCarree()
 
 NC_PATH = '../results_nc_files/composites_bae/'
 
-def plot_map(ax, temp_advection, u, v, hgt, **kwargs):
-    """Plot temperature advection with Geopotential height contours and wind vectors."""
+def plot_map(ax, temp_advection_integrated,**kwargs):
+    """Plot integrated temperature advection with Geopotential height contours and wind vectors."""
     transform = ccrs.PlateCarree()
     cmap, levels, title, units = kwargs.get('cmap'), kwargs.get('levels'), kwargs.get('title'), kwargs.get('units')
 
@@ -43,7 +43,7 @@ def plot_map(ax, temp_advection, u, v, hgt, **kwargs):
         norm = colors.TwoSlopeNorm(vmin=np.min(levels), vcenter=0, vmax=np.max(levels))
     else:
         norm = colors.Normalize(vmin=np.min(levels), vmax=np.max(levels))
-    cf = ax.contourf(temp_advection.x, temp_advection.y, temp_advection, cmap=cmap, norm=norm, transform=transform, levels=levels, extend='both')
+    cf = ax.contourf(temp_advection_integrated.x, temp_advection_integrated.y, temp_advection_integrated, cmap=cmap, norm=norm, transform=transform, levels=levels, extend='both')
     
     try:
         colorbar = plt.colorbar(cf, ax=ax, pad=0.1, orientation='horizontal', shrink=0.5, label=units)
@@ -53,32 +53,8 @@ def plot_map(ax, temp_advection, u, v, hgt, **kwargs):
         formatter.set_powerlimits((-3, 3))  # Adjust these limits based on your specific needs
         colorbar.ax.xaxis.set_major_formatter(formatter)
 
-        # Calculate ticks: Skip every 2 ticks
-        current_ticks = colorbar.get_ticks()
-        new_ticks = current_ticks[::2]  # Take every second tick
-        colorbar.set_ticks(new_ticks)   # Set the modified ticks
-        colorbar.update_ticks()
-
     except ValueError:
         pass
-
-    # Add hgt as a contour
-    ax.contour(temp_advection.x, temp_advection.y, hgt, colors='k', linestyles='-', linewidths=2, transform=transform)
-
-    wsp = np.sqrt(u**2 + v**2)
-    wsp_mean, wsp_max = int(np.mean(wsp)), round(int(np.max(wsp)), -1)
-
-    # Plot wind vectors
-    skip_n = 8
-    scale_factor = wsp_mean * 60 if wsp_max <= 30 else wsp_mean * 30
-    label = wsp_max if wsp_max <= 30 else wsp_max + 10
-    width = 0.005
-    skip = (slice(None, None, skip_n), slice(None, None, skip_n))
-    qu = ax.quiver(temp_advection.x[skip[0]], temp_advection.y[skip[0]], u[skip], v[skip], transform=transform, zorder=1,
-              width=width, headwidth=2, headlength=2, headaxislength=2,  scale=scale_factor)
-    
-    # Quiver key
-    ax.quiverkey(qu, X=0.5, Y=-0.1, U=label, label=f'{label} m/s', labelpos='E', coordinates='axes')
 
     # Set up grid lines
     ax.grid(True, linestyle='--', alpha=0.5, linewidth=0.5, color='k')
@@ -113,10 +89,10 @@ def determine_norm_bounds(data, factor=1.0):
     max_abs_value = max(abs(data_min), abs(data_max)) * factor
     return -max_abs_value, max_abs_value
 
-def plot_variable(temp_advection, u, v, hgt, output_dir, **map_attrs):
+def plot_variable(temp_advection_integrated, output_dir, **map_attrs):
     fig = plt.figure(figsize=(8, 8))
     ax = fig.add_subplot(111, projection=CRS)
-    plot_map(ax, temp_advection, u, v, hgt, **map_attrs)
+    plot_map(ax, temp_advection_integrated, **map_attrs)
     plt.tight_layout()
     filename = map_attrs['filename']
     file_path = os.path.join(output_dir, filename)
@@ -133,39 +109,28 @@ def plot_composites(netcdf_dir, phase):
     output_dir = os.path.join(FIGURES_DIR, phase)
     os.makedirs(output_dir, exist_ok=True)
 
-    # Open variables
-    temp_advection = ds['temp_advection']
-    temp_advection = (temp_advection * units('K/s')).metpy.convert_units('K/day')
-    u = ds['u']
-    v = ds['v']
-    hgt = ds['hgt']
+    # Integrate temperature advection over all vertical levels
+    temp_advection = ds['temp_advection'] * units('K/s')
+    temp_advection_integrated = temp_advection.integrate('level')
+    temp_advection_integrated = temp_advection_integrated.metpy.convert_units('K/day')
     
-    for level in ds.level:
+    # Calculate the maximum absolute value for symmetric levels
+    min_val = temp_advection_integrated.min(skipna=True).metpy.dequantify().item()
+    max_val = temp_advection_integrated.max(skipna=True).metpy.dequantify().item()
+    abs_max = max(abs(min_val), abs(max_val))
 
-        temp_advection_level = temp_advection.sel(level=level)
-        u_level = u.sel(level=level)
-        v_level = v.sel(level=level)
-        hgt_level = hgt.sel(level=level)
+    # Create symmetric contour levels
+    contour_levels = np.linspace(-abs_max, abs_max, 12)
 
-        level_str = str(int(level))
-
-        # Calculate the maximum absolute value for symmetric levels
-        min_val = temp_advection_level.min(skipna=True).metpy.dequantify().item()
-        max_val = temp_advection_level.max(skipna=True).metpy.dequantify().item()
-        abs_max = max(abs(min_val), abs(max_val))
-
-        # Create symmetric contour levels
-        contour_levels = np.linspace(-abs_max, abs_max, 12)
-
-        # Plot Temperature Advection
-        map_attrs = {
-                'cmap': 'RdBu_r',
-                'title': r'Temperature Advection @ ' + f'{level_str} hPa',
-                'levels': contour_levels,
-                'units': 'K/day',
-                'filename': f'composite_temp_advection_{level_str}hpa.png'
-            }
-        plot_variable(temp_advection_level, u_level, v_level, hgt_level, output_dir, **map_attrs)
+    # Plot integrated Temperature Advection
+    map_attrs = {
+            'cmap': 'RdBu_r',
+            'title': f'Integrated Temperature Advection - {phase.capitalize()} Phase',
+            'levels': contour_levels,
+            'units': 'K/day',
+            'filename': 'integrated_temp_advection.png'
+        }
+    plot_variable(temp_advection_integrated, output_dir, **map_attrs)
     
 def main():
     # create output directory if it doesn't exist
