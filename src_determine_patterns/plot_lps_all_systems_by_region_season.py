@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/25 23:38:24 by daniloceano       #+#    #+#              #
-#    Updated: 2024/07/01 17:43:09 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/07/03 20:55:35 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -25,8 +25,11 @@ from plot_lps_aux import read_life_cycles, plot_system, determine_global_limits
 
 def plot_all_systems_by_region_season(systems_energetics, id_list_directory, season, region, lps_type, output_directory):
 
+    # Determine global limits
+    x_limits, y_limits, color_limits, marker_limits = determine_global_limits(systems_energetics, lps_type)
+
     # Initialize the Lorenz Phase Space plotter
-    lps = Visualizer(LPS_type=lps_type, zoom=False)
+    lps = Visualizer(LPS_type=lps_type, zoom=True, x_limits=x_limits, y_limits=y_limits, color_limits=color_limits, marker_limits=marker_limits)
 
     ids_file = glob(f"{id_list_directory}/*{region}*{season}.csv")
     print(f"IDs file: {ids_file}")
