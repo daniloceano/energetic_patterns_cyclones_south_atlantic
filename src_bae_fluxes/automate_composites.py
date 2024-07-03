@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/24 14:42:50 by daniloceano       #+#    #+#              #
-#    Updated: 2024/07/02 20:47:49 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/07/02 23:25:31 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -41,7 +41,7 @@ LEC_RESULTS_DIR = os.path.abspath('../../LEC_Results_energetic-patterns')  # Get
 CDSAPIRC_PATH = os.path.expanduser('~/.cdsapirc')
 OUTPUT_DIR = '../results_nc_files/composites_bae/'
 
-DEBUG_CODE = False
+DEBUG_CODE = True
 
 def copy_cdsapirc(suffix):
     """
@@ -72,27 +72,11 @@ def get_cdsapi_era5_data(filename: str, track: pd.DataFrame, pressure_levels: li
     area = f"{buffered_max_lat}/{buffered_min_lon}/{buffered_min_lat}/{buffered_max_lon}" # North, West, South, East. Nort/West/Sout/East
     
     # Convert track index to DatetimeIndex and find the last date & time
-    track_datetime_index = pd.DatetimeIndex(track.index)
-    last_track_timestamp = track_datetime_index.max()
-    
-    # Calculate if the additional day is needed by comparing last track timestamp with the last possible data timestamp for that day
-    last_possible_data_timestamp_for_day = pd.Timestamp(f"{last_track_timestamp.strftime('%Y-%m-%d')} 21:00:00")
-    need_additional_day = last_track_timestamp > last_possible_data_timestamp_for_day
-    
-    # Include additional day in dates if needed
-    dates = track_datetime_index.strftime('%Y%m%d').unique()
-    if need_additional_day:
-        additional_day = (last_track_timestamp + timedelta(days=1)).strftime('%Y%m%d')
-        dates = np.append(dates, additional_day)
+    date = track.name.strftime('%Y%m%d')
+    hour = track.name.strftime('%H:00')
 
     # Convert unique dates to string format for the request
-    time_range = f"{dates[0]}/{dates[-1]}"
-     
-    if len(track.index) > 1:
-        time_step = str(int((track.index[1] - track.index[0]).total_seconds() / 3600))
-        time_step = '3' if int(time_step) < 3 else time_step
-    else:
-        time_step = '3'  # Default value when only one time step
+    time_range = f"{date}/{date}"
 
     # Load ERA5 data
     infile = f"{filename}.nc"
@@ -108,7 +92,7 @@ def get_cdsapi_era5_data(filename: str, track: pd.DataFrame, pressure_levels: li
                 "pressure_level": pressure_levels,
                 "date": time_range,
                 "area": area,
-                'time': f'00/to/23/by/{time_step}',
+                "time": hour,
                 "variable": variables,
             }, infile # save file as passed in arguments
         )
@@ -136,19 +120,18 @@ def process_data_phase(infile, track, output_dir, phase):
     temp_advection = mpcalc.advection(ds['t'], ds['u'], ds['v'])
     temp_advection.name = 'temp_advection'
 
-    middle_idx = len(track.index) // 2
-    middle_time = track.index[middle_idx]
+    time = ds.time.values
 
     # Select the time step
-    u_time = u.sel(time=middle_time)
-    v_time = v.sel(time=middle_time)
-    hgt_time = hgt.sel(time=middle_time)
-    temperature_time = temperature.sel(time=middle_time)
-    temp_advection_time = temp_advection.sel(time=middle_time)
+    u_time = u.sel(time=time)
+    v_time = v.sel(time=time)
+    hgt_time = hgt.sel(time=time)
+    temperature_time = temperature.sel(time=time)
+    temp_advection_time = temp_advection.sel(time=time)
 
     # Select the track limits
-    min_lon, max_lon = track.loc[middle_time, 'min_lon'] - 5, track.loc[middle_time, 'max_lon'] + 5
-    min_lat, max_lat = track.loc[middle_time, 'min_lat'] - 5, track.loc[middle_time, 'max_lat'] + 5 
+    min_lon, max_lon = track.loc[time, 'min_lon'].values[0] - 5, track.loc[time, 'max_lon'].values[0] + 5
+    min_lat, max_lat = track.loc[time, 'min_lat'].values[0] - 5, track.loc[time, 'max_lat'].values[0] + 5 
 
     # Slice for track limits
     u_time_slice = u_time.sel(longitude=slice(min_lon, max_lon), latitude=slice(max_lat, min_lat))
@@ -158,16 +141,16 @@ def process_data_phase(infile, track, output_dir, phase):
     temp_advection_time_slice = temp_advection_time.sel(longitude=slice(min_lon, max_lon), latitude=slice(max_lat, min_lat))
 
     # Create a DataArray using an extra dimension
-    x_size, y_size = u_time_slice.shape[2], u_time_slice.shape[1]
+    data = u_time_slice.squeeze()
+    x_size, y_size = data.shape[2], data.shape[1]
     x = np.linspace(- x_size / 2, (x_size / 2) - 1, x_size)
     y = np.linspace(- y_size / 2, (y_size / 2) - 1, y_size)
     level = u.level
     track_id = int(infile.split('.')[0].split('-')[0])
-    time = middle_time
 
     # Create DataArrays
     da_u = xr.DataArray(
-        u_time_slice,
+        u_time_slice.squeeze(),
         dims=['level', 'y', 'x'],
         coords={'level': level, 'y': y, 'x': x},
         name='u',
@@ -175,7 +158,7 @@ def process_data_phase(infile, track, output_dir, phase):
     )
 
     da_v = xr.DataArray(
-        v_time_slice,
+        v_time_slice.squeeze(),
         dims=['level', 'y', 'x'],
         coords={'level': level, 'y': y, 'x': x},
         name='v',
@@ -183,7 +166,7 @@ def process_data_phase(infile, track, output_dir, phase):
     )
 
     da_hgt = xr.DataArray(
-        hgt_time_slice,
+        hgt_time_slice.squeeze(),
         dims=['level', 'y', 'x'],
         coords={'level': level, 'y': y, 'x': x},
         name='hgt',
@@ -191,7 +174,7 @@ def process_data_phase(infile, track, output_dir, phase):
     )
 
     da_temperature = xr.DataArray(
-        temperature_time_slice,
+        temperature_time_slice.squeeze(),
         dims=['level', 'y', 'x'],
         coords={'level': level, 'y': y, 'x': x},
         name='temperature',
@@ -199,7 +182,7 @@ def process_data_phase(infile, track, output_dir, phase):
     )
 
     da_temperature_adv = xr.DataArray(
-        temp_advection_time_slice,
+        temp_advection_time_slice.squeeze(),
         dims=['level', 'y', 'x'],
         coords={'level': level, 'y': y, 'x': x},
         name='temp_advection',
@@ -290,13 +273,19 @@ def process_system(system_dir, phase):
     if track.empty:
         logging.info(f"No {phase} phase data for {system_dir}")
         return None
+    
+    # Use only median phase time
+    middle_idx = len(track.index) // 2
+    middle_time = track.index[middle_idx]
+    track_middle = track.loc[middle_time]
 
+    # Get system ID
     system_id = os.path.basename(system_dir).split('_')[0] # Get system ID
 
     # Get ERA5 data for interest variables
     pressure_levels = ['250', '300', '350', '550', '500', '450', '700', '750', '800', '950', '975', '1000']
     variables = ["u_component_of_wind", "v_component_of_wind", "temperature", "geopotential"]
-    infile_bae = get_cdsapi_era5_data(f'{system_id}-bae-{phase}', track, pressure_levels, variables) 
+    infile_bae = get_cdsapi_era5_data(f'{system_id}-bae-{phase}', track_middle, pressure_levels, variables) 
 
     # Make composite
     ds_track_phase = process_data_phase(infile_bae, track, OUTPUT_DIR, phase) 
@@ -328,7 +317,8 @@ def main():
 
     if DEBUG_CODE == True:
         logging.info(f"Debug mode!")
-        data_tracks_phase = [process_system(results_directories[0], 'incipient')]
+        test_dir = glob(f'{LEC_RESULTS_DIR}/19790644_ERA5_track')[0]
+        data_tracks_phase = [process_system(test_dir, 'incipient')]
         print(data_tracks_phase)
         sys.exit(0)
 
