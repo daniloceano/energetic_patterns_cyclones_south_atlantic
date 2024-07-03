@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/24 14:42:50 by daniloceano       #+#    #+#              #
-#    Updated: 2024/07/02 23:27:03 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/07/03 00:33:33 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -142,7 +142,7 @@ def process_data_phase(infile, track, output_dir, phase):
 
     # Create a DataArray using an extra dimension
     data = u_time_slice.squeeze()
-    x_size, y_size = data.shape[2], data.shape[1]
+    x_size, y_size = len(data.longitude), len(data.latitude)
     x = np.linspace(- x_size / 2, (x_size / 2) - 1, x_size)
     y = np.linspace(- y_size / 2, (y_size / 2) - 1, y_size)
     level = u.level
@@ -204,8 +204,8 @@ def process_data_phase(infile, track, output_dir, phase):
 
     # Save latitudes and longitudes to a JSON file
     lats_lons = {
-        'latitude': latitude.values.tolist(),
-        'longitude': longitude.values.tolist()
+        'latitude': u_time_slice.latitude.values.tolist(),
+        'longitude': u_time_slice.longitude.values.tolist()
     }
     json_filename = os.path.join(output_dir, f'{track_id}_latlon_{phase}.json')
     with open(json_filename, 'w') as json_file:
