@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/23 19:56:13 by daniloceano       #+#    #+#              #
-#    Updated: 2024/07/03 00:49:48 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/07/03 10:21:06 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -24,6 +24,8 @@ import matplotlib.colors as colors
 import matplotlib.ticker as ticker
 from metpy.units import units
 import pandas as pd
+from datetime import datetime
+import cartopy.feature as cfeature
 
 # Configuration constants
 TITLE_SIZE = 16
@@ -35,14 +37,33 @@ CRS = ccrs.PlateCarree()
 NC_PATH = '../results_nc_files/composites_bae/'
 JSON_PATH = '../results_nc_files/composites_bae/'
 
-def read_latlon_data(cyclone_id, phase):
+def read_latlon_time_data(cyclone_id, phase):
     """
-    Read latitude and longitude data from a JSON file.
+    Read latitude, longitude, and date data from a JSON file.
     """
     json_file = os.path.join(JSON_PATH, f'{cyclone_id}_latlon_{phase}.json')
-    with open(json_file, 'r') as file:
-        data = json.load(file)
-    return data['latitude'], data['longitude']
+    try:
+        with open(json_file, 'r') as file:
+            data = json.load(file)
+    except FileNotFoundError:
+        raise FileNotFoundError(f"File {json_file} not found")
+    except json.JSONDecodeError:
+        raise ValueError(f"Error decoding JSON from file {json_file}")
+    
+    latitudes = data['latitude']
+    longitudes = data['longitude']
+    date_str = data['date']
+
+    # Process the date string to extract the date
+    date_str = date_str.strip("[]'\"")
+    # Remove the nanoseconds part
+    date_str = date_str.split('.')[0]
+    try:
+        date = datetime.fromisoformat(date_str)
+    except ValueError:
+        raise ValueError(f"Invalid date format in file {json_file}")
+
+    return latitudes, longitudes, date
 
 def plot_map(ax, temp_advection, u, v, hgt, **kwargs):
     """
@@ -64,10 +85,15 @@ def plot_map(ax, temp_advection, u, v, hgt, **kwargs):
         formatter.set_scientific(True)
         formatter.set_powerlimits((-3, 3))
         colorbar.ax.xaxis.set_major_formatter(formatter)
-        colorbar.set_ticks(colorbar.get_ticks()[::2])
+        # colorbar.set_ticks(colorbar.get_ticks()[::2])
         colorbar.update_ticks()
     except ValueError:
         pass
+
+    # Add coastlines, country borders, and state borders
+    ax.coastlines(linewidth=1, color='gray')
+    ax.add_feature(cfeature.BORDERS, linestyle='-', linewidth=1, edgecolor='gray')  # Change 'black' to your desired color
+    ax.add_feature(cfeature.STATES, linestyle='-', linewidth=1, edgecolor='gray')  # Change 'blue' to your desired color
 
     # Add Geopotential height contours
     ax.contour(longitudes, latitudes, hgt, colors='k', linestyles='-', linewidths=2, transform=transform)
@@ -92,7 +118,7 @@ def plot_map(ax, temp_advection, u, v, hgt, **kwargs):
     idx_lon_mean = int(len(longitudes) / 2)
     idx_lat_mean = int(len(latitudes) / 2)
     lon_center, lat_center = longitudes[idx_lon_mean], latitudes[idx_lat_mean]
-    square_half_size = 15 / 0.25
+    square_half_size = 7.5
     square_lon = [lon_center - square_half_size, lon_center + square_half_size, lon_center + square_half_size, lon_center - square_half_size, lon_center - square_half_size]
     square_lat = [lat_center - square_half_size, lat_center - square_half_size, lat_center + square_half_size, lat_center + square_half_size, lat_center - square_half_size]
     ax.plot(square_lon, square_lat, transform=transform, color='r', linewidth=2)
@@ -123,7 +149,8 @@ def plot_study_cases(phase):
         id_data = ds.sel(track_id=track_id)
 
         # Read latitude and longitude data
-        latitudes, longitudes = read_latlon_data(track_id.values, phase)
+        latitudes, longitudes, date = read_latlon_time_data(track_id.values, phase)
+        date = pd.to_datetime(date).strftime('%Y-%m-%d %HZ')
 
         # Replace the values of x and y with latitude and longitude
         id_data = id_data.assign_coords({'x': longitudes, 'y': latitudes}).rename({'x': 'longitude', 'y': 'latitude'})
@@ -132,17 +159,21 @@ def plot_study_cases(phase):
         temp_advection = id_data['temp_advection'] * units('K/s')
         temp_advection = temp_advection.metpy.convert_units('K/day')
         u, v, hgt = id_data['u'], id_data['v'], id_data['hgt']
-        itime = pd.to_datetime(id_data['time'].item()).strftime('%Y-%m-%d %HZ')
 
         # Plot temperature advection at each level
         for level in ds.level:
-            contour_levels = np.linspace(temp_advection.sel(level=level).min(skipna=True).metpy.dequantify().item(),
-                                         temp_advection.sel(level=level).max(skipna=True).metpy.dequantify().item(),
-                                         11)
+            # Calculate the maximum absolute value for symmetric levels
+            min_val = temp_advection.sel(level=level).min(skipna=True).metpy.dequantify().item()
+            max_val = temp_advection.sel(level=level).max(skipna=True).metpy.dequantify().item()
+            abs_max = max(abs(min_val), abs(max_val))
+
+            # Create symmetric contour levels
+            contour_levels = np.linspace(-abs_max, abs_max, 12)
+
             level_str = str(int(level))
             map_attrs = {
                 'cmap': 'RdBu_r',
-                'title': f'Temperature Advection @ {level_str} hPa - {itime}',
+                'title': f'Temperature Advection @ {level_str} hPa - {date}',
                 'levels': contour_levels,
                 'units': 'K/day',
                 'filename': f'composite_temp_advection_{level_str}hpa.png'
