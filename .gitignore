@@ -36,7 +36,7 @@ src_compute_energetics/log.select_tracks.txt
 src_barotropic_instability/*.nc
 src_test_fixed_x_mobile_domain/box_limits.csv
 src_test_fixed_x_mobile_domain/*.nc
-src_fluxes_downstream_develop/*.nc
+src_bae_fluxes/*.nc
 */log.automate_run_LEC.txt
 results_nc_files/composites_barotropic_baroclinic/pv_egr_composite_track_ids.nc
 results_nc_files/composites_test_fixed_x_mobile/*_results_study_case.nc

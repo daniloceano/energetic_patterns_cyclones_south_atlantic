@@ -37,12 +37,11 @@ import json
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s',
                     handlers=[logging.FileHandler('log.automate_run_LEC.txt', mode='w')])
 
-# REGION = sys.argv[1] # Region to process
 LEC_RESULTS_DIR = os.path.abspath('../../LEC_Results_energetic-patterns')  # Get absolute PATH
 CDSAPIRC_PATH = os.path.expanduser('~/.cdsapirc')
 OUTPUT_DIR = '../results_nc_files/composites_bae/'
 
-DEBUG_CODE = True
+DEBUG_CODE = False
 
 def copy_cdsapirc(suffix):
     """
@@ -222,7 +221,6 @@ def process_data_phase(infile, track, output_dir, phase):
 
     # Save latitudes and longitudes to a JSON file
     lats_lons = {
-        'time': time.values.tolist(),
         'latitude': latitude.values.tolist(),
         'longitude': longitude.values.tolist()
     }
