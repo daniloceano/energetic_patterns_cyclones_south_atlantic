@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/24 14:42:50 by daniloceano       #+#    #+#              #
-#    Updated: 2024/07/03 00:33:33 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/07/03 09:37:25 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -200,13 +200,14 @@ def process_data_phase(infile, track, output_dir, phase):
 
     # Assigning track_id and time as coordinates
     ds_track_phase = ds_track_phase.assign_coords(track_id=track_id)
-    ds_track_phase = ds_track_phase.assign_coords(time=time)
 
     # Save latitudes and longitudes to a JSON file
     lats_lons = {
         'latitude': u_time_slice.latitude.values.tolist(),
-        'longitude': u_time_slice.longitude.values.tolist()
-    }
+        'longitude': u_time_slice.longitude.values.tolist(),
+        'date': str(time)
+    }   
+
     json_filename = os.path.join(output_dir, f'{track_id}_latlon_{phase}.json')
     with open(json_filename, 'w') as json_file:
         json.dump(lats_lons, json_file)
