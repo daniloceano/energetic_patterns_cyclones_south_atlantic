@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/24 14:42:50 by daniloceano       #+#    #+#              #
-#    Updated: 2024/07/02 23:25:31 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/07/02 23:27:03 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -41,7 +41,7 @@ LEC_RESULTS_DIR = os.path.abspath('../../LEC_Results_energetic-patterns')  # Get
 CDSAPIRC_PATH = os.path.expanduser('~/.cdsapirc')
 OUTPUT_DIR = '../results_nc_files/composites_bae/'
 
-DEBUG_CODE = True
+DEBUG_CODE = False
 
 def copy_cdsapirc(suffix):
     """
