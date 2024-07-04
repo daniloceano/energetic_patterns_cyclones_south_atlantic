@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/27 10:57:02 by daniloceano       #+#    #+#              #
-#    Updated: 2024/07/01 18:17:16 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/07/03 23:02:51 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -44,7 +44,7 @@ def get_energetics_all_systems(path):
         Finally, the list of DataFrames is returned.
 
     Note:
-        The CSV files are expected to have the following columns: 'Ck', 'Ca', 'Ke', 'Ge'.
+        The CSV files are expected to have the following columns: 'Ck', 'Ca', 'Ke', 'Ge', 'BKe', 'BAe'.
 
     """
     all_files = []

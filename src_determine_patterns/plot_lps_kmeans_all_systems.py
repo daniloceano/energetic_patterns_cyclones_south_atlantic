@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/29 18:23:09 by daniloceano       #+#    #+#              #
-#    Updated: 2024/07/01 17:44:20 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/07/04 09:22:09 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -20,15 +20,12 @@ import numpy as np
 from glob import glob
 import matplotlib.pyplot as plt
 from lorenz_phase_space.phase_diagrams import Visualizer
-from plot_lps_aux import plot_system, determine_global_limits, read_patterns
+from plot_lps_aux import plot_system, determine_global_limits, read_patterns, get_cyclone_ids_by_cluster, read_life_cycles
 
 PHASES = ['incipient', 'intensification', 'mature', 'decay']
 TERMS = ['Ck', 'Ca', 'Ke', 'Ge', 'BAe', 'BKe']
 
-def plot_all_systems_all_clusters_one_figure(results_path, lps_type):
-    # Read the energetics data for patterns
-    patterns_energetics, clusters_center, results = read_patterns(results_path, PHASES, TERMS)
-
+def plot_all_systems_all_clusters_one_figure(results_path, lps_type, patterns_energetics):
     # Initialize the Lorenz Phase Space plotter
     lps = Visualizer(LPS_type=lps_type, zoom=False)
 
@@ -82,9 +79,7 @@ def plot_all_systems_all_clusters_one_figure(results_path, lps_type):
     plt.close()
     print(f"Final plot saved to {plot_path}")
 
-def plot_clusters_each_pattern(results_path, lps_type):
-    # Read the energetics data for patterns
-    patterns_energetics, clusters_center, results = read_patterns(results_path, PHASES, TERMS)
+def plot_clusters_each_pattern(results_path, lps_type, patterns_energetics, clusters_center, results):
 
     # Determine global limits
     x_limits, y_limits, color_limits, marker_limits = determine_global_limits(patterns_energetics, lps_type)
@@ -138,12 +133,53 @@ def plot_clusters_each_pattern(results_path, lps_type):
         plt.close()
         print(f"Final plot saved to {plot_path}")
 
+def plot_systems_for_each_cluster(results_path, lps_type, systems_energetics, clusters_center, results):
+    cluster_cyclones = get_cyclone_ids_by_cluster(results_path)
+
+    x_limits, y_limits, color_limits, marker_limits = determine_global_limits(systems_energetics, lps_type)
+
+    for cluster, cyclone_ids in cluster_cyclones.items():
+        cluster_number = cluster.split()[-1]
+        lps = Visualizer(
+            LPS_type=lps_type,
+            zoom=True,
+            x_limits=x_limits,
+            y_limits=y_limits,
+            color_limits=color_limits,
+            marker_limits=marker_limits
+        )
+        
+        for cyclone_id in cyclone_ids:
+            df = systems_energetics[str(cyclone_id)]
+            if not df.empty:
+                plot_system(lps, df, lps_type)
+
+        # Settings for the title
+        explained_variance = results.loc['Cluster Fraction'][cluster]
+        cluster_name = f"cl_{cluster_number}"
+        title = f"Cluster {cluster_number} - Explained Variance: {explained_variance:.2f}"
+        plt.title(title)
+
+        plot_filename = f'lps_{lps_type}_cluster_{cluster_number}_all_systems.png'
+        plot_path = os.path.join(results_path, plot_filename)
+        plt.savefig(plot_path)
+        plt.close()
+        print(f"Final plot saved to {plot_path}")
+
 def main():
     results_path = "../results_kmeans/all_systems"
+    base_path = '../csv_database_energy_by_periods'
+
+    # Read the energetics data for patterns
+    patterns_energetics, clusters_center, results = read_patterns(results_path, PHASES, TERMS)
+
+    # Read the energetics data for all systems
+    systems_energetics = read_life_cycles(base_path)
 
     for lps_type in ['mixed', 'imports']:
-        plot_all_systems_all_clusters_one_figure(results_path, lps_type)
-        plot_clusters_each_pattern(results_path, lps_type)
+        #plot_all_systems_all_clusters_one_figure(results_path, lps_type, patterns_energetics)
+        # plot_clusters_each_pattern(results_path, lps_type, patterns_energetics, clusters_center, results )
+        plot_systems_for_each_cluster(results_path, lps_type, systems_energetics, clusters_center, results)
 
 
 if __name__ == "__main__":

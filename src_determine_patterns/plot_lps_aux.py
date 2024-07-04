@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/02/27 17:45:49 by daniloceano       #+#    #+#              #
-#    Updated: 2024/07/01 18:13:06 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/07/04 08:58:07 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -16,6 +16,7 @@ import pandas as pd
 import numpy as np
 from glob import glob
 from tqdm import tqdm
+import json 
 
 """
 Auxiliary functions for plotting LPS.
@@ -136,3 +137,11 @@ def determine_global_limits(systems_energetics, lps_type):
             size_max = max(size_max, df['Ke'].max())
 
     return [x_min - 5, x_max + 5], [y_min - 5, y_max + 5], [color_min, color_max], [size_min, size_max]
+
+def get_cyclone_ids_by_cluster(results_path):
+    json_path = os.path.join(results_path, "kmeans_results.json")
+    with open(json_path, 'r') as file:
+        cluster_data = json.load(file)
+    
+    cluster_cyclones = {cluster: data['Cyclone IDs'] for cluster, data in cluster_data.items()}
+    return cluster_cyclones
