@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/23 19:56:13 by daniloceano       #+#    #+#              #
-#    Updated: 2024/07/03 13:19:58 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/07/04 11:53:08 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -32,28 +32,26 @@ CRS = ccrs.PlateCarree()
 
 NC_PATH = '../results_nc_files/composites_bae/'
 
-def plot_map(ax, temp_advection, u, v, hgt, **kwargs):
-    """Plot temperature advection with Geopotential height contours and wind vectors."""
+def plot_map(ax, data, u, v, hgt, **kwargs):
+    """Plot data with Geopotential height contours and wind vectors."""
     transform = ccrs.PlateCarree()
     cmap, levels, title, units = kwargs.get('cmap'), kwargs.get('levels'), kwargs.get('title'), kwargs.get('units')
 
-    # Create the contour plot for temperature advection
+    # Create the contour plot for the data
     levels_min, levels_max = np.min(levels), np.max(levels)
     if levels_min < 0 and levels_max > 0:
         norm = colors.TwoSlopeNorm(vmin=np.min(levels), vcenter=0, vmax=np.max(levels))
     else:
         norm = colors.Normalize(vmin=np.min(levels), vmax=np.max(levels))
-    cf = ax.contourf(temp_advection.x, temp_advection.y, temp_advection, cmap=cmap, norm=norm, transform=transform, levels=levels, extend='both')
+    cf = ax.contourf(data.x, data.y, data, cmap=cmap, norm=norm, transform=transform, levels=levels, extend='both')
     
     try:
         colorbar = plt.colorbar(cf, ax=ax, pad=0.1, orientation='horizontal', shrink=0.5, label=units)
-        # Setup the colorbar to use scientific notation conditionally
         formatter = ticker.ScalarFormatter(useMathText=True)
         formatter.set_scientific(True)
         formatter.set_powerlimits((-3, 3))  # Adjust these limits based on your specific needs
         colorbar.ax.xaxis.set_major_formatter(formatter)
 
-        # Calculate ticks: Skip every 2 ticks
         current_ticks = colorbar.get_ticks()
         new_ticks = current_ticks[::2]  # Take every second tick
         colorbar.set_ticks(new_ticks)   # Set the modified ticks
@@ -63,7 +61,7 @@ def plot_map(ax, temp_advection, u, v, hgt, **kwargs):
         pass
 
     # Add hgt as a contour
-    ax.contour(temp_advection.x, temp_advection.y, hgt, colors='k', linestyles='-', linewidths=2, transform=transform)
+    ax.contour(data.x, data.y, hgt, colors='k', linestyles='-', linewidths=2, transform=transform)
 
     wsp = np.sqrt(u**2 + v**2)
     wsp_mean, wsp_max = int(np.mean(wsp)), round(int(np.max(wsp)), -1)
@@ -74,7 +72,7 @@ def plot_map(ax, temp_advection, u, v, hgt, **kwargs):
     label = wsp_max if wsp_max <= 30 else wsp_max + 10
     width = 0.005
     skip = (slice(None, None, skip_n), slice(None, None, skip_n))
-    qu = ax.quiver(temp_advection.x[skip[0]], temp_advection.y[skip[0]], u[skip], v[skip], transform=transform, zorder=1,
+    qu = ax.quiver(data.x[skip[0]], data.y[skip[0]], u[skip], v[skip], transform=transform, zorder=1,
               width=width, headwidth=2, headlength=2, headaxislength=2,  scale=scale_factor)
     
     # Quiver key
@@ -94,29 +92,20 @@ def plot_map(ax, temp_advection, u, v, hgt, **kwargs):
     ax.xaxis.set_major_locator(ticker.AutoLocator())  # Automatically determine the location of ticks
     ax.yaxis.set_major_locator(ticker.AutoLocator())
 
-    # Label formatting to show just numbers
     ax.xaxis.set_major_formatter(ticker.ScalarFormatter(useOffset=False))
     ax.yaxis.set_major_formatter(ticker.ScalarFormatter(useOffset=False))
 
-    # Set specific tick values if needed
     ax.set_xticks(np.arange(-50, 50, 5))
     ax.set_yticks(np.arange(-50, 50, 5))
 
-    # Adjusting font size for axis tick labels
     ax.tick_params(axis='both', which='major', labelsize=GRID_LABEL_SIZE)
 
     ax.set_title(title, fontsize=TITLE_SIZE)  # You can adjust the fontsize as necessary
 
-def determine_norm_bounds(data, factor=1.0):
-    """Determines symmetric normalization bounds for plotting centered around zero."""
-    data_min, data_max = data.min().values, data.max().values
-    max_abs_value = max(abs(data_min), abs(data_max)) * factor
-    return -max_abs_value, max_abs_value
-
-def plot_variable(temp_advection, u, v, hgt, output_dir, **map_attrs):
+def plot_variable(data, u, v, hgt, output_dir, **map_attrs):
     fig = plt.figure(figsize=(8, 8))
     ax = fig.add_subplot(111, projection=CRS)
-    plot_map(ax, temp_advection, u, v, hgt, **map_attrs)
+    plot_map(ax, data, u, v, hgt, **map_attrs)
     plt.tight_layout()
     filename = map_attrs['filename']
     file_path = os.path.join(output_dir, filename)
@@ -139,13 +128,19 @@ def plot_composites(netcdf_dir, phase):
     u = ds['u']
     v = ds['v']
     hgt = ds['hgt']
-    
+    T = ds['t']
+
     for level in ds.level:
 
         temp_advection_level = temp_advection.sel(level=level)
         u_level = u.sel(level=level)
         v_level = v.sel(level=level)
         hgt_level = hgt.sel(level=level)
+        T_level = T.sel(level=level)
+
+        # Compute u * T^2 and v * T^2
+        u_T2 = u_level * (T_level ** 2)
+        v_T2 = v_level * (T_level ** 2)
 
         level_str = str(int(level))
 
@@ -154,19 +149,49 @@ def plot_composites(netcdf_dir, phase):
         max_val = temp_advection_level.max(skipna=True).metpy.dequantify().item()
         abs_max = max(abs(min_val), abs(max_val))
 
+        min_val_u_T2 = u_T2.min(skipna=True).metpy.dequantify().item()
+        max_val_u_T2 = u_T2.max(skipna=True).metpy.dequantify().item()
+        abs_max_u_T2 = max(abs(min_val_u_T2), abs(max_val_u_T2))
+
+        min_val_v_T2 = v_T2.min(skipna=True).metpy.dequantify().item()
+        max_val_v_T2 = v_T2.max(skipna=True).metpy.dequantify().item()
+        abs_max_v_T2 = max(abs(min_val_v_T2), abs(max_val_v_T2))
+
         # Create symmetric contour levels
         contour_levels = np.linspace(-abs_max, abs_max, 12)
+        contour_levels_u_T2 = np.linspace(-abs_max_u_T2, abs_max_u_T2, 12)
+        contour_levels_v_T2 = np.linspace(-abs_max_v_T2, abs_max_v_T2, 12)
 
         # Plot Temperature Advection
-        map_attrs = {
-                'cmap': 'RdBu_r',
-                'title': r'Temperature Advection @ ' + f'{level_str} hPa',
-                'levels': contour_levels,
-                'units': 'K/day',
-                'filename': f'composite_temp_advection_{level_str}hpa.png'
-            }
-        plot_variable(temp_advection_level, u_level, v_level, hgt_level, output_dir, **map_attrs)
-    
+        map_attrs_advection = {
+            'cmap': 'RdBu_r',
+            'title': r'Temperature Advection @ ' + f'{level_str} hPa',
+            'levels': contour_levels,
+            'units': 'K/day',
+            'filename': f'composite_temp_advection_{level_str}hpa.png'
+        }
+        plot_variable(temp_advection_level, u_level, v_level, hgt_level, output_dir, **map_attrs_advection)
+
+        # Plot u * T^2
+        map_attrs_u_T2 = {
+            'cmap': 'RdBu_r',
+            'title': f'$uT^2$ @ {level_str} hPa',
+            'levels': contour_levels_u_T2,
+            'units': 'm^2/s^2',
+            'filename': f'composite_u_T2_{level_str}hpa.png'
+        }
+        plot_variable(u_T2, u_level, v_level, hgt_level, output_dir, **map_attrs_u_T2)
+
+        # Plot v * T^2
+        map_attrs_v_T2 = {
+            'cmap': 'RdBu_r',
+            'title': f'$vT^2$ @ {level_str} hPa',
+            'levels': contour_levels_v_T2,
+            'units': 'm^2/s^2',
+            'filename': f'composite_v_T2_{level_str}hpa.png'
+        }
+        plot_variable(v_T2, u_level, v_level, hgt_level, output_dir, **map_attrs_v_T2)
+
 def main():
     # create output directory if it doesn't exist
     os.makedirs(FIGURES_DIR, exist_ok=True)

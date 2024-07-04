@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/23 19:56:13 by daniloceano       #+#    #+#              #
-#    Updated: 2024/07/03 10:21:06 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/07/04 11:37:14 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -65,18 +65,18 @@ def read_latlon_time_data(cyclone_id, phase):
 
     return latitudes, longitudes, date
 
-def plot_map(ax, temp_advection, u, v, hgt, **kwargs):
+def plot_map(ax, data, u, v, hgt, **kwargs):
     """
-    Plot temperature advection with Geopotential height contours and wind vectors.
+    Plot data with Geopotential height contours and wind vectors.
     """
     transform = ccrs.PlateCarree()
     cmap, levels, title, units = kwargs['cmap'], kwargs['levels'], kwargs['title'], kwargs['units']
-    latitudes, longitudes = temp_advection.latitude, temp_advection.longitude
+    latitudes, longitudes = data.latitude, data.longitude
 
-    # Create the contour plot for temperature advection
+    # Create the contour plot for the data
     levels_min, levels_max = np.min(levels), np.max(levels)
     norm = colors.TwoSlopeNorm(vmin=levels_min, vcenter=0, vmax=levels_max) if levels_min < 0 and levels_max > 0 else colors.Normalize(vmin=levels_min, vmax=levels_max)
-    cf = ax.contourf(longitudes, latitudes, temp_advection, cmap=cmap, norm=norm, levels=levels, transform=transform, extend='both')
+    cf = ax.contourf(longitudes, latitudes, data, cmap=cmap, norm=norm, levels=levels, transform=transform, extend='both')
 
     # Add colorbar
     try:
@@ -85,15 +85,14 @@ def plot_map(ax, temp_advection, u, v, hgt, **kwargs):
         formatter.set_scientific(True)
         formatter.set_powerlimits((-3, 3))
         colorbar.ax.xaxis.set_major_formatter(formatter)
-        # colorbar.set_ticks(colorbar.get_ticks()[::2])
         colorbar.update_ticks()
     except ValueError:
         pass
 
     # Add coastlines, country borders, and state borders
     ax.coastlines(linewidth=1, color='gray')
-    ax.add_feature(cfeature.BORDERS, linestyle='-', linewidth=1, edgecolor='gray')  # Change 'black' to your desired color
-    ax.add_feature(cfeature.STATES, linestyle='-', linewidth=1, edgecolor='gray')  # Change 'blue' to your desired color
+    ax.add_feature(cfeature.BORDERS, linestyle='-', linewidth=1, edgecolor='gray')
+    ax.add_feature(cfeature.STATES, linestyle='-', linewidth=1, edgecolor='gray')
 
     # Add Geopotential height contours
     ax.contour(longitudes, latitudes, hgt, colors='k', linestyles='-', linewidths=2, transform=transform)
@@ -123,12 +122,12 @@ def plot_map(ax, temp_advection, u, v, hgt, **kwargs):
     square_lat = [lat_center - square_half_size, lat_center - square_half_size, lat_center + square_half_size, lat_center + square_half_size, lat_center - square_half_size]
     ax.plot(square_lon, square_lat, transform=transform, color='r', linewidth=2)
 
-def plot_variable(temp_advection, u, v, hgt, track_id, output_dir, **map_attrs):
+def plot_variable(data, u, v, hgt, track_id, output_dir, **map_attrs):
     """
     Plot a single variable and save the figure.
     """
     fig, ax = plt.subplots(figsize=(8, 8), subplot_kw={'projection': CRS})
-    plot_map(ax, temp_advection, u, v, hgt, **map_attrs)
+    plot_map(ax, data, u, v, hgt, **map_attrs)
     plt.tight_layout()
     track_dir = os.path.join(output_dir, str(track_id))
     os.makedirs(track_dir, exist_ok=True)
@@ -156,29 +155,66 @@ def plot_study_cases(phase):
         id_data = id_data.assign_coords({'x': longitudes, 'y': latitudes}).rename({'x': 'longitude', 'y': 'latitude'})
 
         # Get variables
+        T = id_data['t']  # Assuming T (temperature) is a variable in the dataset
+        u, v, hgt = id_data['u'], id_data['v'], id_data['hgt']
         temp_advection = id_data['temp_advection'] * units('K/s')
         temp_advection = temp_advection.metpy.convert_units('K/day')
-        u, v, hgt = id_data['u'], id_data['v'], id_data['hgt']
 
-        # Plot temperature advection at each level
+        # Compute u * T^2 and v * T^2
+        u_T2 = u * (T ** 2)
+        v_T2 = v * (T ** 2)
+
+        # Plot temperature advection, u * T^2, and v * T^2 at each level
         for level in ds.level:
             # Calculate the maximum absolute value for symmetric levels
             min_val = temp_advection.sel(level=level).min(skipna=True).metpy.dequantify().item()
             max_val = temp_advection.sel(level=level).max(skipna=True).metpy.dequantify().item()
             abs_max = max(abs(min_val), abs(max_val))
 
+            min_val_u_T2 = u_T2.sel(level=level).min(skipna=True).metpy.dequantify().item()
+            max_val_u_T2 = u_T2.sel(level=level).max(skipna=True).metpy.dequantify().item()
+            abs_max_u_T2 = max(abs(min_val_u_T2), abs(max_val_u_T2))
+
+            min_val_v_T2 = v_T2.sel(level=level).min(skipna=True).metpy.dequantify().item()
+            max_val_v_T2 = v_T2.sel(level=level).max(skipna=True).metpy.dequantify().item()
+            abs_max_v_T2 = max(abs(min_val_v_T2), abs(max_val_v_T2))
+
             # Create symmetric contour levels
             contour_levels = np.linspace(-abs_max, abs_max, 12)
+            contour_levels_u_T2 = np.linspace(-abs_max_u_T2, abs_max_u_T2, 12)
+            contour_levels_v_T2 = np.linspace(-abs_max_v_T2, abs_max_v_T2, 12)
 
             level_str = str(int(level))
-            map_attrs = {
+
+            # Plot temperature advection
+            map_attrs_advection = {
                 'cmap': 'RdBu_r',
                 'title': f'Temperature Advection @ {level_str} hPa - {date}',
                 'levels': contour_levels,
                 'units': 'K/day',
                 'filename': f'composite_temp_advection_{level_str}hpa.png'
             }
-            plot_variable(temp_advection.sel(level=level), u.sel(level=level), v.sel(level=level), hgt.sel(level=level), track_id.values, output_dir, **map_attrs)
+            plot_variable(temp_advection.sel(level=level), u.sel(level=level), v.sel(level=level), hgt.sel(level=level), track_id.values, output_dir, **map_attrs_advection)
+
+            # Plot u * T^2
+            map_attrs_u_T2 = {
+                'cmap': 'RdBu_r',
+                'title': f'u * T^2 @ {level_str} hPa - {date}',
+                'levels': contour_levels_u_T2,
+                'units': 'm^2/s^2',
+                'filename': f'composite_u_T2_{level_str}hpa.png'
+            }
+            plot_variable(u_T2.sel(level=level), u.sel(level=level), v.sel(level=level), hgt.sel(level=level), track_id.values, output_dir, **map_attrs_u_T2)
+
+            # Plot v * T^2
+            map_attrs_v_T2 = {
+                'cmap': 'RdBu_r',
+                'title': f'v * T^2 @ {level_str} hPa - {date}',
+                'levels': contour_levels_v_T2,
+                'units': 'm^2/s^2',
+                'filename': f'composite_v_T2_{level_str}hpa.png'
+            }
+            plot_variable(v_T2.sel(level=level), u.sel(level=level), v.sel(level=level), hgt.sel(level=level), track_id.values, output_dir, **map_attrs_v_T2)
 
 def main():
     """

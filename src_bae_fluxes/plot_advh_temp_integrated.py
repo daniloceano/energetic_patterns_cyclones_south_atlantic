@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/07/03 13:09:28 by daniloceano       #+#    #+#              #
-#    Updated: 2024/07/03 13:14:47 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/07/04 11:49:25 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -61,18 +61,18 @@ def read_latlon_time_data(cyclone_id, phase):
 
     return latitudes, longitudes, date
 
-def plot_map(ax, temp_advection_integrated, **kwargs):
+def plot_map(ax, data, **kwargs):
     """
-    Plot integrated temperature advection with Geopotential height contours and wind vectors.
+    Plot data with Geopotential height contours and wind vectors.
     """
     transform = ccrs.PlateCarree()
     cmap, levels, title, units = kwargs['cmap'], kwargs['levels'], kwargs['title'], kwargs['units']
-    latitudes, longitudes = temp_advection_integrated.latitude, temp_advection_integrated.longitude
+    latitudes, longitudes = data.latitude, data.longitude
 
-    # Create the contour plot for temperature advection
+    # Create the contour plot for the data
     levels_min, levels_max = np.min(levels), np.max(levels)
     norm = colors.TwoSlopeNorm(vmin=levels_min, vcenter=0, vmax=levels_max) if levels_min < 0 and levels_max > 0 else colors.Normalize(vmin=levels_min, vmax=levels_max)
-    cf = ax.contourf(longitudes, latitudes, temp_advection_integrated, cmap=cmap, norm=norm, levels=levels, transform=transform, extend='both')
+    cf = ax.contourf(longitudes, latitudes, data, cmap=cmap, norm=norm, levels=levels, transform=transform, extend='both')
 
     # Add colorbar
     try:
@@ -81,15 +81,14 @@ def plot_map(ax, temp_advection_integrated, **kwargs):
         formatter.set_scientific(True)
         formatter.set_powerlimits((-3, 3))
         colorbar.ax.xaxis.set_major_formatter(formatter)
-        # colorbar.set_ticks(colorbar.get_ticks()[::2])
         colorbar.update_ticks()
     except ValueError:
         pass
 
     # Add coastlines, country borders, and state borders
     ax.coastlines(linewidth=1, color='gray')
-    ax.add_feature(cfeature.BORDERS, linestyle='-', linewidth=1, edgecolor='gray')  # Change 'black' to your desired color
-    ax.add_feature(cfeature.STATES, linestyle='-', linewidth=1, edgecolor='gray')  # Change 'blue' to your desired color
+    ax.add_feature(cfeature.BORDERS, linestyle='-', linewidth=1, edgecolor='gray')
+    ax.add_feature(cfeature.STATES, linestyle='-', linewidth=1, edgecolor='gray')
 
     # Customize grid and ticks
     ax.grid(True, linestyle='--', alpha=0.5, linewidth=0.5, color='k')
@@ -107,12 +106,12 @@ def plot_map(ax, temp_advection_integrated, **kwargs):
     square_lat = [lat_center - square_half_size, lat_center - square_half_size, lat_center + square_half_size, lat_center + square_half_size, lat_center - square_half_size]
     ax.plot(square_lon, square_lat, transform=transform, color='r', linewidth=2)
 
-def plot_variable(temp_advection_integrated, track_id, output_dir, **map_attrs):
+def plot_variable(data, track_id, output_dir, **map_attrs):
     """
     Plot a single variable and save the figure.
     """
     fig, ax = plt.subplots(figsize=(8, 8), subplot_kw={'projection': CRS})
-    plot_map(ax, temp_advection_integrated, **map_attrs)
+    plot_map(ax, data, **map_attrs)
     plt.tight_layout()
     track_dir = os.path.join(output_dir, str(track_id))
     os.makedirs(track_dir, exist_ok=True)
@@ -144,22 +143,60 @@ def plot_study_cases(phase):
         temp_advection_integrated = temp_advection.integrate('level')
         temp_advection_integrated = temp_advection_integrated.metpy.convert_units('K/day')
 
-        # Calculate the maximum absolute value for symmetric levels
+        # Compute u * T^2 and v * T^2
+        T = id_data['t']  # Assuming T (temperature) is a variable in the dataset
+        u, v = id_data['u'], id_data['v']
+        u_T2 = u * (T ** 2)
+        v_T2 = v * (T ** 2)
+
+        # Integrate u * T^2 and v * T^2 over all vertical levels
+        u_T2_integrated = u_T2.integrate('level')
+        v_T2_integrated = v_T2.integrate('level')
+
+        # Plot integrated temperature advection
         min_val = temp_advection_integrated.min(skipna=True).metpy.dequantify().item()
         max_val = temp_advection_integrated.max(skipna=True).metpy.dequantify().item()
         abs_max = max(abs(min_val), abs(max_val))
-
-        # Create symmetric contour levels
         contour_levels = np.linspace(-abs_max, abs_max, 12)
 
-        map_attrs = {
+        map_attrs_advection = {
             'cmap': 'RdBu_r',
             'title': f'Integrated Temperature Advection - {date}',
             'levels': contour_levels,
             'units': 'K/day',
             'filename': f'integrated_temp_advection.png'
         }
-        plot_variable(temp_advection_integrated, track_id.values, output_dir, **map_attrs)
+        plot_variable(temp_advection_integrated, track_id.values, output_dir, **map_attrs_advection)
+
+        # Plot integrated u * T^2
+        min_val_u_T2 = u_T2_integrated.min(skipna=True).metpy.dequantify().item()
+        max_val_u_T2 = u_T2_integrated.max(skipna=True).metpy.dequantify().item()
+        abs_max_u_T2 = max(abs(min_val_u_T2), abs(max_val_u_T2))
+        contour_levels_u_T2 = np.linspace(-abs_max_u_T2, abs_max_u_T2, 12)
+
+        map_attrs_u_T2 = {
+            'cmap': 'RdBu_r',
+            'title': f'Integrated $uT^2$ - {date}',
+            'levels': contour_levels_u_T2,
+            'units': 'm^2/s^2',
+            'filename': f'integrated_u_T2.png'
+        }
+        plot_variable(u_T2_integrated, track_id.values, output_dir, **map_attrs_u_T2)
+
+        # Plot integrated v * T^2
+        min_val_v_T2 = v_T2_integrated.min(skipna=True).metpy.dequantify().item()
+        max_val_v_T2 = v_T2_integrated.max(skipna=True).metpy.dequantify().item()
+        abs_max_v_T2 = max(abs(min_val_v_T2), abs(max_val_v_T2))
+        contour_levels_v_T2 = np.linspace(-abs_max_v_T2, abs_max_v_T2, 12)
+
+        map_attrs_v_T2 = {
+            'cmap': 'RdBu_r',
+            'title': f'Integrated $vT^2$ - {date}',
+            'levels': contour_levels_v_T2,
+            'units': 'm^2/s^2',
+            'filename': f'integrated_v_T2.png'
+        }
+        plot_variable(v_T2_integrated, track_id.values, output_dir, **map_attrs_v_T2)
 
 def main():
     """
