@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/02/27 17:45:49 by daniloceano       #+#    #+#              #
-#    Updated: 2024/07/04 08:58:07 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/07/04 14:36:53 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -17,6 +17,7 @@ import numpy as np
 from glob import glob
 from tqdm import tqdm
 import json 
+import re
 
 """
 Auxiliary functions for plotting LPS.
@@ -67,7 +68,7 @@ def read_patterns(results_path, PHASES, TERMS):
         list: A list of pandas DataFrames, each representing the energetics data for a pattern.
     """
      # Read the energetics data for patterns
-    patterns_json = glob(f'{results_path}/kmeans_results.json')
+    patterns_json = glob(f'{results_path}/kmeans_results*.json')
     results = pd.read_json(patterns_json[0])
 
     clusters_center = results.loc['Cluster Center']
@@ -76,6 +77,7 @@ def read_patterns(results_path, PHASES, TERMS):
     for i in range(len(clusters_center)):
         cluster_center = np.array(clusters_center.iloc[i])
         cluster_array = np.array(cluster_center).reshape(len(TERMS), len(PHASES))
+
 
         df = pd.DataFrame(cluster_array, columns=PHASES, index=TERMS).T
         patterns_energetics.append(df)
@@ -139,9 +141,43 @@ def determine_global_limits(systems_energetics, lps_type):
     return [x_min - 5, x_max + 5], [y_min - 5, y_max + 5], [color_min, color_max], [size_min, size_max]
 
 def get_cyclone_ids_by_cluster(results_path):
-    json_path = os.path.join(results_path, "kmeans_results.json")
+    json_path = glob(f'{results_path}/kmeans_results*.json')[0]
     with open(json_path, 'r') as file:
         cluster_data = json.load(file)
     
     cluster_cyclones = {cluster: data['Cyclone IDs'] for cluster, data in cluster_data.items()}
     return cluster_cyclones
+
+def reconstruct_phases_from_path(results_path_life_cycle):
+    """
+    Reconstructs the list of phases from the results path using the reverse label mapping.
+
+    Args:
+        results_path_life_cycle (str): The path to the results directory for a specific life cycle.
+
+    Returns:
+        list: A list of phase names reconstructed from the path.
+    """
+    label_mapping = {
+        'incipient': 'Ic',
+        'incipient 2': 'Ic2',
+        'intensification': 'It',
+        'intensification 2': 'It2',
+        'mature': 'M',
+        'mature 2': 'M2',
+        'decay': 'D',
+        'decay 2': 'D2',
+    }
+    
+    reverse_label_mapping = {v: k for k, v in label_mapping.items()}
+
+    # Extract the last part of the path which contains the phase abbreviations
+    phase_abbr_str = os.path.basename(results_path_life_cycle)
+
+    # Split the string by capital letters followed by lowercase letters or numbers (handles 'Ic2', 'It2', etc.)
+    phase_abbr_list = re.findall(r'[A-Z][a-z0-9]*', phase_abbr_str)
+
+    # Convert the abbreviations back to phase names
+    phases = [reverse_label_mapping[abbr] for abbr in phase_abbr_list]
+
+    return phases

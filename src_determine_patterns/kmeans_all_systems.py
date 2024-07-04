@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/27 10:57:02 by daniloceano       #+#    #+#              #
-#    Updated: 2024/07/03 23:02:51 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/07/04 13:50:29 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -19,13 +19,31 @@ from kmeans_aux import preprocess_energy_data, calculate_sse_for_clusters, plot_
 
 """
 This script is used to perform K-means clustering on all systems in the database that have
-the lifecycle of 'incipient', 'intensification', 'mature', 'decay', as it is the most common
-in the database.
+the specified lifecycle configurations.
 """
 
 ENERGETICSPATH = '../csv_database_energy_by_periods/'
 RESULTSPATH = '../results_kmeans/'
-LIFECYCLE = {'incipient', 'intensification', 'mature', 'decay'}
+
+LIFECYCLE_CONFIGS = {
+    'IcItMD': {'incipient', 'intensification', 'mature', 'decay'},
+    'ItMD': {'intensification', 'mature', 'decay'},
+    'IcItMDIt2M2D2': {'incipient', 'intensification', 'mature', 'decay', 'intensification 2', 'mature 2', 'decay 2'},
+    'ItMDIt2M2D2': {'intensification', 'mature', 'decay', 'intensification 2', 'mature 2', 'decay 2'},
+    'IcDItMD2': {'incipient', 'decay', 'intensification', 'mature', 'decay 2'},
+    'DItMD2': {'decay', 'intensification', 'mature', 'decay 2'}
+}
+
+label_mapping = {
+    'incipient': 'Ic',
+    'incipient 2': 'Ic2',
+    'intensification': 'It',
+    'intensification 2': 'It2',
+    'mature': 'M',
+    'mature 2': 'M2',
+    'decay': 'D',
+    'decay 2': 'D2',
+}
 
 def get_energetics_all_systems(path):
     """
@@ -64,81 +82,111 @@ def get_energetics_all_systems(path):
     
     return results_energetics_all_systems
 
-def filter_lifecycle(results_energetics_all_systems):
+def filter_lifecycle(results_energetics_all_systems, lifecycle_set):
     """
     Filters the given list of pandas DataFrames based on the lifecycle of the data.
 
     Parameters:
         results_energetics_all_systems (list): A list of pandas DataFrames, each containing energetic data for a specific system.
+        lifecycle_set (set): A set of lifecycle phases to filter by.
 
     Returns:
-        list: A filtered list of pandas DataFrames, each containing energetic data for a system with the lifecycle of 'incipient', 'intensification', 'mature', 'decay'.
+        list: A filtered list of pandas DataFrames, each containing energetic data for a system with the specified lifecycle phases.
 
     Description:
         This function iterates over the given list of pandas DataFrames and filters them based on the lifecycle of the data. 
-        It checks if the set of phases in each DataFrame's index (excluding NaN values) is equal to the LIFECYCLE set defined in the code.
-        If a DataFrame's lifecycle matches the LIFECYCLE set, it is appended to the results_energetics_lifecycle list. The filtered list of DataFrames is then returned.
+        It checks if the set of phases in each DataFrame's index (excluding NaN values) is equal to the lifecycle set specified.
+        If a DataFrame's lifecycle matches the lifecycle set, it is appended to the results_energetics_lifecycle list. The filtered list of DataFrames is then returned.
 
     """
     results_energetics_lifecycle = []
     for df in tqdm(results_energetics_all_systems, desc="Filtering lifecycles"):
         phases = set(df.index.dropna())
-        if phases == LIFECYCLE:
+        if phases == lifecycle_set:
             results_energetics_lifecycle.append(df)
     return results_energetics_lifecycle
 
+def create_label(lifecycle_set, label_mapping):
+    """
+    Creates a label for the lifecycle configuration based on the given label mapping.
+
+    Parameters:
+        lifecycle_set (set): A set of lifecycle phases.
+        label_mapping (dict): A dictionary mapping lifecycle phases to their labels.
+
+    Returns:
+        str: A string representing the label for the lifecycle configuration.
+
+    Description:
+        This function creates a label for the lifecycle configuration by mapping each phase in the lifecycle set
+        to its corresponding label in the label mapping. The labels are concatenated in the order specified by the lifecycle set.
+
+    """
+    return ''.join([label_mapping[phase] for phase in lifecycle_set])
 
 def main():
     # Setting up directories
-    pattern_folder = os.path.join(RESULTSPATH, "all_systems")
+    results_path = os.path.join(RESULTSPATH, "all_systems")
     os.makedirs(RESULTSPATH, exist_ok=True)
-    os.makedirs(pattern_folder, exist_ok=True)
+    os.makedirs(results_path, exist_ok=True)
 
     # Loading data
     results_energetics_all_systems = get_energetics_all_systems(ENERGETICSPATH)
-    results_energetics_lifecycle = filter_lifecycle(results_energetics_all_systems)
 
-    # Determining the number of clusters
-    clmax = 10  # max number of clusters to test
-    features = preprocess_energy_data(results_energetics_lifecycle)
-    sseclusters = calculate_sse_for_clusters(clmax, features)
-    ncenters = plot_elbow_method(clmax, sseclusters, pattern_folder)
+    # Iterate through each lifecycle configuration
+    for config_label, lifecycle_set in LIFECYCLE_CONFIGS.items():
+        results_energetics_lifecycle = filter_lifecycle(results_energetics_all_systems, lifecycle_set)
 
-    # Performing clustering
-    centers, cluster_fractions, kmeans_model = kmeans_energy_data(ncenters, 'auto', 300, results_energetics_lifecycle, 'lloyd', scaler_type='none', joint_scaling=True)
+        if not results_energetics_lifecycle:
+            print(f"No data for lifecycle configuration {config_label}")
+            continue
 
-    # Retrieve track IDs corresponding to each cluster
-    cyclone_ids = [df.index.name for df in results_energetics_lifecycle]
-    cluster_ids = assign_cyclones_to_clusters(kmeans_model, cyclone_ids, ncenters)
+        # Create directory for results for this lifecycle configuration
+        pattern_folder = os.path.join(results_path, config_label)
+        os.makedirs(pattern_folder, exist_ok=True)
 
-    # Prepare data to save as JSON, organizing by cluster
-    results_json = {}
-    for i in range(ncenters):
-        cluster_label = f"Cluster {i + 1}"
-        results_json[cluster_label] = {
-            "Cluster Center": centers[i].tolist(),  # Convert numpy array to list for JSON serialization
-            "Cluster Fraction": float(cluster_fractions[i] * 100),
-            "Cyclone IDs": cluster_ids[cluster_label]
-        }
+        # Determine the number of clusters
+        clmax = 10  # max number of clusters to test
+        features = preprocess_energy_data(results_energetics_lifecycle)
+        sseclusters = calculate_sse_for_clusters(clmax, features)
+        ncenters = plot_elbow_method(clmax, sseclusters, pattern_folder)
 
-    # Save results to a JSON file
-    json_path = os.path.join(pattern_folder, 'kmeans_results.json')
-    with open(json_path, 'w') as json_file:
-        json.dump(results_json, json_file, indent=4)
+        # Perform clustering
+        centers, cluster_fractions, kmeans_model = kmeans_energy_data(ncenters, 'auto', 300, results_energetics_lifecycle, 'lloyd', scaler_type='none', joint_scaling=True)
 
-    # Save explanation to a README file
-    readme_text = """
-            This JSON file contains the K-means clustering results for the all systems in SE-BR, LA-PLATA and ARG regions.
+        # Retrieve track IDs corresponding to each cluster
+        cyclone_ids = [df.index.name for df in results_energetics_lifecycle]
+        cluster_ids = assign_cyclones_to_clusters(kmeans_model, cyclone_ids, ncenters)
+
+        # Prepare data to save as JSON, organizing by cluster
+        results_json = {}
+        for i in range(ncenters):
+            cluster_label = f"Cluster {i + 1}"
+            results_json[cluster_label] = {
+                "Cluster Center": centers[i].tolist(),  # Convert numpy array to list for JSON serialization
+                "Cluster Fraction": float(cluster_fractions[i] * 100),
+                "Cyclone IDs": cluster_ids[cluster_label]
+            }
+
+        # Save results to a JSON file
+        json_path = os.path.join(pattern_folder, f'kmeans_results_{config_label}.json')
+        with open(json_path, 'w') as json_file:
+            json.dump(results_json, json_file, indent=4)
+
+        # Save explanation to a README file
+        readme_text = f"""
+            This JSON file contains the K-means clustering results for lifecycle configuration {config_label} in SE-BR, LA-PLATA and ARG regions.
             It includes the cluster centers for each cluster, along with the cluster fraction and the IDs of the cyclones in each cluster.
             Each cluster center array consists of 16 values.
-            These values represent the average scaled measurements of the energy terms (Ck, Ca, Ke, Ge, BAe, BKe) across the lifecycle phases (incipient, intensification, mature, decay).
-            The first 4 values correspond to Ck for each phase, followed by 4 values for Ca, Ke, Ge, BAe, and BKe respectively.    """
-    readme_path = os.path.join(pattern_folder, 'README.txt')
-    with open(readme_path, 'w') as readme_file:
-        readme_file.write(readme_text)
+            These values represent the average scaled measurements of the energy terms (Ck, Ca, Ke, Ge, BAe, BKe) across the lifecycle phases.
+            The first 4 values correspond to Ck for each phase, followed by 4 values for Ca, Ke, Ge, BAe, and BKe respectively.
+            """
+        readme_path = os.path.join(pattern_folder, f'README_{config_label}.txt')
+        with open(readme_path, 'w') as readme_file:
+            readme_file.write(readme_text)
 
-    print(f"Results saved to {json_path}")
-    print(f"README saved to {readme_path}")
+        print(f"Results saved to {json_path}")
+        print(f"README saved to {readme_path}")
 
 if __name__ == '__main__':
     main()

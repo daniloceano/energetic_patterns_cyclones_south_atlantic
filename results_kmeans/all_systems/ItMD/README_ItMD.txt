@@ -1,0 +1,7 @@
+
+            This JSON file contains the K-means clustering results for lifecycle configuration ItMD in SE-BR, LA-PLATA and ARG regions.
+            It includes the cluster centers for each cluster, along with the cluster fraction and the IDs of the cyclones in each cluster.
+            Each cluster center array consists of 16 values.
+            These values represent the average scaled measurements of the energy terms (Ck, Ca, Ke, Ge, BAe, BKe) across the lifecycle phases.
+            The first 4 values correspond to Ck for each phase, followed by 4 values for Ca, Ke, Ge, BAe, and BKe respectively.
+            
