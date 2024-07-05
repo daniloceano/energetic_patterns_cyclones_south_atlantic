@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/27 12:10:53 by daniloceano       #+#    #+#              #
-#    Updated: 2024/07/01 18:28:08 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/07/04 19:41:03 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -53,7 +53,7 @@ def plot_all_clusters(results_path, lps_type):
             # Plot each pattern onto the Lorenz Phase Space diagram
             for df in patterns_energetics:
                 plot_system(lps, df, lps_type)
-            
+
     # Save the final plot
     plot_filename = f'lps_{lps_type}_all_clusters_all_regions_seasons.png'
     plot_path = os.path.join("../figures_lps/", plot_filename)
@@ -78,6 +78,13 @@ def plot_all_clusters_one_figure_by_region_season(results_path, lps_type):
             # Plot each pattern onto the Lorenz Phase Space diagram
             for df in patterns_energetics:
                 plot_system(lps, df, lps_type)
+
+            # Title
+            plt.title(f"Region: {region}, Season: {season}", fontsize=18)
+
+            # Increase size of labels
+            plt.tick_params(axis='both', which='major', labelsize=14)
+
             
             # Save the final plot
             plot_filename = f'lps_{lps_type}_all_clusters_{region}_{season}.png'
