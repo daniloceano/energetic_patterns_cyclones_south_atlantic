@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/23 15:00:18 by daniloceano       #+#    #+#              #
-#    Updated: 2024/07/07 09:38:38 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/07/07 09:40:50 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -31,7 +31,10 @@ def read_and_process(file_path):
     return df
 
 def plot_boxplot_plot(df, term, figures_dir):
-    print(df)
+    # Ensure 'Vertical Level' is numeric and remove 'time' rows
+    df = df[df['Vertical Level'] != 'time']
+    df['Vertical Level'] = pd.to_numeric(df['Vertical Level'])
+
     plt.figure(figsize=(10, 10))  # Consistent figure size
     ax = sns.boxplot(x='Vertical Level', y=f'{term} Value', data=df, whis=(0, 100))
     plt.xticks(rotation=90)  # Rotate labels for better visibility
