@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/23 15:00:18 by daniloceano       #+#    #+#              #
-#    Updated: 2024/07/07 09:40:50 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/07/07 12:04:20 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -28,12 +28,13 @@ def read_and_process(file_path):
         df = -df
     if 'Ge' not in file_path:
         df.columns = [float(col) / 100 for col in df.columns]
+    df['Phase'] = os.path.basename(os.path.dirname(file_path))
     return df
 
-def plot_boxplot_plot(df, term, figures_dir):
+def plot_boxplot_plot(df, term, figures_dir, phase):
     # Ensure 'Vertical Level' is numeric and remove 'time' rows
     df = df[df['Vertical Level'] != 'time']
-    df['Vertical Level'] = pd.to_numeric(df['Vertical Level'])
+    df['Vertical Level'] = pd.to_numeric(df['Vertical Level']) * 100
 
     plt.figure(figsize=(10, 10))  # Consistent figure size
     ax = sns.boxplot(x='Vertical Level', y=f'{term} Value', data=df, whis=(0, 100))
@@ -43,8 +44,9 @@ def plot_boxplot_plot(df, term, figures_dir):
     plt.ylabel(f'{term} ' + r'($W \times m^{-2}$)', fontsize=14)
     ax.ticklabel_format(style='scientific', axis='y', scilimits=(0, 0))
     ax.tick_params(axis='both', labelsize=12)
+    plt.title(f'{term} Boxplot by Vertical Levels - {phase}')
     plt.tight_layout()
-    plt.savefig(os.path.join(figures_dir, f'boxplot_{term.lower()}_by_levels.png'))
+    plt.savefig(os.path.join(figures_dir, f'boxplot_{term.lower()}_{phase}_by_levels.png'))
 
 # Directory to save figures
 figures_dir = '../figures_barotropic_baroclinic_instability'
@@ -73,11 +75,16 @@ combined_df_ca = pd.concat(results_ca).reset_index()
 combined_df_ge = pd.concat(results_ge).reset_index()
 
 # Step 4: Melt the DataFrame to make it compatible with seaborn's boxplot plot function
-melted_df_ck = combined_df_ck.melt(var_name='Vertical Level', value_name='Ck Value')
-melted_df_ca = combined_df_ca.melt(var_name='Vertical Level', value_name='Ca Value')
-melted_df_ge = combined_df_ge.melt(var_name='Vertical Level', value_name='Ge Value')
+melted_df_ck = combined_df_ck.melt(id_vars='Phase', var_name='Vertical Level', value_name='Ck Value')
+melted_df_ca = combined_df_ca.melt(id_vars='Phase', var_name='Vertical Level', value_name='Ca Value')
+melted_df_ge = combined_df_ge.melt(id_vars='Phase', var_name='Vertical Level', value_name='Ge Value')
 
-# Step 5: Create boxplot plots
-plot_boxplot_plot(melted_df_ck, 'Ck', figures_dir)
-plot_boxplot_plot(melted_df_ca, 'Ca', figures_dir)
-plot_boxplot_plot(melted_df_ge, 'Ge', figures_dir)
+# Step 5: Create boxplot plots for each phase
+for phase in melted_df_ck['Phase'].unique():
+    phase_df_ck = melted_df_ck[melted_df_ck['Phase'] == phase]
+    phase_df_ca = melted_df_ca[melted_df_ca['Phase'] == phase]
+    phase_df_ge = melted_df_ge[melted_df_ge['Phase'] == phase]
+
+    plot_boxplot_plot(phase_df_ck, 'Ck', figures_dir, phase)
+    plot_boxplot_plot(phase_df_ca, 'Ca', figures_dir, phase)
+    plot_boxplot_plot(phase_df_ge, 'Ge', figures_dir, phase)
