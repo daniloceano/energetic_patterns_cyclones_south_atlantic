@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/23 15:00:18 by daniloceano       #+#    #+#              #
-#    Updated: 2024/07/07 12:13:12 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/07/07 12:29:15 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -31,22 +31,45 @@ def read_and_process(file_path):
     df['Phase'] = os.path.basename(os.path.dirname(file_path))
     return df
 
-def plot_boxplot_by_level(df, term, figures_dir, vertical_level):
-    # Filter data for the specified vertical level
-    df = df[df['Vertical Level'] == vertical_level]
-    df['Vertical Level'] = pd.to_numeric(df['Vertical Level']) * 100
+def plot_combined_boxplots(df_ck, df_ca, df_ge, figures_dir, phase):
+    # Ensure 'Vertical Level' is numeric and remove 'time' rows
+    df_ck = df_ck[df_ck['Vertical Level'] != 'time']
+    df_ca = df_ca[df_ca['Vertical Level'] != 'time']
+    df_ge = df_ge[df_ge['Vertical Level'] != 'time']
+    
+    df_ck['Vertical Level'] = pd.to_numeric(df_ck['Vertical Level']) * 100
+    df_ca['Vertical Level'] = pd.to_numeric(df_ca['Vertical Level']) * 100
+    df_ge['Vertical Level'] = pd.to_numeric(df_ge['Vertical Level']) * 100
 
-    plt.figure(figsize=(10, 10))  # Consistent figure size
-    ax = sns.boxplot(x='Phase', y=f'{term} Value', data=df, whis=(0, 100))
-    plt.xticks(rotation=90)  # Rotate labels for better visibility
-    plt.axhline(y=0, color='r', linestyle='--', zorder=0)
-    plt.xlabel('Phase', fontsize=14)
-    plt.ylabel(f'{term} ' + r'($W \times m^{-2}$)', fontsize=14)
-    ax.ticklabel_format(style='scientific', axis='y', scilimits=(0, 0))
-    ax.tick_params(axis='both', labelsize=12)
-    plt.title(f'{term} Boxplot for Vertical Level {vertical_level}')
-    plt.tight_layout()
-    plt.savefig(os.path.join(figures_dir, f'boxplot_{term.lower()}_level_{vertical_level}.png'))
+    fig, axs = plt.subplots(3, 1, figsize=(12, 18))
+    fig.suptitle(f'Boxplots by Vertical Levels - {phase}', fontsize=16)
+
+    sns.boxplot(ax=axs[0], x='Vertical Level', y='Ck Value', data=df_ck, whis=(0, 100))
+    axs[0].set_title('Ck')
+    axs[0].axhline(y=0, color='r', linestyle='--', zorder=0)
+    axs[0].set_xlabel('Vertical Levels [hPa]')
+    axs[0].set_ylabel(r'($W \times m^{-2}$)')
+    axs[0].ticklabel_format(style='scientific', axis='y', scilimits=(0, 0))
+    axs[0].tick_params(axis='both', labelsize=12)
+
+    sns.boxplot(ax=axs[1], x='Vertical Level', y='Ca Value', data=df_ca, whis=(0, 100))
+    axs[1].set_title('Ca')
+    axs[1].axhline(y=0, color='r', linestyle='--', zorder=0)
+    axs[1].set_xlabel('Vertical Levels [hPa]')
+    axs[1].set_ylabel(r'($W \times m^{-2}$)')
+    axs[1].ticklabel_format(style='scientific', axis='y', scilimits=(0, 0))
+    axs[1].tick_params(axis='both', labelsize=12)
+
+    sns.boxplot(ax=axs[2], x='Vertical Level', y='Ge Value', data=df_ge, whis=(0, 100))
+    axs[2].set_title('Ge')
+    axs[2].axhline(y=0, color='r', linestyle='--', zorder=0)
+    axs[2].set_xlabel('Vertical Levels [hPa]')
+    axs[2].set_ylabel(r'($W \times m^{-2}$)')
+    axs[2].ticklabel_format(style='scientific', axis='y', scilimits=(0, 0))
+    axs[2].tick_params(axis='both', labelsize=12)
+
+    plt.tight_layout(rect=[0, 0.03, 1, 0.97])
+    plt.savefig(os.path.join(figures_dir, f'boxplots_{phase}_by_levels.png'))
 
 # Directory to save figures
 figures_dir = '../figures_barotropic_baroclinic_instability'
@@ -79,10 +102,10 @@ melted_df_ck = combined_df_ck.melt(id_vars='Phase', var_name='Vertical Level', v
 melted_df_ca = combined_df_ca.melt(id_vars='Phase', var_name='Vertical Level', value_name='Ca Value')
 melted_df_ge = combined_df_ge.melt(id_vars='Phase', var_name='Vertical Level', value_name='Ge Value')
 
-# Step 5: Create boxplot plots for each vertical level
-unique_vertical_levels = melted_df_ck['Vertical Level'].unique()
+# Step 5: Create boxplot plots for each phase
+for phase in melted_df_ck['Phase'].unique():
+    phase_df_ck = melted_df_ck[melted_df_ck['Phase'] == phase]
+    phase_df_ca = melted_df_ca[melted_df_ca['Phase'] == phase]
+    phase_df_ge = melted_df_ge[melted_df_ge['Phase'] == phase]
 
-for vertical_level in unique_vertical_levels:
-    plot_boxplot_by_level(melted_df_ck, 'Ck', figures_dir, vertical_level)
-    plot_boxplot_by_level(melted_df_ca, 'Ca', figures_dir, vertical_level)
-    plot_boxplot_by_level(melted_df_ge, 'Ge', figures_dir, vertical_level)
+    plot_combined_boxplots(phase_df_ck, phase_df_ca, phase_df_ge, figures_dir, phase)
