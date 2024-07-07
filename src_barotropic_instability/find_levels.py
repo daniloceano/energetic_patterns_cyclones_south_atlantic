@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/23 15:00:18 by daniloceano       #+#    #+#              #
-#    Updated: 2024/07/07 12:46:27 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/07/07 12:48:26 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -39,12 +39,11 @@ def plot_boxplot_plot(df, term, figures_dir):
     ax = sns.boxplot(x='Vertical Level', y=f'{term} Value', data=df, whis=(0, 100))
     plt.xticks(rotation=90)  # Rotate labels for better visibility
     plt.axhline(y=0, color='r', linestyle='--', zorder=0)
-    plt.xlabel('Vertical Levels [hPa]', fontsize=16)
+    plt.xlabel('Vertical Levels (hPa)', fontsize=16)
     plt.ylabel(f'{term} ' + r'($W \times m^{-2}$)', fontsize=16)
     ax.ticklabel_format(style='scientific', axis='y', scilimits=(0, 0), fontsize=14)
     ax.tick_params(axis='both', labelsize=14)
     plt.tight_layout()
-    plt.title(f'{term} by Levels', fontsize=18)
     plt.savefig(os.path.join(figures_dir, f'boxplot_{term.lower()}_by_levels.png'))
 
 # Directory to save figures
