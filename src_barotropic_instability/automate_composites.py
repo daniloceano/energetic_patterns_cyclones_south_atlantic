@@ -289,6 +289,13 @@ def create_pv_composite(infile, track):
         v_slices_system.append(v_time_slice)
         hgt_slices_system.append(hgt_time_slice)
     
+        # Check that all slices have the same shape
+        slice_shapes = [slice.shape for slice in pv_baroclinic_slices_system]
+        if not all(shape == slice_shapes[0] for shape in slice_shapes):
+          logging.error(f"Inconsistent shapes in pv_baroclinic_slices_system from infile {infile}: {slice_shapes}")
+          return None
+
+
     # Calculate the composites for this system
     pv_baroclinic_mean = np.mean(pv_baroclinic_slices_system, axis=0)
     absolute_vorticity_mean = np.mean(absolute_vorticity_slices_system, axis=0)
