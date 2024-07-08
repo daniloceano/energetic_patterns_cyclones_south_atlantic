@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/05/06 11:56:04 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/06 12:23:12 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/07/07 23:08:41 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -52,7 +52,7 @@ def plot_system(lps, df):
         marker_size=df['Ke']
     )
 
-def plot_all_systems_by_region_season(averages_df, cluster, output_directory):
+def plot_all_systems_by_region_season(averages_df, output_directory):
 
 
     # Initialize the Lorenz Phase Space plotter
@@ -64,7 +64,7 @@ def plot_all_systems_by_region_season(averages_df, cluster, output_directory):
     plot_system(lps, averages_df)
     
     # Save the final plot
-    plot_filename = f'lps_fixed_means_{cluster}.png'
+    plot_filename = f'lps_fixed_means.png'
 
     plot_path = os.path.join(output_directory, plot_filename)
     lps.fig.savefig(plot_path)
@@ -81,44 +81,37 @@ def main():
 
     # Read the energetics data for all systems
     systems_energetics = read_life_cycles(base_path)
-
-    clusters_to_use = ["ARG_DJF_cl_2", "ARG_JJA_cl_1",
-                       "LA-PLATA_DJF_cl_2", "LA-PLATA_JJA_cl_2",
-                       "SE-BR_DJF_cl_2", "SE-BR_JJA_cl_3"]
     
-    for cluster in clusters_to_use:
-        region = cluster.split('_')[0]
-        season = cluster.split('_')[1]
-        id_list_directory = os.path.join(clusters_directory, f'{region}_{season}', 'IcItMD')
+    id_list_directory = os.path.join(clusters_directory, 'all_systems', 'IcItMD')
 
-        # Get ids to plot
-        json_file = f'{id_list_directory}/kmeans_results.json'
-        json_data = pd.read_json(json_file)
-        cluster_number = cluster.split('_')[-1]
-        ids = json_data[f'Cluster {cluster_number}']['Cyclone IDs']
+    # Get ids to plot
+    json_file = f'{id_list_directory}/kmeans_results.json'
+    json_data = pd.read_json(json_file)
+    cluster_number = 3
+    ids = json_data[f'Cluster {cluster_number}']['Cyclone IDs']
 
-        # Get data for the cluster
-        systems_energetics_cluster = {k: v for k, v in systems_energetics.items() if int(k) in ids}
+    # Get data for the cluster
+    systems_energetics_cluster = {k: v for k, v in systems_energetics.items() if int(k) in ids}
 
-        ids = list(systems_energetics_cluster.keys())
-        periods = list(systems_energetics_cluster[str(ids[0])].index)
+    ids = list(systems_energetics_cluster.keys())
+    periods = list(systems_energetics_cluster[str(ids[0])].index)
 
-        # Create an empty DataFrame to store the average values
-        results_df = pd.DataFrame(columns=['track_id', 'period'] + list(systems_energetics_cluster[str(ids[0])].columns))
+    # Create an empty DataFrame to store the average values
+    results_df = pd.DataFrame(columns=['track_id', 'period'] + list(systems_energetics_cluster[str(ids[0])].columns))
 
-        # Collect the results for each period for each system
-        for period in periods:
-            for track_id, df in systems_energetics_cluster.items():
-                # Calculate the average for each term across different periods
-                period_values = df.loc[period]
+    # Collect the results for each period for each system
+    for period in periods:
+        for track_id, df in systems_energetics_cluster.items():
+            # Calculate the average for each term across different periods
+            period_values = df.loc[period]
 
-                results_df = pd.concat([results_df, pd.DataFrame({'track_id': [track_id], 'period': [period], **period_values})], ignore_index=True)
+            results_df = pd.concat([results_df, pd.DataFrame({'track_id': [track_id], 'period': [period], **period_values})], ignore_index=True)
 
-        # Compute the averages
-        results_df.set_index('track_id', inplace=True)
-        averages_df = results_df.groupby('period').mean()
+    # Compute the averages
+    results_df.set_index('track_id', inplace=True)
+    averages_df = results_df.groupby('period').mean()
 
-        plot_all_systems_by_region_season(averages_df, cluster, output_directory)
+    plot_all_systems_by_region_season(averages_df, output_directory)
 
 if __name__ == "__main__":
     main()
