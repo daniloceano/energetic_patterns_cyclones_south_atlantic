@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/05/06 11:56:04 by daniloceano       #+#    #+#              #
-#    Updated: 2024/07/07 23:08:41 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/07/07 23:24:11 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -85,7 +85,7 @@ def main():
     id_list_directory = os.path.join(clusters_directory, 'all_systems', 'IcItMD')
 
     # Get ids to plot
-    json_file = f'{id_list_directory}/kmeans_results.json'
+    json_file = f'{id_list_directory}/kmeans_results_IcItMD.json'
     json_data = pd.read_json(json_file)
     cluster_number = 3
     ids = json_data[f'Cluster {cluster_number}']['Cyclone IDs']

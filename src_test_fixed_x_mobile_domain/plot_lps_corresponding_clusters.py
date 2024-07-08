@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/05/06 11:41:04 by daniloceano       #+#    #+#              #
-#    Updated: 2024/07/07 22:58:22 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/07/07 23:23:45 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -53,7 +53,7 @@ def plot_system(lps, df):
 def plot_all_systems_by_region_season(systems_energetics, id_list_directory, output_directory):
 
     # Get ids to plot
-    json_file = f'{id_list_directory}/kmeans_results.json'
+    json_file = f'{id_list_directory}/kmeans_results_IcItMD.json'
     json_data = pd.read_json(json_file)
     cluster_number = 3
     ids = json_data[f'Cluster {cluster_number}']['Cyclone IDs']
