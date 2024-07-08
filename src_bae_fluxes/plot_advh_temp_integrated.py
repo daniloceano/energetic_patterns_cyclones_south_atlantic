@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/07/03 13:09:28 by daniloceano       #+#    #+#              #
-#    Updated: 2024/07/04 11:49:25 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/07/08 13:57:21 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -198,13 +198,109 @@ def plot_study_cases(phase):
         }
         plot_variable(v_T2_integrated, track_id.values, output_dir, **map_attrs_v_T2)
 
+def plot_anomalies():
+    """
+    Plot anomalies between the incipient and mature phases.
+    """
+    ds_incip = xr.open_dataset(os.path.join(NC_PATH, 'bae_composite_incipient_track_ids.nc'))
+    ds_mature = xr.open_dataset(os.path.join(NC_PATH, 'bae_composite_mature_track_ids.nc'))
+    output_dir = os.path.join(FIGURES_DIR, 'anomalies')
+    os.makedirs(output_dir, exist_ok=True)
+
+    for track_id in ds_incip.track_id:
+        if int(track_id) not in ds_mature.track_id:
+            continue  # Skip if the track_id is not present in both phases
+
+        # Get the data for the current track
+        id_data_incip = ds_incip.sel(track_id=track_id)
+        id_data_mature = ds_mature.sel(track_id=track_id)
+
+        # Read latitude and longitude data (assuming the same for both phases)
+        latitudes, longitudes, _ = read_latlon_time_data(track_id.values, 'incipient')
+
+        # Replace the values of x and y with latitude and longitude
+        id_data_incip = id_data_incip.assign_coords({'x': longitudes, 'y': latitudes}).rename({'x': 'longitude', 'y': 'latitude'})
+        id_data_mature = id_data_mature.assign_coords({'x': longitudes, 'y': latitudes}).rename({'x': 'longitude', 'y': 'latitude'})
+
+        # Integrate temperature advection over all vertical levels for both phases
+        temp_advection_incip = (id_data_incip['temp_advection'] * units('K/s')).integrate('level').metpy.convert_units('K/day')
+        temp_advection_mature = (id_data_mature['temp_advection'] * units('K/s')).integrate('level').metpy.convert_units('K/day')
+        temp_advection_anomaly = temp_advection_incip - temp_advection_mature
+
+        # Plot temperature advection anomaly
+        min_val = temp_advection_anomaly.min(skipna=True).metpy.dequantify().item()
+        max_val = temp_advection_anomaly.max(skipna=True).metpy.dequantify().item()
+        abs_max = max(abs(min_val), abs(max_val))
+        contour_levels = np.linspace(-abs_max, abs_max, 12)
+
+        map_attrs_anomaly = {
+            'cmap': 'RdBu_r',
+            'title': f'Temperature Advection Anomaly',
+            'levels': contour_levels,
+            'units': 'K/day',
+            'filename': f'temp_advection_anomaly.png'
+        }
+        plot_variable(temp_advection_anomaly, track_id.values, output_dir, **map_attrs_anomaly)
+
+        # Compute u * T^2 and v * T^2 for both phases
+        T_incip = id_data_incip['t']
+        T_mature = id_data_mature['t']
+        u_incip, v_incip = id_data_incip['u'], id_data_incip['v']
+        u_mature, v_mature = id_data_mature['u'], id_data_mature['v']
+
+        u_T2_incip = u_incip * (T_incip ** 2)
+        v_T2_incip = v_incip * (T_incip ** 2)
+        u_T2_mature = u_mature * (T_mature ** 2)
+        v_T2_mature = v_mature * (T_mature ** 2)
+
+        # Integrate u * T^2 and v * T^2 over all vertical levels for both phases
+        u_T2_integrated_incip = u_T2_incip.integrate('level')
+        v_T2_integrated_incip = v_T2_incip.integrate('level')
+        u_T2_integrated_mature = u_T2_mature.integrate('level')
+        v_T2_integrated_mature = v_T2_mature.integrate('level')
+
+        # Compute anomalies
+        u_T2_anomaly = u_T2_integrated_incip - u_T2_integrated_mature
+        v_T2_anomaly = v_T2_integrated_incip - v_T2_integrated_mature
+
+        # Plot u * T^2 anomaly
+        min_val_u_T2 = u_T2_anomaly.min(skipna=True).metpy.dequantify().item()
+        max_val_u_T2 = u_T2_anomaly.max(skipna=True).metpy.dequantify().item()
+        abs_max_u_T2 = max(abs(min_val_u_T2), abs(max_val_u_T2))
+        contour_levels_u_T2 = np.linspace(-abs_max_u_T2, abs_max_u_T2, 12)
+
+        map_attrs_u_T2_anomaly = {
+            'cmap': 'RdBu_r',
+            'title': f'$uT^2$ Anomaly',
+            'levels': contour_levels_u_T2,
+            'units': 'm^2/s^2',
+            'filename': f'u_T2_anomaly.png'
+        }
+        plot_variable(u_T2_anomaly, track_id.values, output_dir, **map_attrs_u_T2_anomaly)
+
+        # Plot v * T^2 anomaly
+        min_val_v_T2 = v_T2_anomaly.min(skipna=True).metpy.dequantify().item()
+        max_val_v_T2 = v_T2_anomaly.max(skipna=True).metpy.dequantify().item()
+        abs_max_v_T2 = max(abs(min_val_v_T2), abs(max_val_v_T2))
+        contour_levels_v_T2 = np.linspace(-abs_max_v_T2, abs_max_v_T2, 12)
+
+        map_attrs_v_T2_anomaly = {
+            'cmap': 'RdBu_r',
+            'title': f'$vT^2$ Anomaly',
+            'levels': contour_levels_v_T2,
+            'units': 'm^2/s^2',
+            'filename': f'v_T2_anomaly.png'
+        }
+        plot_variable(v_T2_anomaly, track_id.values, output_dir, **map_attrs_v_T2_anomaly)
+
 def main():
     """
-    Main function to execute the plotting for all phases.
+    Main function to execute the plotting for all phases and anomalies.
     """
     os.makedirs(FIGURES_DIR, exist_ok=True)
     for phase in ['incipient', 'mature']:
         plot_study_cases(phase)
+    plot_anomalies()
 
 if __name__ == '__main__':
     main()
