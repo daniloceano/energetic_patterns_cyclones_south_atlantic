@@ -38,7 +38,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
                     handlers=[logging.FileHandler('log.composite.txt', mode='w')])
 
 # REGION = sys.argv[1] # Region to process
-LEC_RESULTS_DIR = os.path.abspath('../../LEC_Results_fixed_framework_test')  
+LEC_RESULTS_DIR = os.path.abspath('../../LEC_Results')  
 CDSAPIRC_PATH = os.path.expanduser('~/.cdsapirc')
 OUTPUT_DIR = '../results_nc_files/composites_test_fixed_x_mobile/'
 
@@ -460,7 +460,9 @@ def process_system(system_dir, tracks_with_periods):
         return None
 
     # Get ERA5 data for computing PV and EGR
-    pressure_levels = ['250', '300', '350', '550', '500', '450', '700', '750', '800', '950', '975', '1000']
+    pressure_levels = ['250', '300', '350', '550', '500', '450', '700', '750',
+                       '875', '850', '825', '800',
+                       '900', '925', '950', '975', '1000']
     variables = ["u_component_of_wind", "v_component_of_wind", "temperature", "geopotential"]
     infile_pv_egr = get_cdsapi_era5_data(f'{system_id}-pv-egr', track, pressure_levels, variables) 
 
