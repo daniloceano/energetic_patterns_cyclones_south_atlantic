@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/05/06 11:41:04 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/06 11:54:58 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/07/07 22:58:22 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -50,12 +50,12 @@ def plot_system(lps, df):
         marker_size=df['Ke']
     )
 
-def plot_all_systems_by_region_season(systems_energetics, id_list_directory, cluster, output_directory):
+def plot_all_systems_by_region_season(systems_energetics, id_list_directory, output_directory):
 
     # Get ids to plot
     json_file = f'{id_list_directory}/kmeans_results.json'
     json_data = pd.read_json(json_file)
-    cluster_number = cluster.split('_')[-1]
+    cluster_number = 3
     ids = json_data[f'Cluster {cluster_number}']['Cyclone IDs']
 
     # Initialize the Lorenz Phase Space plotter
@@ -70,7 +70,7 @@ def plot_all_systems_by_region_season(systems_energetics, id_list_directory, clu
             plot_system(lps, df)
     
     # Save the final plot
-    plot_filename = f'lps_fixed_{cluster}_all_systems.png'
+    plot_filename = f'lps_fixed_all_systems.png'
 
     plot_path = os.path.join(output_directory, plot_filename)
     lps.fig.savefig(plot_path)
@@ -87,16 +87,9 @@ def main():
 
     # Read the energetics data for all systems
     systems_energetics = read_life_cycles(base_path)
-
-    clusters_to_use = ["ARG_DJF_cl_2", "ARG_JJA_cl_1",
-                       "LA-PLATA_DJF_cl_2", "LA-PLATA_JJA_cl_2",
-                       "SE-BR_DJF_cl_2", "SE-BR_JJA_cl_3"]
     
-    for cluster in clusters_to_use:
-        region = cluster.split('_')[0]
-        season = cluster.split('_')[1]
-        id_list_directory = os.path.join(clusters_directory, f'{region}_{season}', 'IcItMD')
-        plot_all_systems_by_region_season(systems_energetics, id_list_directory, cluster, output_directory)
+    id_list_directory = os.path.join(clusters_directory, 'all_systems', 'IcItMD')
+    plot_all_systems_by_region_season(systems_energetics, id_list_directory, output_directory)
 
 if __name__ == "__main__":
     main()
