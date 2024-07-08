@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/05/08 13:15:01 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/17 17:07:00 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/07/08 11:56:56 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -136,8 +136,19 @@ def plot_box(ax, min_lon, min_lat, max_lon, max_lat):
     edgecolor = 'red'
     ax.add_geometries([mean_pgon], crs=ccrs.PlateCarree(), facecolor='none', edgecolor=edgecolor, linewidth=1, alpha=0.8, zorder=3)
 
-def plot_study_case(filepath, tracks_with_periods, figures_dir):
+def plot_study_case(track_id, filepath, tracks_with_periods, figures_dir):
     ds_original = xr.open_dataset(filepath)
+
+    track_data = tracks_with_periods[tracks_with_periods['track_id'] == int(track_id)]
+
+    # Get mininum and maximum latitude and longitude and create a 15x15 degree bounding box
+    min_lat = track_data['lat vor'].min()
+    max_lat = track_data['lat vor'].max()
+    min_lon = track_data['lon vor'].min()
+    max_lon = track_data['lon vor'].max()
+
+    # Slice original data for box domain
+    ds_original = ds_original.sel(longitude=slice(min_lon, max_lon), latitude=slice(max_lat, min_lat))
 
     # Choose study case and extract track
     track_id_study_case = int(ds_original.track_id.values)
@@ -421,7 +432,7 @@ def process_file(filepath, tracks_with_periods):
     os.makedirs(figures_dir, exist_ok=True)
     
     # Plot study case variables
-    plot_study_case(filepath, tracks_with_periods, figures_dir)
+    plot_study_case(system_id, filepath, tracks_with_periods, figures_dir)
 
     # Plot domain box
     plot_domain_box(system_id, tracks_with_periods, filepath, figures_dir)
