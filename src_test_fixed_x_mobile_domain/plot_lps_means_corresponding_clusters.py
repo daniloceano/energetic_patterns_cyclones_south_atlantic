@@ -1,16 +1,3 @@
-# **************************************************************************** #
-#                                                                              #
-#                                                         :::      ::::::::    #
-#    plot_lps_means_corresponding_clusters.py           :+:      :+:    :+:    #
-#                                                     +:+ +:+         +:+      #
-#    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
-#                                                 +#+#+#+#+#+   +#+            #
-#    Created: 2024/05/06 11:56:04 by daniloceano       #+#    #+#              #
-#    Updated: 2024/07/07 23:24:11 by daniloceano      ###   ########.fr        #
-#                                                                              #
-# **************************************************************************** #
-
-
 import os
 import pandas as pd
 import json
@@ -40,6 +27,15 @@ def read_life_cycles(base_path):
     
     return systems_energetics
 
+def remove_outliers(df):
+    """
+    Remove outliers from a DataFrame using the IQR method.
+    """
+    Q1 = df.quantile(0.25)
+    Q3 = df.quantile(0.75)
+    IQR = Q3 - Q1
+    return df[~((df < (Q1 - 1.5 * IQR)) | (df > (Q3 + 1.5 * IQR))).any(axis=1)]
+
 def plot_system(lps, df):
     """
     Plots the Lorenz Phase Space diagram for a single system
@@ -53,19 +49,16 @@ def plot_system(lps, df):
     )
 
 def plot_all_systems_by_region_season(averages_df, output_directory):
-
-
     # Initialize the Lorenz Phase Space plotter
     lps = Visualizer(LPS_type='mixed', zoom=True,
-                    x_limits=[-40, 2],
-                    y_limits=[-2, 8],
-                    color_limits=[-10, 10])
+                    x_limits=[averages_df['Ck'].min() -1, averages_df['Ck'].max() +1],
+                    y_limits=[averages_df['Ca'].min() -1, averages_df['Ca'].max() +1],
+                    color_limits=[averages_df['Ge'].min() -1, averages_df['Ge'].max() +1])
 
     plot_system(lps, averages_df)
     
     # Save the final plot
     plot_filename = f'lps_fixed_means.png'
-
     plot_path = os.path.join(output_directory, plot_filename)
     lps.fig.savefig(plot_path)
 
@@ -104,8 +97,10 @@ def main():
         for track_id, df in systems_energetics_cluster.items():
             # Calculate the average for each term across different periods
             period_values = df.loc[period]
-
             results_df = pd.concat([results_df, pd.DataFrame({'track_id': [track_id], 'period': [period], **period_values})], ignore_index=True)
+
+    # Remove outliers
+    results_df = remove_outliers(results_df)
 
     # Compute the averages
     results_df.set_index('track_id', inplace=True)
@@ -115,4 +110,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/05/05 18:56:28 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/06 15:14:22 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/07/08 10:47:50 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -62,7 +62,7 @@ def plot_all_systems_by_region_season(systems_energetics, output_directory):
 
     # Ajut limits for zoomed plot
     lps_zoom.ax.set_xlim(-100, 60)
-    lps_zoom.ax.set_ylim(-7, 20)
+    lps_zoom.ax.set_ylim(-5, 15)
     
     # Save the final plot
     plot_filename = f'lps_all_systems_fixed.png'
