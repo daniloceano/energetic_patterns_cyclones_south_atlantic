@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/05/08 14:17:01 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/15 22:10:47 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/07/08 09:51:21 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -25,7 +25,7 @@ from metpy.units import units
 from concurrent.futures import ProcessPoolExecutor
 from automate_composites import calculate_eady_growth_rate, get_cdsapi_keys,copy_cdsapirc
 
-LEC_RESULTS_DIR = '../../LEC_Results_fixed_framework_test'
+LEC_RESULTS_DIR = '../../LEC_Results'
 OUTPUT_DIR = '../results_nc_files/composites_test_fixed_x_mobile/'
 
 
