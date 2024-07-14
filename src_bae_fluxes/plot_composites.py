@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/23 19:56:13 by daniloceano       #+#    #+#              #
-#    Updated: 2024/07/04 11:53:08 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/07/08 14:01:45 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -110,10 +110,10 @@ def plot_variable(data, u, v, hgt, output_dir, **map_attrs):
     filename = map_attrs['filename']
     file_path = os.path.join(output_dir, filename)
     plt.savefig(file_path)
+    plt.close(fig)
     print(f'Saved {filename}')
 
 def plot_composites(netcdf_dir, phase):
-
     # Open the netCDF file
     filepath = os.path.join(netcdf_dir, f'bae_composite_{phase}_mean.nc')
     ds = xr.open_dataset(filepath)
@@ -131,7 +131,6 @@ def plot_composites(netcdf_dir, phase):
     T = ds['t']
 
     for level in ds.level:
-
         temp_advection_level = temp_advection.sel(level=level)
         u_level = u.sel(level=level)
         v_level = v.sel(level=level)
@@ -192,13 +191,91 @@ def plot_composites(netcdf_dir, phase):
         }
         plot_variable(v_T2, u_level, v_level, hgt_level, output_dir, **map_attrs_v_T2)
 
+def plot_anomalies(netcdf_dir):
+    ds_incip = xr.open_dataset(os.path.join(netcdf_dir, 'bae_composite_incipient_mean.nc'))
+    ds_mature = xr.open_dataset(os.path.join(netcdf_dir, 'bae_composite_mature_mean.nc'))
+
+    output_dir = os.path.join(FIGURES_DIR, 'anomalies')
+    os.makedirs(output_dir, exist_ok=True)
+
+    # Open variables
+    temp_advection_incip = ds_incip['temp_advection'] * units('K/s')
+    temp_advection_mature = ds_mature['temp_advection'] * units('K/s')
+    temp_advection_anomaly = (temp_advection_incip - temp_advection_mature).metpy.convert_units('K/day')
+
+    u_incip, v_incip = ds_incip['u'], ds_incip['v']
+    u_mature, v_mature = ds_mature['u'], ds_mature['v']
+    hgt_incip, hgt_mature = ds_incip['hgt'], ds_mature['hgt']
+    T_incip, T_mature = ds_incip['t'], ds_mature['t']
+
+    for level in ds_incip.level:
+        temp_advection_anomaly_level = temp_advection_anomaly.sel(level=level)
+        u_anomaly_level = (u_incip.sel(level=level) - u_mature.sel(level=level))
+        v_anomaly_level = (v_incip.sel(level=level) - v_mature.sel(level=level))
+        hgt_anomaly_level = (hgt_incip.sel(level=level) - hgt_mature.sel(level=level))
+        T_anomaly_level = (T_incip.sel(level=level) - T_mature.sel(level=level))
+
+        # Compute anomalies for u * T^2 and v * T^2
+        u_T2_anomaly = u_anomaly_level * (T_anomaly_level ** 2)
+        v_T2_anomaly = v_anomaly_level * (T_anomaly_level ** 2)
+
+        level_str = str(int(level))
+
+        # Calculate the maximum absolute value for symmetric levels
+        min_val = temp_advection_anomaly_level.min(skipna=True).metpy.dequantify().item()
+        max_val = temp_advection_anomaly_level.max(skipna=True).metpy.dequantify().item()
+        abs_max = max(abs(min_val), abs(max_val))
+
+        min_val_u_T2 = u_T2_anomaly.min(skipna=True).metpy.dequantify().item()
+        max_val_u_T2 = u_T2_anomaly.max(skipna=True).metpy.dequantify().item()
+        abs_max_u_T2 = max(abs(min_val_u_T2), abs(max_val_u_T2))
+
+        min_val_v_T2 = v_T2_anomaly.min(skipna=True).metpy.dequantify().item()
+        max_val_v_T2 = v_T2_anomaly.max(skipna=True).metpy.dequantify().item()
+        abs_max_v_T2 = max(abs(min_val_v_T2), abs(max_val_v_T2))
+
+        # Create symmetric contour levels
+        contour_levels = np.linspace(-abs_max, abs_max, 12)
+        contour_levels_u_T2 = np.linspace(-abs_max_u_T2, abs_max_u_T2, 12)
+        contour_levels_v_T2 = np.linspace(-abs_max_v_T2, abs_max_v_T2, 12)
+
+        # Plot Temperature Advection Anomaly
+        map_attrs_advection_anomaly = {
+            'cmap': 'RdBu_r',
+            'title': r'Temperature Advection Anomaly @ ' + f'{level_str} hPa',
+            'levels': contour_levels,
+            'units': 'K/day',
+            'filename': f'anomaly_temp_advection_{level_str}hpa.png'
+        }
+        plot_variable(temp_advection_anomaly_level, u_anomaly_level, v_anomaly_level, hgt_anomaly_level, output_dir, **map_attrs_advection_anomaly)
+
+        # Plot u * T^2 Anomaly
+        map_attrs_u_T2_anomaly = {
+            'cmap': 'RdBu_r',
+            'title': f'$uT^2$ Anomaly @ {level_str} hPa',
+            'levels': contour_levels_u_T2,
+            'units': 'm^2/s^2',
+            'filename': f'anomaly_u_T2_{level_str}hpa.png'
+        }
+        plot_variable(u_T2_anomaly, u_anomaly_level, v_anomaly_level, hgt_anomaly_level, output_dir, **map_attrs_u_T2_anomaly)
+
+        # Plot v * T^2 Anomaly
+        map_attrs_v_T2_anomaly = {
+            'cmap': 'RdBu_r',
+            'title': f'$vT^2$ Anomaly @ {level_str} hpa',
+            'levels': contour_levels_v_T2,
+            'units': 'm^2/s^2',
+            'filename': f'anomaly_v_T2_{level_str}hpa.png'
+        }
+        plot_variable(v_T2_anomaly, u_anomaly_level, v_anomaly_level, hgt_anomaly_level, output_dir, **map_attrs_v_T2_anomaly)
+
 def main():
-    # create output directory if it doesn't exist
+    # Create output directory if it doesn't exist
     os.makedirs(FIGURES_DIR, exist_ok=True)
 
     for phase in ['incipient', 'mature']:
         plot_composites(NC_PATH, phase)
-
+    plot_anomalies(NC_PATH)
 
 if __name__ == '__main__':
     main()

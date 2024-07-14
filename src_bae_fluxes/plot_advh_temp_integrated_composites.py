@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/23 19:56:13 by daniloceano       #+#    #+#              #
-#    Updated: 2024/07/04 12:05:07 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/07/08 14:07:57 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -51,7 +51,6 @@ def plot_map(ax, data, **kwargs):
         formatter.set_scientific(True)
         formatter.set_powerlimits((-3, 3))  # Adjust these limits based on your specific needs
         colorbar.ax.xaxis.set_major_formatter(formatter)
-
     except ValueError:
         pass
 
@@ -90,6 +89,7 @@ def plot_variable(data, output_dir, **map_attrs):
     filename = map_attrs['filename']
     file_path = os.path.join(output_dir, filename)
     plt.savefig(file_path)
+    plt.close(fig)
     print(f'Saved {filename}')
 
 def plot_composites(netcdf_dir, phase):
@@ -161,13 +161,86 @@ def plot_composites(netcdf_dir, phase):
         'filename': 'integrated_v_T2.png'
     }
     plot_variable(v_T2_integrated, output_dir, **map_attrs_v_T2)
-    
+
+def plot_anomalies(netcdf_dir):
+    ds_incip = xr.open_dataset(os.path.join(netcdf_dir, 'bae_composite_incipient_mean.nc'))
+    ds_mature = xr.open_dataset(os.path.join(netcdf_dir, 'bae_composite_mature_mean.nc'))
+
+    output_dir = os.path.join(FIGURES_DIR, 'anomalies')
+    os.makedirs(output_dir, exist_ok=True)
+
+    # Integrate temperature advection over all vertical levels for both phases
+    temp_advection_incip = ds_incip['temp_advection'] * units('K/s')
+    temp_advection_mature = ds_mature['temp_advection'] * units('K/s')
+    temp_advection_anomaly = (temp_advection_incip.integrate('level') - temp_advection_mature.integrate('level')).metpy.convert_units('K/day')
+
+    # Compute u * T^2 and v * T^2 for both phases
+    T_incip = ds_incip['t']
+    T_mature = ds_mature['t']
+    u_incip, v_incip = ds_incip['u'], ds_incip['v']
+    u_mature, v_mature = ds_mature['u'], ds_mature['v']
+
+    u_T2_incip = u_incip * (T_incip ** 2)
+    v_T2_incip = v_incip * (T_incip ** 2)
+    u_T2_mature = u_mature * (T_mature ** 2)
+    v_T2_mature = v_mature * (T_mature ** 2)
+
+    # Integrate u * T^2 and v * T^2 over all vertical levels for both phases
+    u_T2_anomaly = (u_T2_incip.integrate('level') - u_T2_mature.integrate('level'))
+    v_T2_anomaly = (v_T2_incip.integrate('level') - v_T2_mature.integrate('level'))
+
+    # Plot integrated temperature advection anomaly
+    min_val = temp_advection_anomaly.min(skipna=True).metpy.dequantify().item()
+    max_val = temp_advection_anomaly.max(skipna=True).metpy.dequantify().item()
+    abs_max = max(abs(min_val), abs(max_val))
+    contour_levels = np.linspace(-abs_max, abs_max, 12)
+
+    map_attrs_advection_anomaly = {
+        'cmap': 'RdBu_r',
+        'title': 'Integrated Temperature Advection Anomaly',
+        'levels': contour_levels,
+        'units': 'K/day',
+        'filename': 'integrated_temp_advection_anomaly.png'
+    }
+    plot_variable(temp_advection_anomaly, output_dir, **map_attrs_advection_anomaly)
+
+    # Plot integrated u * T^2 anomaly
+    min_val_u_T2 = u_T2_anomaly.min(skipna=True).metpy.dequantify().item()
+    max_val_u_T2 = u_T2_anomaly.max(skipna=True).metpy.dequantify().item()
+    abs_max_u_T2 = max(abs(min_val_u_T2), abs(max_val_u_T2))
+    contour_levels_u_T2 = np.linspace(-abs_max_u_T2, abs_max_u_T2, 12)
+
+    map_attrs_u_T2_anomaly = {
+        'cmap': 'RdBu_r',
+        'title': '$uT^2$ Anomaly',
+        'levels': contour_levels_u_T2,
+        'units': 'm^2/s^2',
+        'filename': 'integrated_u_T2_anomaly.png'
+    }
+    plot_variable(u_T2_anomaly, output_dir, **map_attrs_u_T2_anomaly)
+
+    # Plot integrated v * T^2 anomaly
+    min_val_v_T2 = v_T2_anomaly.min(skipna=True).metpy.dequantify().item()
+    max_val_v_T2 = v_T2_anomaly.max(skipna=True).metpy.dequantify().item()
+    abs_max_v_T2 = max(abs(min_val_v_T2), abs(max_val_v_T2))
+    contour_levels_v_T2 = np.linspace(-abs_max_v_T2, abs_max_v_T2, 12)
+
+    map_attrs_v_T2_anomaly = {
+        'cmap': 'RdBu_r',
+        'title': '$vT^2$ Anomaly',
+        'levels': contour_levels_v_T2,
+        'units': 'm^2/s^2',
+        'filename': 'integrated_v_T2_anomaly.png'
+    }
+    plot_variable(v_T2_anomaly, output_dir, **map_attrs_v_T2_anomaly)
+
 def main():
     # create output directory if it doesn't exist
     os.makedirs(FIGURES_DIR, exist_ok=True)
 
     for phase in ['incipient', 'mature']:
         plot_composites(NC_PATH, phase)
+    plot_anomalies(NC_PATH)
 
 if __name__ == '__main__':
     main()

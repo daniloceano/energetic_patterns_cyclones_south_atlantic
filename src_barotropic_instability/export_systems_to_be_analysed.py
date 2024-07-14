@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/05/02 10:31:47 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/02 10:34:16 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/07/06 18:14:45 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -24,27 +24,22 @@ def select_systems(results_directory):
     """
     Filter systems for the choosen clusters.
     """
-    clusters_to_use = ["ARG_DJF_cl_2", "ARG_JJA_cl_1",
-                       "LA-PLATA_DJF_cl_2", "LA-PLATA_JJA_cl_2",
-                       "SE-BR_DJF_cl_2", "SE-BR_JJA_cl_3"]
-    
+    # Create an empty list to store the selected systems
     selected_systems = []
 
-    for cluster in clusters_to_use:
-        # Get information about the cluster
-        region, season = cluster.split('_')[:2]
-        cluster_number = cluster.split('_')[3]
+    # Cluster number we are interested in
+    cluster_number = 3
 
-        # Open cluster json file
-        system_dir = os.path.join(results_directory, f"{region}_{season}", "IcItMD")
-        json_file = glob(f"{system_dir}/*.json")[0]
-        df_system = pd.read_json(json_file)
+    # Open cluster json file
+    system_dir = os.path.join(results_directory, "all_systems", "IcItMD")
+    json_file = glob(f"{system_dir}/*.json")[0]
+    df_system = pd.read_json(json_file)
 
-        # Get system IDs
-        cluster_ids = df_system[f'Cluster {cluster_number}']['Cyclone IDs']
+    # Get system IDs
+    cluster_ids = df_system[f'Cluster {cluster_number}']['Cyclone IDs']
 
-        for system_id in cluster_ids:
-            selected_systems.append(int(system_id))
+    for system_id in cluster_ids:
+        selected_systems.append(int(system_id))
 
     return selected_systems
 

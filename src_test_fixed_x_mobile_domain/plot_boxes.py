@@ -108,7 +108,7 @@ def plot_box_limits(df_boxes, figures_directory, plot_mean=True):
 def main():
     figures_directory = '../figures_test_fixed_framework'
     # Get ids of systems that will be analysed
-    results_directories = sorted(glob('../../LEC_Results_fixed_framework_test/*'))
+    results_directories = sorted(glob('../../LEC_Results/*'))
     system_ids = [int(os.path.basename(directory).split('_')[0]) for directory in results_directories]
 
     tracks = pd.read_csv(FILTERED_TRACKS)

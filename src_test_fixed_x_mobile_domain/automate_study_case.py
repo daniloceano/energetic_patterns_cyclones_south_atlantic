@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/05/08 14:17:01 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/15 22:10:47 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/07/08 09:52:39 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -25,7 +25,7 @@ from metpy.units import units
 from concurrent.futures import ProcessPoolExecutor
 from automate_composites import calculate_eady_growth_rate, get_cdsapi_keys,copy_cdsapirc
 
-LEC_RESULTS_DIR = '../../LEC_Results_fixed_framework_test'
+LEC_RESULTS_DIR = '../../LEC_Results'
 OUTPUT_DIR = '../results_nc_files/composites_test_fixed_x_mobile/'
 
 
@@ -132,7 +132,9 @@ def process_results(system_dir, tracks_with_periods, lowest_ck_date, file_path_s
     track = tracks_with_periods[tracks_with_periods['track_id'] == int(system_id)]
 
     # Get ERA5 data for computing PV and EGR
-    pressure_levels = ['250', '300', '350', '550', '500', '450', '700', '750', '800', '950', '975', '1000']
+    pressure_levels = ['250', '300', '350', '550', '500', '450', '700', '750',
+                       '875', '850', '825', '800',
+                       '900', '925', '950', '975', '1000']
     variables = ["u_component_of_wind", "v_component_of_wind", "temperature", "geopotential"]
     tmp_file = os.path.basename(file_path_study_case)
     tmp_file = get_cdsapi_era5_data(tmp_file, track, pressure_levels, variables, lowest_ck_date) 

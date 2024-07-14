@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/24 14:42:50 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/15 16:50:30 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/07/06 22:00:19 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -289,6 +289,13 @@ def create_pv_composite(infile, track):
         v_slices_system.append(v_time_slice)
         hgt_slices_system.append(hgt_time_slice)
     
+        # Check that all slices have the same shape
+        slice_shapes = [slice.shape for slice in pv_baroclinic_slices_system]
+        if not all(shape == slice_shapes[0] for shape in slice_shapes):
+          logging.error(f"Inconsistent shapes in pv_baroclinic_slices_system from infile {infile}: {slice_shapes}")
+          return None
+
+
     # Calculate the composites for this system
     pv_baroclinic_mean = np.mean(pv_baroclinic_slices_system, axis=0)
     absolute_vorticity_mean = np.mean(absolute_vorticity_slices_system, axis=0)
@@ -432,7 +439,9 @@ def process_system(system_dir):
     system_id = os.path.basename(system_dir).split('_')[0] # Get system ID
 
     # Get ERA5 data for computing PV and EGR
-    pressure_levels = ['250', '300', '350', '550', '500', '450', '700', '750', '800', '950', '975', '1000']
+    pressure_levels = ['250', '300', '350', '550', '500', '450', '700', '750',
+                       '875', '850', '825', '800',
+                       '900', '925', '950', '975', '1000']
     variables = ["u_component_of_wind", "v_component_of_wind", "temperature", "geopotential"]
     infile_pv_egr = get_cdsapi_era5_data(f'{system_id}-pv-egr', track, pressure_levels, variables) 
 

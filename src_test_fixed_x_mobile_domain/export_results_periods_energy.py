@@ -104,7 +104,7 @@ def main(fixed_results_path, track_with_periods_path, output_path):
         averages_df.to_csv(output_file_path)
 
 if __name__ == "__main__":
-    fixed_results_path = '../../LEC_Results_fixed_framework_test'
+    fixed_results_path = '../../LEC_Results'
     track_with_periods_path = '..//tracks_SAt_filtered/tracks_SAt_filtered_with_periods.csv'
     output_path = '../csv_fixed_framework_database_energy_by_periods'
     main(fixed_results_path, track_with_periods_path, output_path)

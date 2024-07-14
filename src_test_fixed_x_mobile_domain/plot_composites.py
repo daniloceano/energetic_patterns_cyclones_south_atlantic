@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/04/23 19:56:13 by daniloceano       #+#    #+#              #
-#    Updated: 2024/05/17 16:29:41 by daniloceano      ###   ########.fr        #
+#    Updated: 2024/07/08 00:30:59 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -81,6 +81,9 @@ def plot_map(data, u, v, hgt, **kwargs):
     # Optionally set the x and y locators to control the locations of the grid lines
     gl.xlocator = ticker.MaxNLocator(nbins=5)  # Adjust the number of bins as needed
     gl.ylocator = ticker.MaxNLocator(nbins=5)
+
+    # Add coastlines
+    ax.coastlines()
 
     ax.set_title(title, fontsize=TITLE_SIZE)  # You can adjust the fontsize as necessary
 
