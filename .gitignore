@@ -44,3 +44,4 @@ results_nc_files/*/*track_ids.nc
 figures_test_fixed_framework/*_study_case/
 figures_bae_fluxes/study_cases/
 src_bae_fluxes/test.py
+tracks_SAt_filtered/tracks_SAt_filtered_with_energetics.csv
