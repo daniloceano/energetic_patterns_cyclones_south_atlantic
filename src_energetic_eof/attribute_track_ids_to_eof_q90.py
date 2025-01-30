@@ -9,29 +9,25 @@ pcs_df = pd.read_csv(pcs_path)
 # Selecionar apenas as colunas das PCs
 pcs_columns = [col for col in pcs_df.columns if col.startswith("PC")]
 
-# Criar uma cópia para armazenar os ciclones filtrados
-pcs_filtered = pcs_df.copy()
-pcs_filtered["dominant_eof"] = None  # Inicializar com None
+# Calcular o quantil 90 para cada PC
+quantiles_90 = pcs_df[pcs_columns].quantile(0.90)
 
-# Aplicar o critério: a PC da EOF alvo deve ser positiva e 2x maior que as demais PCs em módulo
-for pc in pcs_columns:
-    pc_idx = int(pc.replace("PC", ""))  # Extrai o número da EOF correspondente
-    
-    # Máscara: PC deve ser positiva e pelo menos 2x maior que o módulo das outras PCs
-    mask = (pcs_df[pc] > 0) & (pcs_df[pc] >= 2 * pcs_df[pcs_columns].drop(columns=[pc]).abs().max(axis=1))
-    
-    # Atribuir EOF dominante apenas para os ciclones que atendem ao critério
-    pcs_filtered.loc[mask, "dominant_eof"] = pc_idx
+# Filtrar apenas os ciclones que possuem pelo menos uma PC acima do quantil 90%
+pcs_filtered = pcs_df[(pcs_df[pcs_columns] >= quantiles_90).any(axis=1)].copy()
 
-# Filtrar apenas EOFs 1 a 4
-pcs_filtered = pcs_filtered[pcs_filtered["dominant_eof"].isin([1, 2, 3, 4])]
+# Determinar a EOF predominante apenas para os ciclones do quantil 90%
+pcs_filtered["dominant_eof"] = pcs_filtered[pcs_columns].idxmax(axis=1)  # Pegamos a PC com o maior valor
+pcs_filtered["dominant_eof"] = pcs_filtered["dominant_eof"].str.extract(r'(\d+)').astype(int)  # Extrai o número da EOF
+
+# Filtrar para manter apenas EOFs de 1 a 4
+pcs_filtered = pcs_filtered[pcs_filtered["dominant_eof"] <= 4]
 
 # Contagem de ciclones atribuídos a cada EOF
 plt.figure(figsize=(8, 6))
 sns.countplot(data=pcs_filtered, x="dominant_eof", palette="muted")
 plt.xlabel("EOF", fontsize=14)
 plt.ylabel("Number of Cyclones", fontsize=14)
-plt.title("Number of Cyclones Assigned to Each EOF (Refined Criteria)", fontsize=16)
+plt.title("Number of Cyclones Assigned to Each EOF (90th Percentile)", fontsize=16)
 plt.xticks(fontsize=12)
 plt.yticks(fontsize=12)
 plt.grid(axis="y", linestyle="--", alpha=0.5)
@@ -45,7 +41,7 @@ plt.figure(figsize=(12, 6))
 sns.boxplot(data=pcs_filtered_melted, x="PC", y="Value", hue="dominant_eof", palette="Set1")
 plt.xlabel("Principal Component", fontsize=14)
 plt.ylabel("PC Value", fontsize=14)
-plt.title("Boxplot of PCs for Each EOF (Refined Criteria)", fontsize=16)
+plt.title("Boxplot of PCs for Each EOF (90th Percentile)", fontsize=16)
 plt.xticks(fontsize=12, rotation=45)
 plt.yticks(fontsize=12)
 plt.legend(title="EOF", fontsize=12)
@@ -58,9 +54,10 @@ for eof in sorted(pcs_filtered["dominant_eof"].unique()):
     print(pcs_filtered[pcs_filtered["dominant_eof"] == eof][["track_id", "PC1", "PC2", "PC3", "PC4"]].head(10))  # Mostra track_id e PCs relevantes
     print("-" * 80)
 
-# Mostrar o número de ciclones atribuídos a cada EOF
-print("\nNumber of Cyclones Assigned to Each EOF (Refined Criteria):")
-print(pcs_filtered["dominant_eof"].value_counts())
+# # Identificar a EOF dominante para cada ciclone
+# pcs_columns = [col for col in pcs_df.columns if col.startswith("PC")]
+# pcs_df["dominant_eof"] = pcs_df[pcs_columns].idxmax(axis=1)  # Coluna com EOF dominante
+# pcs_df["dominant_eof"] = pcs_df["dominant_eof"].str.extract(r'(\d+)').astype(int)  # Extrair apenas o número da EOF
 
 # # Salvar resultado atualizado
-# pcs_filtered.to_csv("../csv_eofs_energetics_with_track/Total/pcs_with_dominant_eof_refined.csv", index=False)
+# pcs_df.to_csv("../csv_eofs_energetics_with_track/Total/pcs_with_dominant_eof.csv", index=False)
