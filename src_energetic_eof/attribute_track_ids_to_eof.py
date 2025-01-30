@@ -63,4 +63,5 @@ print("\nNumber of Cyclones Assigned to Each EOF (Refined Criteria):")
 print(pcs_filtered["dominant_eof"].value_counts())
 
 # # Salvar resultado atualizado
-# pcs_filtered.to_csv("../csv_eofs_energetics_with_track/Total/pcs_with_dominant_eof_refined.csv", index=False)
+pcs_filtered.to_csv("../csv_eofs_energetics_with_track/Total/pcs_with_dominant_eof_refined.csv", index=False)
+print("Resultado atualizado salvo em 'pcs_with_dominant_eof_refined.csv'")

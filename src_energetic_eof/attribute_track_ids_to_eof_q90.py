@@ -54,10 +54,10 @@ for eof in sorted(pcs_filtered["dominant_eof"].unique()):
     print(pcs_filtered[pcs_filtered["dominant_eof"] == eof][["track_id", "PC1", "PC2", "PC3", "PC4"]].head(10))  # Mostra track_id e PCs relevantes
     print("-" * 80)
 
-# # Identificar a EOF dominante para cada ciclone
-# pcs_columns = [col for col in pcs_df.columns if col.startswith("PC")]
-# pcs_df["dominant_eof"] = pcs_df[pcs_columns].idxmax(axis=1)  # Coluna com EOF dominante
-# pcs_df["dominant_eof"] = pcs_df["dominant_eof"].str.extract(r'(\d+)').astype(int)  # Extrair apenas o número da EOF
+# Mostrar o número de ciclones atribuídos a cada EOF
+print("\nNumber of Cyclones Assigned to Each EOF (Refined Criteria):")
+print(pcs_filtered["dominant_eof"].value_counts())
 
-# # Salvar resultado atualizado
-# pcs_df.to_csv("../csv_eofs_energetics_with_track/Total/pcs_with_dominant_eof.csv", index=False)
+# Salvar resultado atualizado
+pcs_filtered.to_csv("../csv_eofs_energetics_with_track/Total/pcs_with_dominant_eof_q90.csv", index=False)
+print("Resultado atualizado salvo em pcs_with_dominant_eof_q90.csv")

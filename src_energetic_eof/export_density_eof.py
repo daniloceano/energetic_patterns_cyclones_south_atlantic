@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2023/08/09 12:48:17 by Danilo            #+#    #+#              #
-#    Updated: 2025/01/28 10:19:52 by daniloceano      ###   ########.fr        #
+#    Updated: 2025/01/30 15:05:41 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -43,6 +43,9 @@ def compute_density(tracks, num_time):
 def export_density_by_eof(tracks, num_time, output_directory):
     unique_eofs = tracks['dominant_eof'].unique()
 
+    # Remove nan values from unique_eofs
+    unique_eofs = unique_eofs[~np.isnan(unique_eofs)]
+
     for eof in unique_eofs:
         eof_tracks = tracks[tracks['dominant_eof'] == eof]
         print(f"Computing density for EOF {eof}...")
@@ -60,7 +63,7 @@ def main():
     os.makedirs(output_directory, exist_ok=True)
 
     # Get tracks
-    tracks = pd.read_csv('../tracks_SAt_filtered/tracks_SAt_filtered_with_energetics.csv')
+    tracks = pd.read_csv('../tracks_SAt_filtered/tracks_SAt_filtered_with_periods.csv')
 
     # Load EOFs with dominant_eof information
     pcs_path = "../csv_eofs_energetics_with_track/Total/pcs_with_dominant_eof.csv"
