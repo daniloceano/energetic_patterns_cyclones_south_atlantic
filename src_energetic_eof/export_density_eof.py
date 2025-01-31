@@ -6,7 +6,7 @@
 #    By: daniloceano <danilo.oceano@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2023/08/09 12:48:17 by Danilo            #+#    #+#              #
-#    Updated: 2025/01/30 15:05:41 by daniloceano      ###   ########.fr        #
+#    Updated: 2025/01/31 13:17:12 by daniloceano      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -59,27 +59,30 @@ def export_density_by_eof(tracks, num_time, output_directory):
         print(f'Wrote {fname}')
 
 def main():
-    output_directory = f'../csv_eofs_energetics_with_track/Total/track_density/'
-    os.makedirs(output_directory, exist_ok=True)
+    
+    for suffix in ['q90', 'q10']:
 
-    # Get tracks
-    tracks = pd.read_csv('../tracks_SAt_filtered/tracks_SAt_filtered_with_periods.csv')
+        output_directory = f'../csv_eofs_energetics_with_track/Total/track_density_{suffix}/'
+        os.makedirs(output_directory, exist_ok=True)
 
-    # Load EOFs with dominant_eof information
-    pcs_path = "../csv_eofs_energetics_with_track/Total/pcs_with_dominant_eof.csv"
-    pcs_df = pd.read_csv(pcs_path)
+        # Get tracks
+        tracks = pd.read_csv('../tracks_SAt_filtered/tracks_SAt_filtered_with_periods.csv')
 
-    # Merge tracks with EOF data
-    tracks = tracks.merge(pcs_df[['track_id', 'dominant_eof']], on='track_id', how='left')
+        # Load EOFs with dominant_eof information
+        pcs_path = f"../csv_eofs_energetics_with_track/Total/pcs_with_dominant_eof_{suffix}.csv"
+        pcs_df = pd.read_csv(pcs_path)
 
-    # Filter for unique years and months
-    tracks['date'] = pd.to_datetime(tracks['date'])
-    unique_years_months = tracks['date'].dt.to_period('M').unique()
-    num_time = len(unique_years_months)
-    print(f"Total number of time months: {num_time}")
+        # Merge tracks with EOF data
+        tracks = tracks.merge(pcs_df[['track_id', 'dominant_eof']], on='track_id', how='left')
 
-    # Export density maps for each EOF
-    export_density_by_eof(tracks, num_time, output_directory)
+        # Filter for unique years and months
+        tracks['date'] = pd.to_datetime(tracks['date'])
+        unique_years_months = tracks['date'].dt.to_period('M').unique()
+        num_time = len(unique_years_months)
+        print(f"Total number of time months: {num_time}")
+
+        # Export density maps for each EOF
+        export_density_by_eof(tracks, num_time, output_directory)
 
 if __name__ == '__main__':
     main()
